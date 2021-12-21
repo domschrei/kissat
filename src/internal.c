@@ -44,6 +44,12 @@ kissat_init (void)
 #ifndef NDEBUG
   kissat_init_checker (solver);
 #endif
+
+  solver->consume_clause_state = 0;
+  solver->consume_clause_buffer = 0;
+  solver->consume_clause_max_size = 0;
+  solver->consume_clause = 0;
+
   return solver;
 }
 
@@ -584,4 +590,11 @@ kissat_value (kissat * solver, int elit)
   if (elit < 0)
     tmp = -tmp;
   return tmp < 0 ? -elit : elit;
+}
+
+void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void* state, int size, int glue)) {
+  solver->consume_clause_state = state;
+  solver->consume_clause_buffer = buffer;
+  solver->consume_clause_max_size = max_size;
+  solver->consume_clause = consume;
 }

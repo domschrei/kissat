@@ -248,6 +248,11 @@ struct kissat
 #ifndef NPROOFS
   proof *proof;
 #endif
+
+  void *consume_clause_state;
+  int *consume_clause_buffer;
+  unsigned consume_clause_max_size;
+  void (*consume_clause) (void* state, int size, int glue);
 };
 
 #define VARS (solver->vars)

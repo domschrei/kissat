@@ -39,4 +39,7 @@ void kissat_set_decision_limit (kissat * solver, unsigned);
 
 void kissat_print_statistics (kissat * solver);
 
+// API for Mallob
+void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void* state, int size, int glue));
+
 #endif

@@ -3,6 +3,8 @@
 #include "learn.h"
 #include "reluctant.h"
 
+#include "kissat.h"
+
 #include <inttypes.h>
 
 static unsigned
@@ -144,4 +146,17 @@ kissat_learn_clause (kissat * solver)
     learn_binary (solver, not_uip);
   else
     learn_reference (solver, not_uip, glue);
+  
+  if (solver->consume_clause && size <= solver->consume_clause_max_size) {
+    // Export clause.
+    const unsigned *lits = BEGIN_STACK (solver->clause);
+    for (unsigned i = 0; i < size; i++) {
+      // Externalize each literal
+      const unsigned ilit = lits[i];
+      const unsigned elit = kissat_export_literal (solver, ilit);
+      solver->consume_clause_buffer[i] = elit;
+    }
+    // Execute learnt clause callback
+    solver->consume_clause (solver->consume_clause_state, size, glue);
+  }
 }
