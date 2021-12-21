@@ -249,10 +249,16 @@ struct kissat
   proof *proof;
 #endif
 
+  // Clause export
   void *consume_clause_state;
   int *consume_clause_buffer;
   unsigned consume_clause_max_size;
-  void (*consume_clause) (void* state, int size, int glue);
+  void (*consume_clause) (void *state, int size, int glue);
+  
+  // Clause import
+  void *produce_clause_state;
+  void (*produce_clause) (void *state, int **clause, int *size, int *glue);
+  unsigned long num_conflicts_at_last_import;
 };
 
 #define VARS (solver->vars)

@@ -15,6 +15,7 @@
 #include "terminate.h"
 #include "trail.h"
 #include "walk.h"
+#include "clauseimport.h"
 
 #include <inttypes.h>
 
@@ -187,6 +188,8 @@ kissat_search (kissat * solver)
 	res = kissat_eliminate (solver);
       else if (kissat_probing (solver))
 	res = kissat_probe (solver);
+      else if (kissat_importing_redundant_clauses (solver))
+  kissat_import_redundant_clauses (solver);
       else if (decision_limit_hit (solver))
 	break;
       else

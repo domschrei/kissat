@@ -40,6 +40,9 @@ void kissat_set_decision_limit (kissat * solver, unsigned);
 void kissat_print_statistics (kissat * solver);
 
 // API for Mallob
-void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void* state, int size, int glue));
+void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void *state, int size, int glue));
+void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue));
+struct kissat_statistics {unsigned long propagations; unsigned long decisions; unsigned long conflicts; unsigned long restarts;};
+struct kissat_statistics kissat_get_statistics (kissat * solver);
 
 #endif

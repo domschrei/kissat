@@ -10,6 +10,7 @@
 #include "require.h"
 #include "resize.h"
 #include "resources.h"
+#include "clauseimport.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -49,6 +50,10 @@ kissat_init (void)
   solver->consume_clause_buffer = 0;
   solver->consume_clause_max_size = 0;
   solver->consume_clause = 0;
+
+  solver->produce_clause_state = 0;
+  solver->produce_clause = 0;
+  solver->num_conflicts_at_last_import = 0;
 
   return solver;
 }
@@ -592,9 +597,82 @@ kissat_value (kissat * solver, int elit)
   return tmp < 0 ? -elit : elit;
 }
 
-void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void* state, int size, int glue)) {
+void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void* state, int size, int glue)) 
+{
   solver->consume_clause_state = state;
   solver->consume_clause_buffer = buffer;
   solver->consume_clause_max_size = max_size;
   solver->consume_clause = consume;
+}
+
+void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue)) 
+{
+  solver->produce_clause_state = state;
+  solver->produce_clause = produce;
+}
+
+struct kissat_statistics kissat_get_statistics (kissat * solver) 
+{
+  statistics *statistics = &solver->statistics;
+  struct kissat_statistics stats_out;
+  stats_out.propagations = statistics->propagations;
+  stats_out.decisions = statistics->decisions;
+  stats_out.conflicts = statistics->conflicts;
+  stats_out.restarts = statistics->restarts;
+  return stats_out;
+}
+
+bool kissat_importing_redundant_clauses (kissat * solver) 
+{
+  if (solver->produce_clause == 0) return false;
+  if (solver->level != 0) return false;
+  unsigned long conflicts = solver->statistics.conflicts;
+  if (conflicts - solver->num_conflicts_at_last_import < 250) return false;
+  return true;
+}
+
+void kissat_import_redundant_clauses (kissat * solver) 
+{
+  int *buffer = 0;
+  int size = 0;
+  int glue = 0;
+  solver->num_conflicts_at_last_import = solver->statistics.conflicts;
+
+  while (true) {
+    solver->produce_clause (solver->produce_clause_state, &buffer, &size, &glue);
+
+    //printf("KISSAT TRY_LEARN size=%i\n", size);
+
+    if (size <= 0 || buffer == 0) {
+      break; // No more clauses
+    }
+
+    if (size != 1) {
+      // Non-unit clauses cannot be imported as of yet
+      continue;
+    }
+
+    // Unit clause!
+    
+    // Get literal
+    const unsigned lit = kissat_import_literal (solver, buffer[0]);
+    if (lit == INVALID_LIT) {
+      // Invalid literal
+      continue;
+    }
+
+    // Get state of literal
+    const unsigned idx = IDX (lit);
+    flags *flags = FLAGS (idx);
+    if (!flags->active || flags->eliminated || flags->fixed) {
+      // Literal not in a fitting state for import
+      continue;
+    }
+
+    // Learn unit clause
+    //printf("KISSAT LEARN %i\n", lit);
+    kissat_learned_unit (solver, lit);
+  }
+
+  //printf("KISSAT next import @ %lu conflicts\n", solver->num_conflicts_at_last_import);
 }
