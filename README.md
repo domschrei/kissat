@@ -1,3 +1,12 @@
+
+This is a **fork** of Kissat. It extends the C interface of Kissat by several functions which are needed for its integration into [Mallob](https://github.com/domschrei/mallob).  
+Notably, the new interface features redundant clause export and import (the latter for unit clauses only as of yet), fetching basic statistics, and setting initial variable phases.  
+See `src/kissat.h` for the additions to the interface.
+
+The original README of Kissat follows.
+
+<hr/>
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://travis-ci.com/arminbiere/kissat.svg?branch=master)](https://travis-ci.com/arminbiere/kissat)
 
