@@ -55,6 +55,9 @@ kissat_init (void)
   solver->produce_clause = 0;
   solver->num_conflicts_at_last_import = 0;
 
+  solver->initial_variable_phases = 0;
+  solver->initial_variable_phases_len = 0;
+
   return solver;
 }
 
@@ -675,4 +678,10 @@ void kissat_import_redundant_clauses (kissat * solver)
   }
 
   //printf("KISSAT next import @ %lu conflicts\n", solver->num_conflicts_at_last_import);
+}
+
+void kissat_set_initial_variable_phases (kissat * solver, signed char *lookup, int size)
+{
+  solver->initial_variable_phases = lookup;
+  solver->initial_variable_phases_len = size;
 }

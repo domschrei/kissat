@@ -259,6 +259,10 @@ struct kissat
   void *produce_clause_state;
   void (*produce_clause) (void *state, int **clause, int *size, int *glue);
   unsigned long num_conflicts_at_last_import;
+
+  // Initial variable phases
+  signed char *initial_variable_phases;
+  int initial_variable_phases_len;
 };
 
 #define VARS (solver->vars)

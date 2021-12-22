@@ -2,6 +2,7 @@
 #include "inlineframes.h"
 #include "inlineheap.h"
 #include "inlinequeue.h"
+#include "inline.h" // new
 
 #include <inttypes.h>
 
@@ -108,6 +109,13 @@ decide_phase (kissat * solver, unsigned idx)
     {
       LOG ("%s uses saved decision phase %d", LOGVAR (idx), (int) res);
       INC (saved_decisions);
+    }
+  
+  // NEW: use user-provided initial variable phases
+  int elit = kissat_export_literal (solver, LIT (idx));
+  if (!res && elit < solver->initial_variable_phases_len)
+    {
+      res = solver->initial_variable_phases[elit];
     }
 
   if (!res)
