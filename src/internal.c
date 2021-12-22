@@ -630,7 +630,7 @@ bool kissat_importing_redundant_clauses (kissat * solver)
   if (solver->produce_clause == 0) return false;
   if (solver->level != 0) return false;
   unsigned long conflicts = solver->statistics.conflicts;
-  if (conflicts - solver->num_conflicts_at_last_import < 250) return false;
+  if (conflicts - solver->num_conflicts_at_last_import < 500) return false;
   return true;
 }
 
@@ -650,31 +650,108 @@ void kissat_import_redundant_clauses (kissat * solver)
       break; // No more clauses
     }
 
-    if (size != 1) {
-      // Non-unit clauses cannot be imported as of yet
+    // Literal flags to possible check against:
+    // bool eliminate:1;
+    // bool eliminated:1;
+    // bool fixed:1;
+    // bool probe:1;
+    // bool subsume:1;
+    // bool sweep:1;
+    // bool transitive:1;
+
+    // Analyze each of the literals
+    bool okToImport = true;
+    unsigned effectiveSize = 0;
+    for (unsigned i = 0; i < (unsigned)size; i++) {
+      int elit = buffer[i];
+      if (!VALID_EXTERNAL_LITERAL (elit)) {
+        okToImport = false;
+        break;
+      }
+      const unsigned ilit = kissat_import_literal (solver, elit);
+      if (!VALID_INTERNAL_LITERAL (ilit)) {
+        okToImport = false;
+        break;
+      }
+      const unsigned idx = IDX (ilit);
+      flags *flags = FLAGS (idx);
+      if (flags->eliminated || flags->probe) {
+        // Literal in an invalid state for importing this clause
+        okToImport = false;
+        break;
+      } else if (flags->fixed) {
+        const value value = kissat_fixed (solver, ilit);
+        if (value > 0) {
+          // Literal is fixed as positive: drop entire clause
+          okToImport = false;
+          break;
+        } else if (value < 0) {
+          // Literal is fixed as negated: drop this literal
+          buffer[i] = 0;
+        } else {
+          // Fixed, but neither positive nor negated? Drop clause to be safe
+          okToImport = false;
+          break;
+        }
+      } else if (!flags->active) {
+        // Inactive state
+        okToImport = false;
+        break;
+      } else {
+        // This literal is fine
+        effectiveSize++;
+      }
+    }
+
+    // Drop clause, or no valid literals?
+    if (!okToImport || effectiveSize == 0) continue;
+
+    if (effectiveSize == 1) {
+      // Unit clause!
+
+      // Get literal
+      unsigned i = 0; while (buffer[i] == 0) i++;
+      const unsigned lit = kissat_import_literal (solver, buffer[i]);
+      assert (VALID_INTERNAL_LITERAL (lit));
+
+      // Learn unit clause
+      //printf("KISSAT LEARN %i\n", lit);
+      kissat_learned_unit (solver, lit);
       continue;
     }
 
-    // Unit clause!
-    
-    // Get literal
-    const unsigned lit = kissat_import_literal (solver, buffer[0]);
-    if (lit == INVALID_LIT) {
-      // Invalid literal
+    // Larger clause of size >= 2
+
+    if (effectiveSize > CAPACITY_STACK (solver->clause)) {
+      // Clause is too large
       continue;
     }
 
-    // Get state of literal
-    const unsigned idx = IDX (lit);
-    flags *flags = FLAGS (idx);
-    if (!flags->active || flags->eliminated || flags->fixed) {
-      // Literal not in a fitting state for import
-      continue;
+    // Write clause into internal stack
+    assert (EMPTY_STACK (solver->clause));
+    //printf("KISSAT LEARN");
+    for (unsigned i = 0; i < (unsigned)size; i++) {
+      if (buffer[i] == 0) continue;
+      const unsigned lit = kissat_import_literal (solver, buffer[i]);
+      assert (VALID_INTERNAL_LITERAL (lit));
+      PUSH_STACK (solver->clause, lit);
+      //printf(" %i", lit);
+    }
+    //printf("\n");
+    assert (SIZE_STACK (solver->clause) == effectiveSize);
+
+    // Learn clause
+    const reference ref = kissat_new_redundant_clause (solver, glue);
+
+    if (ref != INVALID_REF) {
+      // Valid reference => Long clause (size>2) 
+      assert (effectiveSize > 2);
+      clause *c = kissat_dereference_clause (solver, ref);
+      c->used = 1 + (glue <= GET_OPTION (tier2));
     }
 
-    // Learn unit clause
-    //printf("KISSAT LEARN %i\n", lit);
-    kissat_learned_unit (solver, lit);
+    // Clear internal stack for the next learnt clause
+    CLEAR_STACK (solver->clause);
   }
 
   //printf("KISSAT next import @ %lu conflicts\n", solver->num_conflicts_at_last_import);
