@@ -267,6 +267,7 @@ struct kissat
   // Additional statistics
   unsigned long num_imported_external_clauses;
   unsigned long num_discarded_external_clauses;
+  unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;
 };
 
 #define VARS (solver->vars)

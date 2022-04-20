@@ -61,6 +61,15 @@ kissat_init (void)
   solver->num_imported_external_clauses = 0;
   solver->num_discarded_external_clauses = 0;
 
+  solver->r_ee = 0;
+  solver->r_ed = 0;
+  solver->r_pb = 0;
+  solver->r_ss = 0;
+  solver->r_sw = 0;
+  solver->r_tr = 0;
+  solver->r_fx = 0;
+  solver->r_ia = 0;
+
   return solver;
 }
 
@@ -627,6 +636,15 @@ struct kissat_statistics kissat_get_statistics (kissat * solver)
   stats_out.restarts = statistics->restarts;
   stats_out.imported = solver->num_imported_external_clauses;
   stats_out.discarded = solver->num_discarded_external_clauses;
+  stats_out.r_ed = solver->r_ed;
+  stats_out.r_ee = solver->r_ee;
+  stats_out.r_fx = solver->r_fx;
+  stats_out.r_pb = solver->r_pb;
+  stats_out.r_ss = solver->r_ss;
+  stats_out.r_sw = solver->r_sw;
+  stats_out.r_tr = solver->r_tr;
+  stats_out.r_tl = solver->r_tl;
+  stats_out.r_ia = solver->r_ia;
   return stats_out;
 }
 
@@ -655,14 +673,14 @@ void kissat_import_redundant_clauses (kissat * solver)
       break; // No more clauses
     }
 
-    // Literal flags to possible check against:
-    // bool eliminate:1;
-    // bool eliminated:1;
-    // bool fixed:1;
-    // bool probe:1;
-    // bool subsume:1;
-    // bool sweep:1;
-    // bool transitive:1;
+    // Literal flags to possibly check against:
+    // bool eliminate:1; /* set by kissat_mark_removed_literal */
+    //!bool eliminated:1; /*do not import*/
+    // bool fixed:1; /*can be handled explicitly*/
+    //!bool probe:1; /*do not import*/
+    // bool subsume:1; /* set by kissat_mark_added_literal, also when importing the clause */
+    // bool sweep:1; /*could be fine*/
+    // bool transitive:1; /*seems to be used nowhere*/
 
     // Analyze each of the literals
     bool okToImport = true;
@@ -680,15 +698,11 @@ void kissat_import_redundant_clauses (kissat * solver)
       }
       const unsigned idx = IDX (ilit);
       flags *flags = FLAGS (idx);
-      if (flags->eliminate || flags->eliminated || flags->probe 
-          || flags->subsume || flags->sweep || flags->transitive) {
-        // Literal in an invalid state for importing this clause
-        okToImport = false;
-        break;
-      } else if (flags->fixed) {
+      if (flags->fixed) {
         const value value = kissat_fixed (solver, ilit);
         if (value > 0) {
           // Literal is fixed as positive: drop entire clause
+          solver->r_fx++;
           okToImport = false;
           break;
         } else if (value < 0) {
@@ -696,12 +710,22 @@ void kissat_import_redundant_clauses (kissat * solver)
           buffer[i] = 0;
         } else {
           // Fixed, but neither positive nor negated? Drop clause to be safe
+          solver->r_fx++;
           okToImport = false;
           break;
         }
-      } else if (!flags->active) {
-        // Inactive state
+      } else if (!flags->active || flags->eliminate || flags->eliminated || flags->probe || flags->transitive) {
+        // Literal in an invalid state for importing this clause
         okToImport = false;
+
+        if (!flags->active) solver->r_ia++;
+        if (flags->eliminate) solver->r_ee++;
+        if (flags->eliminated) solver->r_ed++;
+        if (flags->probe) solver->r_pb++;
+        if (flags->subsume) solver->r_ss++;
+        if (flags->sweep) solver->r_sw++;
+        if (flags->transitive) solver->r_tr++;
+
         break;
       } else {
         // This literal is fine
@@ -734,6 +758,7 @@ void kissat_import_redundant_clauses (kissat * solver)
 
     if (effectiveSize > CAPACITY_STACK (solver->clause)) {
       // Clause is too large
+      solver->r_tl++;
       solver->num_discarded_external_clauses++;
       continue;
     }
