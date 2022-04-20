@@ -54,7 +54,7 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
 void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue));
 
 // Basic "external" statistics struct with some interesting properties of kissat's search.
-struct kissat_statistics {unsigned long propagations; unsigned long decisions; unsigned long conflicts; unsigned long restarts;};
+struct kissat_statistics {unsigned long propagations; unsigned long decisions; unsigned long conflicts; unsigned long restarts; unsigned long imported; unsigned long discarded;};
 // Get the statistics of kissat's current search. Not thread-safe, but only reading, i.e., 
 // may (rarely) return improper values.
 struct kissat_statistics kissat_get_statistics (kissat * solver);

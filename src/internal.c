@@ -58,6 +58,9 @@ kissat_init (void)
   solver->initial_variable_phases = 0;
   solver->initial_variable_phases_len = 0;
 
+  solver->num_imported_external_clauses = 0;
+  solver->num_discarded_external_clauses = 0;
+
   return solver;
 }
 
@@ -622,6 +625,8 @@ struct kissat_statistics kissat_get_statistics (kissat * solver)
   stats_out.decisions = statistics->decisions;
   stats_out.conflicts = statistics->conflicts;
   stats_out.restarts = statistics->restarts;
+  stats_out.imported = solver->num_imported_external_clauses;
+  stats_out.discarded = solver->num_discarded_external_clauses;
   return stats_out;
 }
 
@@ -675,7 +680,8 @@ void kissat_import_redundant_clauses (kissat * solver)
       }
       const unsigned idx = IDX (ilit);
       flags *flags = FLAGS (idx);
-      if (flags->eliminated || flags->probe) {
+      if (flags->eliminate || flags->eliminated || flags->probe 
+          || flags->subsume || flags->sweep || flags->transitive) {
         // Literal in an invalid state for importing this clause
         okToImport = false;
         break;
@@ -704,7 +710,10 @@ void kissat_import_redundant_clauses (kissat * solver)
     }
 
     // Drop clause, or no valid literals?
-    if (!okToImport || effectiveSize == 0) continue;
+    if (!okToImport || effectiveSize == 0) {
+      solver->num_discarded_external_clauses++;
+      continue;
+    }
 
     if (effectiveSize == 1) {
       // Unit clause!
@@ -717,6 +726,7 @@ void kissat_import_redundant_clauses (kissat * solver)
       // Learn unit clause
       //printf("KISSAT LEARN %i\n", lit);
       kissat_learned_unit (solver, lit);
+      solver->num_imported_external_clauses++;
       continue;
     }
 
@@ -724,6 +734,7 @@ void kissat_import_redundant_clauses (kissat * solver)
 
     if (effectiveSize > CAPACITY_STACK (solver->clause)) {
       // Clause is too large
+      solver->num_discarded_external_clauses++;
       continue;
     }
 
@@ -752,6 +763,7 @@ void kissat_import_redundant_clauses (kissat * solver)
 
     // Clear internal stack for the next learnt clause
     CLEAR_STACK (solver->clause);
+    solver->num_imported_external_clauses++;
   }
 
   //printf("KISSAT next import @ %lu conflicts\n", solver->num_conflicts_at_last_import);

@@ -263,6 +263,10 @@ struct kissat
   // Initial variable phases
   signed char *initial_variable_phases;
   int initial_variable_phases_len;
+
+  // Additional statistics
+  unsigned long num_imported_external_clauses;
+  unsigned long num_discarded_external_clauses;
 };
 
 #define VARS (solver->vars)
