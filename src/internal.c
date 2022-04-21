@@ -714,8 +714,7 @@ void kissat_import_redundant_clauses (kissat * solver)
           okToImport = false;
           break;
         }
-      } else if (!flags->active || (solver->enabled.eliminate && flags->eliminate) 
-          || flags->eliminated || flags->probe || flags->transitive) {
+      } else if (!flags->active || flags->eliminated || flags->probe) {
         // Literal in an invalid state for importing this clause
         okToImport = false;
 
