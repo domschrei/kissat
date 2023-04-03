@@ -653,7 +653,7 @@ bool kissat_importing_redundant_clauses (kissat * solver)
   if (solver->produce_clause == 0) return false;
   if (solver->level != 0) return false;
   unsigned long conflicts = solver->statistics.conflicts;
-  if (conflicts - solver->num_conflicts_at_last_import < 500) return false;
+  if (conflicts == solver->num_conflicts_at_last_import) return false;
   return true;
 }
 
