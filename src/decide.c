@@ -99,6 +99,15 @@ decide_phase (kissat * solver, unsigned idx)
 
   value res = 0;
 
+  // NEW: use user-provided initial variable phases at most ONCE per literal
+  int elit = kissat_export_literal (solver, LIT (idx));
+  if (!res && elit >= 0 && elit < solver->initial_variable_phases_len)
+    {
+      // may be 0
+      res = solver->initial_variable_phases[elit];
+      solver->initial_variable_phases[elit] = 0; // mark initial phase as spent - do not use again
+    }
+
   if (!res && target && (res = *target))
     {
       LOG ("%s uses target decision phase %d", LOGVAR (idx), (int) res);
@@ -111,13 +120,6 @@ decide_phase (kissat * solver, unsigned idx)
       INC (saved_decisions);
     }
   
-  // NEW: use user-provided initial variable phases
-  int elit = kissat_export_literal (solver, LIT (idx));
-  if (!res && elit < solver->initial_variable_phases_len)
-    {
-      res = solver->initial_variable_phases[elit];
-    }
-
   if (!res)
     {
       res = INITIAL_PHASE;
