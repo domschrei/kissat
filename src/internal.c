@@ -677,7 +677,7 @@ void kissat_import_redundant_clauses (kissat * solver)
     // bool eliminate:1; /* set by kissat_mark_removed_literal */
     //!bool eliminated:1; /*do not import*/
     // bool fixed:1; /*can be handled explicitly*/
-    //!bool probe:1; /*do not import*/
+    // bool probe:1; /*could be fine*/
     // bool subsume:1; /* set by kissat_mark_added_literal, also when importing the clause */
     // bool sweep:1; /*could be fine*/
     // bool transitive:1; /*seems to be used nowhere*/
@@ -688,11 +688,13 @@ void kissat_import_redundant_clauses (kissat * solver)
     for (unsigned i = 0; i < (unsigned)size; i++) {
       int elit = buffer[i];
       if (!VALID_EXTERNAL_LITERAL (elit)) {
+	solver->r_ed++;
         okToImport = false;
         break;
       }
       const unsigned ilit = kissat_import_literal (solver, elit);
       if (!VALID_INTERNAL_LITERAL (ilit)) {
+	solver->r_ed++;
         okToImport = false;
         break;
       }
@@ -714,7 +716,7 @@ void kissat_import_redundant_clauses (kissat * solver)
           okToImport = false;
           break;
         }
-      } else if (!flags->active || flags->eliminated || flags->probe) {
+      } else if (!flags->active || flags->eliminated) {
         // Literal in an invalid state for importing this clause
         okToImport = false;
 
