@@ -2,6 +2,7 @@
 #include "inline.h"
 #include "inlineassign.h"
 #include "logging.h"
+#include "clauseexport.h"
 
 #include <limits.h>
 
@@ -21,6 +22,7 @@ kissat_learned_unit (kissat * solver, unsigned lit)
   kissat_assign_unit (solver, lit, "learned reason");
   CHECK_AND_ADD_UNIT (lit);
   ADD_UNIT_TO_PROOF (lit);
+  kissat_export_redundant_clause (solver, 1, 1, &lit);
 }
 
 void
