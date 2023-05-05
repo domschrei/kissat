@@ -6,7 +6,8 @@
 void kissat_export_redundant_clause (kissat * solver, unsigned glue, unsigned size, unsigned *lits) {
   if (!solver->consume_clause) return;
   if (size > solver->consume_clause_max_size) return;
-  glue = MIN(glue, size);
+  glue = MAX(glue, 1);
+  glue = MIN(glue, size-1);
   // Export clause.
   for (unsigned i = 0; i < size; i++) {
     // Externalize each literal
