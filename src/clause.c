@@ -135,7 +135,7 @@ new_clause (kissat * solver,
   else
     res = new_large_clause (solver, original, redundant, glue, size, lits);
   kissat_defrag_watches_if_needed (solver);
-  kissat_export_redundant_clause (solver, glue, size, lits);
+  if (redundant) kissat_export_redundant_clause (solver, glue, size, lits);
   return res;
 }
 
