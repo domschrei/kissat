@@ -50,6 +50,7 @@ struct clause;
 
 void kissat_assign_unit (struct kissat *, unsigned lit, const char *);
 void kissat_learned_unit (struct kissat *, unsigned lit);
+void kissat_learned_unit_from_import (struct kissat *, unsigned lit);
 void kissat_original_unit (struct kissat *, unsigned lit);
 
 void kissat_assign_decision (struct kissat *, unsigned lit);

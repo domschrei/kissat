@@ -335,7 +335,7 @@ add_ternary_resolvents (kissat * solver, tags * tags, uint64_t * resolved_ptr)
 	}
       else
 	{
-	  reference ref = kissat_new_redundant_clause (solver, 2);
+	  reference ref = kissat_new_redundant_clause (solver, 2, false);
 	  clause *c = kissat_dereference_clause (solver, ref);
 	  assert (c->redundant);
 	  assert (c->size == 3);

@@ -65,7 +65,7 @@ learn_binary (kissat * solver, unsigned not_uip)
 #ifndef NDEBUG
   const reference ref =
 #endif
-    kissat_new_redundant_clause (solver, 1);
+    kissat_new_redundant_clause (solver, 1, false);
   assert (ref == INVALID_REF);
   kissat_assign_binary (solver, true, not_uip, other);
   kissat_eager_subsume (solver);
@@ -99,7 +99,7 @@ learn_reference (kissat * solver, unsigned not_uip, unsigned glue)
     }
   *q = lits[1];
   lits[1] = jump_lit;
-  const reference ref = kissat_new_redundant_clause (solver, glue);
+  const reference ref = kissat_new_redundant_clause (solver, glue, false);
   assert (ref != INVALID_REF);
   clause *c = kissat_dereference_clause (solver, ref);
   c->used = 1 + (glue <= (unsigned) GET_OPTION (tier2));

@@ -64,7 +64,7 @@ add_large_redundant_clause (kissat * solver)
   PUSH_STACK (solver->clause, 0);
   PUSH_STACK (solver->clause, REDUNDANT_LITERAL);
   PUSH_STACK (solver->clause, 6);
-  kissat_new_redundant_clause (solver, 2);
+  kissat_new_redundant_clause (solver, 2, false);
 }
 
 static void

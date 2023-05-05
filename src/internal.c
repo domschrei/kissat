@@ -1,4 +1,5 @@
 #include "allocate.h"
+#include "assign.h"
 #include "backtrack.h"
 #include "error.h"
 #include "search.h"
@@ -751,7 +752,7 @@ void kissat_import_redundant_clauses (kissat * solver)
 
       // Learn unit clause
       //printf("KISSAT LEARN %i\n", lit);
-      kissat_learned_unit (solver, lit);
+      kissat_learned_unit_from_import (solver, lit);
       solver->num_imported_external_clauses++;
       continue;
     }
@@ -779,7 +780,7 @@ void kissat_import_redundant_clauses (kissat * solver)
     assert (SIZE_STACK (solver->clause) == effectiveSize);
 
     // Learn clause
-    const reference ref = kissat_new_redundant_clause (solver, glue);
+    const reference ref = kissat_new_redundant_clause (solver, glue, true);
 
     if (ref != INVALID_REF) {
       // Valid reference => Long clause (size>2) 
