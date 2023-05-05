@@ -134,6 +134,19 @@ new_clause (kissat * solver,
   else
     res = new_large_clause (solver, original, redundant, glue, size, lits);
   kissat_defrag_watches_if_needed (solver);
+
+  if (redundant && solver->consume_clause && size <= solver->consume_clause_max_size) {
+    // Export clause.
+    for (unsigned i = 0; i < size; i++) {
+      // Externalize each literal
+      const unsigned ilit = lits[i];
+      const int elit = kissat_export_literal (solver, ilit);
+      solver->consume_clause_buffer[i] = elit;
+    }
+    // Execute learnt clause callback
+    solver->consume_clause (solver->consume_clause_state, size, glue);
+  }
+
   return res;
 }
 
