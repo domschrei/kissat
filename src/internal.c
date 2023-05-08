@@ -667,6 +667,7 @@ void kissat_import_redundant_clauses (kissat * solver)
 
   while (true) {
     solver->produce_clause (solver->produce_clause_state, &buffer, &size, &glue);
+    const int originalSize = size;
 
     //printf("KISSAT TRY_LEARN size=%i\n", size);
 
@@ -742,6 +743,9 @@ void kissat_import_redundant_clauses (kissat * solver)
       continue;
     }
 
+    // Was the clauses shortened (due to fixed literals)?
+    const bool shortened = effectiveSize < originalSize;
+
     if (effectiveSize == 1) {
       // Unit clause!
 
@@ -752,7 +756,13 @@ void kissat_import_redundant_clauses (kissat * solver)
 
       // Learn unit clause
       //printf("KISSAT LEARN %i\n", lit);
-      kissat_learned_unit_from_import (solver, lit);
+      if (shortened) {
+        // Coming from non-unit clause: import unit and also export it yourself
+        kissat_learned_unit (solver, lit);
+      } else {
+        // Import shared unit while avoiding its re-export
+        kissat_learned_unit_from_import (solver, lit);
+      }
       solver->num_imported_external_clauses++;
       continue;
     }
@@ -779,8 +789,9 @@ void kissat_import_redundant_clauses (kissat * solver)
     //printf("\n");
     assert (SIZE_STACK (solver->clause) == effectiveSize);
 
-    // Learn clause
-    const reference ref = kissat_new_redundant_clause (solver, glue, true);
+    // Learn clause, re-export iff the clause was just shortened
+    // (i.e., block re-export iff the clause is imported without changes)
+    const reference ref = kissat_new_redundant_clause (solver, glue, !shortened);
 
     if (ref != INVALID_REF) {
       // Valid reference => Long clause (size>2) 
