@@ -16,24 +16,24 @@ kissat_assign_unit (kissat * solver, unsigned lit, const char *reason)
 #endif
 }
 
-void learned_unit (kissat * solver, unsigned lit, bool importing)
+void learned_unit (kissat * solver, unsigned lit)
 {
   kissat_assign_unit (solver, lit, "learned reason");
   CHECK_AND_ADD_UNIT (lit);
   ADD_UNIT_TO_PROOF (lit);
-  if (!importing) kissat_export_redundant_clause (solver, 1, 1, &lit);
 }
 
 void
 kissat_learned_unit (kissat * solver, unsigned lit)
 {
-  learned_unit(solver, lit, false);
+  kissat_export_redundant_clause (solver, 1, 1, &lit);
+  learned_unit(solver, lit);
 }
 
 void
 kissat_learned_unit_from_import (kissat * solver, unsigned lit)
 {
-  learned_unit(solver, lit, true);
+  learned_unit(solver, lit);
 }
 
 void

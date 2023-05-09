@@ -1,4 +1,5 @@
 #include "allocate.h"
+#include "clause.h"
 #include "collect.h"
 #include "inline.h"
 #include "clauseexport.h"
@@ -126,7 +127,7 @@ new_large_clause (kissat * solver,
 
 static reference
 new_clause (kissat * solver,
-	    bool original, bool redundant, bool importing,
+	    bool original, bool redundant,
 	    unsigned glue, unsigned size, unsigned *lits)
 {
   reference res;
@@ -135,8 +136,6 @@ new_clause (kissat * solver,
   else
     res = new_large_clause (solver, original, redundant, glue, size, lits);
   kissat_defrag_watches_if_needed (solver);
-  if (redundant && !importing)
-    kissat_export_redundant_clause (solver, glue, size, lits);
   return res;
 }
 
@@ -153,7 +152,7 @@ kissat_new_original_clause (kissat * solver)
   const unsigned size = SIZE_STACK (solver->clause);
   unsigned *lits = BEGIN_STACK (solver->clause);
   kissat_sort_literals (solver, size, lits);
-  reference res = new_clause (solver, true, false, false, 0, size, lits);
+  reference res = new_clause (solver, true, false, 0, size, lits);
   return res;
 }
 
@@ -162,15 +161,27 @@ kissat_new_irredundant_clause (kissat * solver)
 {
   const unsigned size = SIZE_STACK (solver->clause);
   unsigned *lits = BEGIN_STACK (solver->clause);
-  return new_clause (solver, false, false, false, 0, size, lits);
+  return new_clause (solver, false, false, 0, size, lits);
 }
 
-reference
-kissat_new_redundant_clause (kissat * solver, unsigned glue, bool importing)
+reference new_redundant_clause (kissat * solver, unsigned glue, bool export)
 {
   const unsigned size = SIZE_STACK (solver->clause);
   unsigned *lits = BEGIN_STACK (solver->clause);
-  return new_clause (solver, false, true, importing, glue, size, lits);
+  if (export) kissat_export_redundant_clause (solver, glue, size, lits);
+  return new_clause (solver, false, true, glue, size, lits);
+}
+
+reference
+kissat_new_redundant_clause (kissat * solver, unsigned glue)
+{
+  return new_redundant_clause (solver, glue, true);
+}
+
+reference
+kissat_new_redundant_clause_from_import (kissat * solver, unsigned glue)
+{
+  return new_redundant_clause (solver, glue, false);
 }
 
 static void

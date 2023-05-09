@@ -1,6 +1,7 @@
 #include "allocate.h"
 #include "assign.h"
 #include "backtrack.h"
+#include "clause.h"
 #include "error.h"
 #include "search.h"
 #include "import.h"
@@ -791,7 +792,9 @@ void kissat_import_redundant_clauses (kissat * solver)
 
     // Learn clause, re-export iff the clause was just shortened
     // (i.e., block re-export iff the clause is imported without changes)
-    const reference ref = kissat_new_redundant_clause (solver, glue, !shortened);
+    const reference ref = shortened ?
+      kissat_new_redundant_clause (solver, glue) :
+      kissat_new_redundant_clause_from_import (solver, glue);
 
     if (ref != INVALID_REF) {
       // Valid reference => Long clause (size>2) 

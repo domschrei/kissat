@@ -77,7 +77,8 @@ void kissat_new_binary_clause (struct kissat *,
 
 reference kissat_new_original_clause (struct kissat *);
 reference kissat_new_irredundant_clause (struct kissat *);
-reference kissat_new_redundant_clause (struct kissat *, unsigned glue, bool importing);
+reference kissat_new_redundant_clause (struct kissat *, unsigned glue);
+reference kissat_new_redundant_clause_from_import (struct kissat *, unsigned glue);
 
 #ifndef INLINE_SORT
 void kissat_sort_literals (struct kissat *, unsigned size, unsigned *lits);

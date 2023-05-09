@@ -607,7 +607,7 @@ vivify_learn (kissat * solver, clause * c,
       if (size == 2)
 	{
 	  if (c->redundant)
-	    (void) kissat_new_redundant_clause (solver, 1, false);
+	    (void) kissat_new_redundant_clause (solver, 1);
 	  else
 	    (void) kissat_new_irredundant_clause (solver);
 	  kissat_mark_clause_as_garbage (solver, c);
