@@ -744,8 +744,8 @@ void kissat_import_redundant_clauses (kissat * solver)
       continue;
     }
 
-    // Was the clauses shortened (due to fixed literals)?
-    const bool shortened = effectiveSize < originalSize;
+    // Was the clauses shortened (due to fixed literals) so it should be re-exported?
+    const bool shortened = false; //effectiveSize < originalSize;
 
     if (effectiveSize == 1) {
       // Unit clause!
