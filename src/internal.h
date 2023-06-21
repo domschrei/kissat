@@ -268,6 +268,10 @@ struct kissat
   unsigned long num_imported_external_clauses;
   unsigned long num_discarded_external_clauses;
   unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;
+
+  // "Fan out" diversification
+  unsigned nb_conflicts_until_fanout;
+  unsigned nb_fanout_decisions;
 };
 
 #define VARS (solver->vars)

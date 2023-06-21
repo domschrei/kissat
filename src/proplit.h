@@ -309,6 +309,14 @@ kissat_update_conflicts_and_trail (kissat * solver,
   if (conflict)
     {
       INC (conflicts);
+      if (solver->options.fanout) {
+        //if (solver->nb_fanout_decisions) printf("STOP FAN_OUT\n");
+        solver->nb_fanout_decisions = 0;
+        if (--solver->nb_conflicts_until_fanout == 0) {
+          solver->nb_fanout_decisions = solver->options.fanoutdepth;
+          solver->nb_conflicts_until_fanout = solver->options.fanoutconflint;
+        }
+      }
       LOG (PROPAGATION_TYPE " propagation on root-level failed");
       if (!solver->level)
 	{

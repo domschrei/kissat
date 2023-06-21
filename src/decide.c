@@ -1,10 +1,14 @@
 #include "decide.h"
+#include "heap.h"
 #include "inlineframes.h"
 #include "inlineheap.h"
 #include "inlinequeue.h"
 #include "inline.h" // new
+#include "inlinescore.h"
+#include "stack.h"
 
 #include <inttypes.h>
+#include <float.h>
 
 static unsigned
 last_enqueued_unassigned_variable (kissat * solver)
@@ -34,14 +38,39 @@ last_enqueued_unassigned_variable (kissat * solver)
   return res;
 }
 
+void bring_random_var_to_front (kissat * solver, unsigned * rnd_idx, double * old_score) {
+  unsigned rnd_pos = kissat_pick_random (&solver->random, 0, kissat_size_heap (&solver->scores));
+  *rnd_idx = PEEK_STACK (solver->scores.stack, rnd_pos);
+  *old_score = kissat_get_heap_score(&solver->scores, *rnd_idx);
+  kissat_update_heap (solver, &solver->scores, *rnd_idx, DBL_MAX);
+  //printf("FAN_OUT idx=%i\n", *rnd_idx);
+}
+void restore_old_var_score (kissat * solver, unsigned rnd_idx, double old_score) {
+  kissat_update_heap (solver, &solver->scores, rnd_idx, old_score);
+}
+
 static unsigned
 largest_score_unassigned_variable (kissat * solver)
 {
+  unsigned rnd_idx;
+  double old_score;
+
+  bool fan_out = solver->nb_fanout_decisions;
+  if (fan_out) bring_random_var_to_front (solver, &rnd_idx, &old_score);
+
   unsigned res = kissat_max_heap (&solver->scores);
   const value *const values = solver->values;
   while (values[LIT (res)])
     {
       kissat_pop_max_heap (solver, &solver->scores);
+
+      if (fan_out) {
+        if (res != rnd_idx) abort ();
+        restore_old_var_score (solver, rnd_idx, old_score);
+        if (--solver->nb_fanout_decisions == 0) fan_out = false;
+        else bring_random_var_to_front (solver, &rnd_idx, &old_score);
+      }
+
       res = kissat_max_heap (&solver->scores);
     }
 #if defined(LOGGING) || defined(CHECK_HEAP)
@@ -59,6 +88,13 @@ largest_score_unassigned_variable (kissat * solver)
       assert (score >= idx_score);
     }
 #endif
+
+  if (fan_out) {
+    if (res != rnd_idx) abort ();
+    restore_old_var_score (solver, rnd_idx, old_score);
+    --solver->nb_fanout_decisions;
+  }
+
   return res;
 }
 
