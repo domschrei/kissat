@@ -309,7 +309,7 @@ kissat_update_conflicts_and_trail (kissat * solver,
   if (conflict)
     {
       INC (conflicts);
-      if (solver->options.fanout) {
+      if (solver->options.fanout && solver->stable) {
         //if (solver->nb_fanout_decisions) printf("STOP FAN_OUT\n");
         solver->nb_fanout_decisions = 0;
         if (--solver->nb_conflicts_until_fanout == 0) {
