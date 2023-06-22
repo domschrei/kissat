@@ -561,7 +561,7 @@ int
 kissat_solve (kissat * solver)
 {
   solver->nb_conflicts_until_fanout = solver->options.fanoutconflint;
-  solver->nb_fanout_decisions = 0;
+  solver->nb_fanout_decisions = solver->options.fanoutdepth;
   kissat_require_initialized (solver);
   kissat_require (EMPTY_STACK (solver->clause),
 		  "incomplete clause (terminating zero not added)");
