@@ -54,8 +54,8 @@ OPTION( faileddelay, 1, 0, 1, "delay failed literal probing") \
 OPTION( failedeffort, 50, 0, 1e8, "effort in per mille") \
 OPTION( failedrounds, 2, 1, 100, "failed literal probing rounds") \
 OPTION( fanout, 0, 0, 1, "fan out by making X random variable decisions every Y conflicts") \
-OPTION( fanoutconflint, 1e5, 1, INT_MAX, "# conflicts in between fanouts") \
-OPTION( fanoutdepth, 20, 1, INT_MAX, "# random decisions per fanout") \
+OPTION( fanoutconflint, 5e3, 1, INT_MAX, "# conflicts in between fanouts") \
+OPTION( fanoutdepth, 100, 1, INT_MAX, "# random decisions per fanout") \
 OPTION( forcephase, 0, 0, 1, "force initial phase") \
 OPTION( forward, 1, 0, 1, "forward subsumption in BVE") \
 OPTION( forwardeffort, 100, 0, 1e6, "effort in per mille") \

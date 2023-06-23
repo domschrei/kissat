@@ -38,39 +38,14 @@ last_enqueued_unassigned_variable (kissat * solver)
   return res;
 }
 
-void bring_random_var_to_front (kissat * solver, unsigned * rnd_idx, double * old_score) {
-  unsigned rnd_pos = kissat_pick_random (&solver->random, 0, kissat_size_heap (&solver->scores));
-  *rnd_idx = PEEK_STACK (solver->scores.stack, rnd_pos);
-  *old_score = kissat_get_heap_score(&solver->scores, *rnd_idx);
-  kissat_update_heap (solver, &solver->scores, *rnd_idx, DBL_MAX);
-  //printf("FAN_OUT idx=%i\n", *rnd_idx);
-}
-void restore_old_var_score (kissat * solver, unsigned rnd_idx, double old_score) {
-  kissat_update_heap (solver, &solver->scores, rnd_idx, old_score);
-}
-
 static unsigned
 largest_score_unassigned_variable (kissat * solver)
 {
-  unsigned rnd_idx;
-  double old_score;
-
-  bool fan_out = solver->nb_fanout_decisions;
-  if (fan_out) bring_random_var_to_front (solver, &rnd_idx, &old_score);
-
   unsigned res = kissat_max_heap (&solver->scores);
   const value *const values = solver->values;
   while (values[LIT (res)])
     {
       kissat_pop_max_heap (solver, &solver->scores);
-
-      if (fan_out) {
-        if (res != rnd_idx) abort ();
-        restore_old_var_score (solver, rnd_idx, old_score);
-        if (--solver->nb_fanout_decisions == 0) fan_out = false;
-        else bring_random_var_to_front (solver, &rnd_idx, &old_score);
-      }
-
       res = kissat_max_heap (&solver->scores);
     }
 #if defined(LOGGING) || defined(CHECK_HEAP)
@@ -88,20 +63,41 @@ largest_score_unassigned_variable (kissat * solver)
       assert (score >= idx_score);
     }
 #endif
-
-  if (fan_out) {
-    if (res != rnd_idx) abort ();
-    restore_old_var_score (solver, rnd_idx, old_score);
-    --solver->nb_fanout_decisions;
-  }
-
   return res;
+}
+
+unsigned random_unassigned_variable (kissat * solver)
+{
+  --solver->nb_fanout_decisions;
+  ++solver->attempted_fanout_decisions;
+  unsigned rnd_pos = kissat_pick_random (&solver->random, 0, kissat_size_heap (&solver->scores));
+  unsigned rnd_idx = PEEK_STACK (solver->scores.stack, rnd_pos);
+  const value *const values = solver->values;
+  unsigned nb_fails = 0;
+  while (values[LIT (rnd_idx)]) {
+    nb_fails++;
+    if (nb_fails == 10) return -1;
+    rnd_pos = kissat_pick_random (&solver->random, 0, kissat_size_heap (&solver->scores));
+    rnd_idx = PEEK_STACK (solver->scores.stack, rnd_pos);
+  }
+  //printf("random decision #%i/%i picked idx %i after %i fails  (%i unassigned / %i total)\n",
+  //  solver->options.fanoutdepth-solver->nb_fanout_decisions+1,
+  //  solver->options.fanoutdepth, rnd_idx, nb_fails,
+  //  solver->unassigned, (int)kissat_size_heap (&solver->scores));
+  ++solver->successful_fanout_decisions;
+  return rnd_idx;
 }
 
 unsigned
 kissat_next_decision_variable (kissat * solver)
 {
   unsigned res;
+  if (solver->nb_fanout_decisions) {
+    res = random_unassigned_variable (solver);
+    if (res != -1) return res;
+    //printf("random decision failed! (%i unassigned / %i total)\n",
+    //  solver->unassigned, (int) kissat_size_heap (&solver->scores));
+  }
   if (solver->stable)
     res = largest_score_unassigned_variable (solver);
   else

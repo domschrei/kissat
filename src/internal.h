@@ -272,6 +272,8 @@ struct kissat
   // "Fan out" diversification
   unsigned nb_conflicts_until_fanout;
   unsigned nb_fanout_decisions;
+  unsigned long attempted_fanout_decisions;
+  unsigned long successful_fanout_decisions;
 };
 
 #define VARS (solver->vars)

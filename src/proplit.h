@@ -309,10 +309,12 @@ kissat_update_conflicts_and_trail (kissat * solver,
   if (conflict)
     {
       INC (conflicts);
-      if (solver->options.fanout && solver->stable) {
-        //if (solver->nb_fanout_decisions) printf("STOP FAN_OUT\n");
-        solver->nb_fanout_decisions = 0;
-        if (--solver->nb_conflicts_until_fanout == 0) {
+      if (solver->options.fanout) {
+        // No fanout ongoing: Decrease #conflicts until fanout.
+        // If that counter reaches zero, begin a new fanout.
+        if (solver->nb_fanout_decisions == 0 && --solver->nb_conflicts_until_fanout == 0) {
+          //printf("Begin new fanout after %lu conflicts (so far %lu/%lu random decisions)\n",
+          //  solver->statistics.conflicts, solver->successful_fanout_decisions, solver->attempted_fanout_decisions);
           solver->nb_fanout_decisions = solver->options.fanoutdepth;
           solver->nb_conflicts_until_fanout = solver->options.fanoutconflint;
         }
