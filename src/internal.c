@@ -3,6 +3,8 @@
 #include "backtrack.h"
 #include "clause.h"
 #include "error.h"
+#include "flags.h"
+#include "kissat.h"
 #include "search.h"
 #include "import.h"
 #include "inline.h"
@@ -391,7 +393,8 @@ kissat_add (kissat * solver, int elit)
 	LOG ("skipping trivial original clause");
       else
 	{
-	  kissat_activate_literals (solver, isize, ilits);
+    if (!GET_OPTION (manualvaractivation))
+      kissat_activate_literals (solver, isize, ilits);
 
 	  if (!isize)
 	    {
@@ -819,4 +822,9 @@ void kissat_set_initial_variable_phases (kissat * solver, signed char *lookup, i
 {
   solver->initial_variable_phases = lookup;
   solver->initial_variable_phases_len = size;
+}
+
+void kissat_activate_variable (kissat * solver, int var)
+{
+  kissat_activate_literal (solver, kissat_import_literal (solver, var));
 }

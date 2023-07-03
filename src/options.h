@@ -67,6 +67,7 @@ OPTION( mineffort, 1e4, 0, INT_MAX, "minimum absolute effort") \
 OPTION( minimize, 1, 0, 1, "learned clause minimization") \
 OPTION( minimizedepth, 1e3, 1, 1e6, "minimization depth") \
 OPTION( minimizeticks, 1, 0, 1, "count ticks in minimize and shrink") \
+OPTION( manualvaractivation, 0, 0, 1, "activate each var manually via API before kissat_add etc.") \
 OPTION( modeconflicts, 1e3, 10, 1e8, "initial focused conflicts limit") \
 OPTION( modeticks, 1e8, 1e3, INT_MAX, "initial focused ticks limit") \
 OPTION( otfs, 1, 0, 1, "on-the-fly strengthening") \

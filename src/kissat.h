@@ -65,6 +65,8 @@ struct kissat_statistics kissat_get_statistics (kissat * solver);
 // on the variable's initial phase. The array must be valid during the entire search procedure.
 void kissat_set_initial_variable_phases (kissat * solver, signed char *lookup, int size);
 
+void kissat_activate_variable (kissat * solver, int var);
+
 // TODO get branching literal: use kissat_next_decision_variable in decide.h ?
 
 #endif
