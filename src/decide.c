@@ -94,7 +94,7 @@ kissat_next_decision_variable (kissat * solver)
   unsigned res;
   if (solver->nb_fanout_decisions) {
     res = random_unassigned_variable (solver);
-    if (res != -1) return res;
+    if (res != -1u) return res;
     //printf("random decision failed! (%i unassigned / %i total)\n",
     //  solver->unassigned, (int) kissat_size_heap (&solver->scores));
   }

@@ -63,11 +63,11 @@ OPTION( hyper, 1, 0, 1, "on-the-fly hyper binary resolution") \
 OPTION( ifthenelse, 1, 0, 1, "extract and eliminate if-then-else gates") \
 OPTION( incremental, 0, 0, 1, "enable incremental solving") \
 LOGOPT( log, 0, 0, 5, "logging level (1=on,2=more,3=check,4/5=mem)") \
+OPTION( manualvaractivation, 0, 0, 1, "activate each var manually via API before kissat_add etc.") \
 OPTION( mineffort, 1e4, 0, INT_MAX, "minimum absolute effort") \
 OPTION( minimize, 1, 0, 1, "learned clause minimization") \
 OPTION( minimizedepth, 1e3, 1, 1e6, "minimization depth") \
 OPTION( minimizeticks, 1, 0, 1, "count ticks in minimize and shrink") \
-OPTION( manualvaractivation, 0, 0, 1, "activate each var manually via API before kissat_add etc.") \
 OPTION( modeconflicts, 1e3, 10, 1e8, "initial focused conflicts limit") \
 OPTION( modeticks, 1e8, 1e3, INT_MAX, "initial focused ticks limit") \
 OPTION( otfs, 1, 0, 1, "on-the-fly strengthening") \
