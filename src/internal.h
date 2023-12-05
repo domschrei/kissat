@@ -5,59 +5,51 @@
 #include "array.h"
 #include "assign.h"
 #include "averages.h"
-#include "cache.h"
 #include "check.h"
 #include "clause.h"
-#include "clueue.h"
 #include "cover.h"
 #include "extend.h"
-#include "smooth.h"
 #include "flags.h"
 #include "format.h"
 #include "frames.h"
 #include "heap.h"
+#include "kimits.h"
 #include "kissat.h"
-#include "limits.h"
 #include "literal.h"
 #include "mode.h"
-#include "nonces.h"
 #include "options.h"
 #include "phases.h"
 #include "profile.h"
 #include "proof.h"
 #include "queue.h"
 #include "random.h"
-#include "reap.h"
 #include "reluctant.h"
 #include "rephase.h"
+#include "smooth.h"
 #include "stack.h"
 #include "statistics.h"
-#include "literal.h"
 #include "value.h"
 #include "vector.h"
 #include "watch.h"
 
 typedef struct datarank datarank;
 
-struct datarank
-{
+struct datarank {
   unsigned data;
   unsigned rank;
 };
 
 typedef struct import import;
 
-struct import
-{
-  unsigned lit:30;
-  bool imported:1;
-  bool eliminated:1;
+struct import {
+  unsigned lit;
+  bool imported;
+  bool eliminated;
 };
 
 typedef struct termination termination;
 
-struct termination
-{
+struct termination {
 #ifdef COVERAGE
   volatile uint64_t flagged;
 #else
@@ -67,7 +59,7 @@ struct termination
   int (*volatile terminate) (void *);
 };
 
-// *INDENT-OFF*
+// clang-format off
 
 typedef STACK (value) eliminated;
 typedef STACK (import) imports;
@@ -75,12 +67,11 @@ typedef STACK (datarank) dataranks;
 typedef STACK (watch) statches;
 typedef STACK (watch *) patches;
 
-// *INDENT-ON*
+// clang-format on
 
 struct kitten;
 
-struct kissat
-{
+struct kissat {
 #if !defined(NDEBUG) || defined(METRICS)
   bool backbone_computing;
 #endif
@@ -88,9 +79,6 @@ struct kissat
   bool compacting;
 #endif
   bool extended;
-#if !defined(NDEBUG) || defined(METRICS)
-  bool failed_probing;
-#endif
   bool inconsistent;
   bool iterating;
   bool probing;
@@ -111,6 +99,7 @@ struct kissat
   unsigned vars;
   unsigned size;
   unsigned active;
+  unsigned randec;
 
   ints export;
   ints units;
@@ -125,8 +114,6 @@ struct kissat
 
   value *values;
   phases phases;
-  cache cache;
-  nonces nonces;
 
   eliminated eliminated;
   unsigneds etrail;
@@ -134,12 +121,11 @@ struct kissat
   links *links;
   queue queue;
 
-  rephased rephased;
-
   heap scores;
   double scinc;
 
   heap schedule;
+  double scoreshift;
 
   unsigned level;
   frames frames;
@@ -170,8 +156,6 @@ struct kissat
   unsigneds removable;
   unsigneds shrinkable;
 
-  reap reap;
-
   clause conflict;
 
   bool clause_satisfied;
@@ -182,7 +166,6 @@ struct kissat
   unsigneds shadow;
 
   arena arena;
-  clueue clueue;
   vectors vectors;
   reference first_reducible;
   reference last_irredundant;
@@ -222,6 +205,7 @@ struct kissat
 #else
   bool gate_eliminated;
 #endif
+  unsigneds sweep;
 
 #if !defined(NDEBUG) || !defined(NPROOFS)
   unsigneds added;
@@ -271,30 +255,29 @@ struct kissat
 };
 
 #define VARS (solver->vars)
-#define LITS (2*solver->vars)
+#define LITS (2 * solver->vars)
 
-static inline unsigned
-kissat_assigned (kissat * solver)
-{
+#define SCORES (&solver->scores)
+
+static inline unsigned kissat_assigned (kissat *solver) {
   assert (VARS >= solver->unassigned);
   return VARS - solver->unassigned;
 }
 
 #define all_variables(IDX) \
-  unsigned IDX = 0, IDX ## _END = solver->vars; \
-  IDX != IDX ## _END; \
+  unsigned IDX = 0, IDX##_END = solver->vars; \
+  IDX != IDX##_END; \
   ++IDX
 
 #define all_literals(LIT) \
-  unsigned LIT = 0, LIT ## _END = LITS; \
-  LIT != LIT ## _END; \
+  unsigned LIT = 0, LIT##_END = LITS; \
+  LIT != LIT##_END; \
   ++LIT
 
 #define all_clauses(C) \
-  clause *       C         = (clause*) BEGIN_STACK (solver->arena), \
-         * const C ## _END = (clause*) END_STACK (solver->arena), \
-	 * C ## _NEXT; \
-  C != C ## _END && (C ## _NEXT = kissat_next_clause (C), true); \
-  C = C ## _NEXT
+  clause *C = (clause *) BEGIN_STACK (solver->arena), \
+         *const C##_END = (clause *) END_STACK (solver->arena), *C##_NEXT; \
+  C != C##_END && (C##_NEXT = kissat_next_clause (C), true); \
+  C = C##_NEXT
 
 #endif

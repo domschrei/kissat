@@ -1,1 +1,1 @@
-../makefile
+/home/dominik/workspace/kissat/makefile

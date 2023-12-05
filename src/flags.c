@@ -2,9 +2,7 @@
 #include "inlineheap.h"
 #include "inlinequeue.h"
 
-static inline void
-activate_literal (kissat * solver, unsigned lit)
-{
+static inline void activate_literal (kissat *solver, unsigned lit) {
   const unsigned idx = IDX (lit);
   flags *f = FLAGS (idx);
   if (f->active)
@@ -19,7 +17,6 @@ activate_literal (kissat * solver, unsigned lit)
   kissat_enqueue (solver, idx);
   const double score = 1.0 - 1.0 / solver->statistics.variables_activated;
   kissat_update_heap (solver, &solver->scores, idx, score);
-  kissat_push_heap (solver, &solver->scores, idx);
   assert (solver->unassigned < UINT_MAX);
   solver->unassigned++;
   kissat_mark_removed_literal (solver, lit);
@@ -31,9 +28,8 @@ activate_literal (kissat * solver, unsigned lit)
   assert (!BEST (idx));
 }
 
-static inline void
-deactivate_variable (kissat * solver, flags * f, unsigned idx)
-{
+static inline void deactivate_variable (kissat *solver, flags *f,
+                                        unsigned idx) {
   assert (solver->flags + idx == f);
   LOG ("deactivating %s", LOGVAR (idx));
   assert (f->active);
@@ -42,26 +38,21 @@ deactivate_variable (kissat * solver, flags * f, unsigned idx)
   assert (solver->active > 0);
   solver->active--;
   kissat_dequeue (solver, idx);
-  if (kissat_heap_contains (&solver->scores, idx))
-    kissat_pop_heap (solver, &solver->scores, idx);
+  if (kissat_heap_contains (SCORES, idx))
+    kissat_pop_heap (solver, SCORES, idx);
 }
 
-void
-kissat_activate_literal (kissat * solver, unsigned lit)
-{
+void kissat_activate_literal (kissat *solver, unsigned lit) {
   activate_literal (solver, lit);
 }
 
-void
-kissat_activate_literals (kissat * solver, unsigned size, unsigned *lits)
-{
+void kissat_activate_literals (kissat *solver, unsigned size,
+                               unsigned *lits) {
   for (unsigned i = 0; i < size; i++)
     activate_literal (solver, lits[i]);
 }
 
-void
-kissat_mark_fixed_literal (kissat * solver, unsigned lit)
-{
+void kissat_mark_fixed_literal (kissat *solver, unsigned lit) {
   assert (VALUE (lit) > 0);
   const unsigned idx = IDX (lit);
   LOG ("marking internal %s as fixed", LOGVAR (idx));
@@ -78,9 +69,7 @@ kissat_mark_fixed_literal (kissat * solver, unsigned lit)
   LOG ("pushed external unit literal %d (internal %u)", elit, lit);
 }
 
-void
-kissat_mark_eliminated_variable (kissat * solver, unsigned idx)
-{
+void kissat_mark_eliminated_variable (kissat *solver, unsigned idx) {
   const unsigned lit = LIT (idx);
   assert (!VALUE (lit));
   LOG ("marking internal %s as eliminated", LOGVAR (idx));
@@ -108,16 +97,14 @@ kissat_mark_eliminated_variable (kissat * solver, unsigned idx)
   solver->unassigned--;
 }
 
-void
-kissat_mark_removed_literals (kissat * solver, unsigned size, unsigned *lits)
-{
+void kissat_mark_removed_literals (kissat *solver, unsigned size,
+                                   unsigned *lits) {
   for (unsigned i = 0; i < size; i++)
     kissat_mark_removed_literal (solver, lits[i]);
 }
 
-void
-kissat_mark_added_literals (kissat * solver, unsigned size, unsigned *lits)
-{
+void kissat_mark_added_literals (kissat *solver, unsigned size,
+                                 unsigned *lits) {
   for (unsigned i = 0; i < size; i++)
     kissat_mark_added_literal (solver, lits[i]);
 }

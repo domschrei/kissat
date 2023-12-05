@@ -8,10 +8,10 @@
 #include "utilities.h"
 
 #include <inttypes.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
 
-// *INDENT-OFF*
+// clang-format off
 
 void
 kissat_statistics_print (kissat * solver, bool verbose)
@@ -49,12 +49,6 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PER_BACKBONE_UNIT(NAME) \
   RELATIVE (NAME, backbone_units)
 
-#define PER_BACKWARD_CHECK(NAME) \
-  RELATIVE (NAME, backward_checks)
-
-#define PER_CACHE_INSERTED(NAME) \
-  RELATIVE (NAME, cache_inserted)
-
 #define PER_CLS_ADDED(NAME) \
   RELATIVE (NAME, clauses_added)
 
@@ -87,19 +81,8 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PER_PROPAGATION(NAME) \
   RELATIVE (NAME, propagations)
 
-#define PER_REUSED_TRAIL(NAME) \
-  RELATIVE (NAME, restarts_reused_trails)
-
 #define PER_SECOND(NAME) \
   kissat_average (statistics->NAME, time)
-
-#ifndef METRICS
-#define PER_TRN_RESOLVED(NAME) \
-  -1
-#else
-#define PER_TRN_RESOLVED(NAME) \
-  RELATIVE (NAME, hyper_ternary_resolved)
-#endif
 
 #define PER_VARIABLE(NAME) \
   kissat_average (statistics->NAME, variables)
@@ -128,9 +111,6 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PCNT_ARENA_RESIZED(NAME) \
   PERCENT (NAME, arena_resized)
 
-#define PCNT_CACHE_INSERTED(NAME) \
-  PERCENT (NAME, cache_inserted)
-
 #define PCNT_CLS_ADDED(NAME) \
   PERCENT (NAME, clauses_added)
 
@@ -154,6 +134,9 @@ kissat_statistics_print (kissat * solver, bool verbose)
 
 #define PCNT_EXTRACTED(NAME) \
   PERCENT (NAME, gates_extracted)
+
+#define PCNT_KITTEN_FLIP(NAME) \
+  PERCENT (NAME, kitten_flip)
 
 #define PCNT_KITTEN_SOLVED(NAME) \
   PERCENT (NAME, kitten_solved)
@@ -205,9 +188,6 @@ kissat_statistics_print (kissat * solver, bool verbose)
   PERCENT (NAME, ticks)
 #endif
 
-#define PCNT_TRN_RESOLVED(NAME) \
-  PERCENT (NAME, hyper_ternary_resolved)
-
 #define PCNT_VARIABLES(NAME) \
   kissat_percent (statistics->NAME, variables)
 
@@ -249,7 +229,7 @@ kissat_statistics_print (kissat * solver, bool verbose)
 
 }
 
-// *INDENT-ON*
+// clang-format on
 
 #elif defined(NDEBUG)
 int kissat_statistics_dummy_to_avoid_warning;
@@ -261,99 +241,59 @@ int kissat_statistics_dummy_to_avoid_warning;
 
 #include "inlinevector.h"
 
-void
-kissat_check_statistics (kissat * solver)
-{
+void kissat_check_statistics (kissat *solver) {
   if (solver->inconsistent)
     return;
 
   size_t redundant = 0;
   size_t irredundant = 0;
-  size_t hyper_ternaries = 0;
   size_t arena_garbage = 0;
 
-  for (all_clauses (c))
-    {
-      if (c->garbage)
-	{
-	  arena_garbage += kissat_actual_bytes_of_clause (c);
-	  continue;
-	}
-      if (c->hyper)
-	hyper_ternaries++;
-      if (c->redundant)
-	redundant++;
-      else
-	irredundant++;
+  for (all_clauses (c)) {
+    if (c->garbage) {
+      arena_garbage += kissat_actual_bytes_of_clause (c);
+      continue;
     }
+    if (c->redundant)
+      redundant++;
+    else
+      irredundant++;
+  }
 
-  size_t redundant_binary_watches = 0;
-  size_t irredundant_binary_watches = 0;
-  size_t hyper_binaries = 0;
+  size_t binary = 0;
 
-  if (solver->watching)
-    {
-      for (all_literals (lit))
-	{
-	  watches *watches = &WATCHES (lit);
+  if (solver->watching) {
+    for (all_literals (lit)) {
+      watches *watches = &WATCHES (lit);
 
-	  for (all_binary_blocking_watches (watch, *watches))
-	    {
-	      if (watch.type.binary)
-		{
-		  if (watch.binary.redundant)
-		    {
-		      redundant_binary_watches++;
-		      if (watch.binary.hyper)
-			hyper_binaries++;
-		    }
-		  else
-		    irredundant_binary_watches++;
-		}
-	    }
-	}
+      for (all_binary_blocking_watches (watch, *watches)) {
+        if (watch.type.binary) {
+          binary++;
+        }
+      }
     }
-  else
-    {
-      for (all_literals (lit))
-	{
-	  watches *watches = &WATCHES (lit);
+  } else {
+    for (all_literals (lit)) {
+      watches *watches = &WATCHES (lit);
 
-	  for (all_binary_large_watches (watch, *watches))
-	    {
-	      if (watch.type.binary)
-		{
-		  if (watch.binary.redundant)
-		    {
-		      redundant_binary_watches++;
-		      if (watch.binary.hyper)
-			hyper_binaries++;
-		    }
-		  else
-		    irredundant_binary_watches++;
-		}
-	    }
-	}
+      for (all_binary_large_watches (watch, *watches)) {
+        if (watch.type.binary) {
+          binary++;
+        }
+      }
     }
+  }
 
-  assert (!(redundant_binary_watches & 1));
-  assert (!(irredundant_binary_watches & 1));
-  assert (!(hyper_binaries & 1));
-
-  redundant += redundant_binary_watches / 2;
-  irredundant += irredundant_binary_watches / 2;
-  hyper_binaries /= 2;
+  assert (!(binary & 1));
+  binary /= 2;
 
   statistics *statistics = &solver->statistics;
+  assert (statistics->clauses_binary == binary);
   assert (statistics->clauses_redundant == redundant);
   assert (statistics->clauses_irredundant == irredundant);
 #ifdef METRICS
-  assert (statistics->hyper_binaries == hyper_binaries);
-  assert (statistics->hyper_ternaries == hyper_ternaries);
   assert (statistics->arena_garbage == arena_garbage);
 #else
-  (void) hyper_binaries;
-  (void) hyper_ternaries;
   (void) arena_garbage;
 #endif
 }
