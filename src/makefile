@@ -1,1 +1,0 @@
-/home/dominik/workspace/kissat/makefile
