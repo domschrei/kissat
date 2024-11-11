@@ -1,72 +1,65 @@
-#include "../src/endianness.h"
+#include "../src/keatures.h"
 
 #include <stdbool.h>
 
 #include "test.h"
 
-struct first
-{
-  bool bit:1;
-  unsigned rest:31;
+struct head {
+  bool bit : 1;
+  unsigned rest : 31;
 };
 
-struct last
-{
-  unsigned rest:31;
-  bool bit:1;
+struct tail {
+  unsigned rest : 31;
+  bool bit : 1;
 };
 
-union type
-{
-  struct first first;
-  struct last last;
+union type {
+  struct head head;
+  struct tail tail;
   unsigned raw;
 };
 
 #define PRINT(EXPR) \
-do { \
-  const unsigned value = (unsigned)(EXPR); \
-  printf ("%s == %08x\n", #EXPR, value); \
-} while (0)
+  do { \
+    const unsigned value = (unsigned) (EXPR); \
+    printf ("%s == %08x\n", #EXPR, value); \
+  } while (0)
 
-static void
-test_endianness (void)
-{
-  assert (sizeof (struct first) == 4);
-  assert (sizeof (struct last) == 4);
+static void test_endianness (void) {
+  assert (sizeof (struct head) == 4);
+  assert (sizeof (struct tail) == 4);
   assert (sizeof (union type) == 4);
-  // *INDENT-OFF*
+  // clang-format off
   PRINT (((union type) { .raw = 1u      }).raw);
   PRINT (((union type) { .raw = (1u<<31)}).raw);
   printf ("\n");
-  PRINT (((union type) { .raw = 1u      }).first.bit);
-  PRINT (((union type) { .raw = 1u      }).first.rest);
-  PRINT (((union type) { .raw = (1u<<31)}).first.bit);
-  PRINT (((union type) { .raw = (1u<<31)}).first.rest);
+  PRINT (((union type) { .raw = 1u      }).head.bit);
+  PRINT (((union type) { .raw = 1u      }).head.rest);
+  PRINT (((union type) { .raw = (1u<<31)}).head.bit);
+  PRINT (((union type) { .raw = (1u<<31)}).head.rest);
   printf ("\n");
-  PRINT (((union type) { .raw = 1u      }).last.bit);
-  PRINT (((union type) { .raw = 1u      }).last.rest);
-  PRINT (((union type) { .raw = (1u<<31)}).last.bit);
-  PRINT (((union type) { .raw = (1u<<31)}).last.rest);
+  PRINT (((union type) { .raw = 1u      }).tail.bit);
+  PRINT (((union type) { .raw = 1u      }).tail.rest);
+  PRINT (((union type) { .raw = (1u<<31)}).tail.bit);
+  PRINT (((union type) { .raw = (1u<<31)}).tail.rest);
   printf ("\n");
 #ifdef KISSAT_IS_BIG_ENDIAN
-  if (((union type) { .raw = 1u}).last.bit)
+  if (((union type) { .raw = 1u}).tail.bit)
     printf ("big endian as expected\n");
-  else if (((union type) { .raw = 1u}).first.bit)
+  else if (((union type) { .raw = 1u}).head.bit)
     FATAL ("unexpected little endian");
 #else
-  if (((union type) { .raw = 1u}).first.bit)
+  if (((union type) { .raw = 1u}).head.bit)
     printf ("little endian as expected\n");
-  else if (((union type) { .raw = 1u}).last.bit)
+  else if (((union type) { .raw = 1u}).tail.bit)
     FATAL ("unexpected big endian");
 #endif
   else
     FATAL ("could not determine endianness");
-  // *INDENT-ON*
+  // clang-format on
 }
 
-void
-tissat_schedule_endianness (void)
-{
+void tissat_schedule_endianness (void) {
   SCHEDULE_FUNCTION (test_endianness);
 }

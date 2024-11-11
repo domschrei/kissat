@@ -5,22 +5,39 @@
 #ifndef QUIET
 
 #include "resources.h"
+#include "tiers.h"
 #include "utilities.h"
 
 #include <inttypes.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
 
-// *INDENT-OFF*
+void kissat_print_glue_usage (kissat *solver) {
+  const int64_t stable = solver->statistics.clauses_used_stable;
+  const int64_t focused = solver->statistics.clauses_used_focused;
+  if (!stable && !focused)
+    printf ("c no clauses used at all\n");
+  else {
+    if (focused)
+      kissat_print_tier_usage_statistics (solver, false);
+    if (focused && stable)
+      printf ("c\n");
+    if (stable)
+      kissat_print_tier_usage_statistics (solver, true);
+  }
+  fflush (stdout);
+}
+
+// clang-format off
 
 void
 kissat_statistics_print (kissat * solver, bool verbose)
 {
-#ifndef QUIET
   statistics *statistics = &solver->statistics;
 
   const double time = kissat_process_time ();
-  size_t variables = SIZE_STACK (solver->import);
+  size_t variables = solver->statistics.variables_original;
 #ifdef METRICS
   const double rss = kissat_maximum_resident_set_size ();
 #endif
@@ -49,20 +66,38 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PER_BACKBONE_UNIT(NAME) \
   RELATIVE (NAME, backbone_units)
 
-#define PER_BACKWARD_CHECK(NAME) \
-  RELATIVE (NAME, backward_checks)
-
-#define PER_CACHE_INSERTED(NAME) \
-  RELATIVE (NAME, cache_inserted)
+#define PER_CLOSURE(NAME) \
+  RELATIVE(NAME, closures)
 
 #define PER_CLS_ADDED(NAME) \
   RELATIVE (NAME, clauses_added)
 
+#define PER_CLS_FACTORED(NAME) \
+  RELATIVE (NAME, clauses_factored)
+
 #define PER_CLS_LEARNED(NAME) \
   RELATIVE (NAME, clauses_learned)
 
+#define PER_CLS_UNFACTORED(NAME) \
+  RELATIVE (NAME, clauses_unfactored)
+
 #define PER_CONFLICT(NAME) \
   RELATIVE (NAME, conflicts)
+
+#define PER_CONGRANDS(NAME) \
+  RELATIVE (NAME, congruent_gates_ands)
+
+#define PER_CONGRGATES(NAME) \
+  RELATIVE (NAME, congruent_gates)
+
+#define PER_CONGRITES(NAME) \
+  RELATIVE (NAME, congruent_gates_ites)
+
+#define PER_CONGRLOOKUP(NAME) \
+  RELATIVE (NAME, congruent_lookups)
+
+#define PER_CONGRXORS(NAME) \
+  RELATIVE (NAME, congruent_gates_xors)
 
 #define PER_FIXED(NAME) \
   RELATIVE (NAME, units)
@@ -87,19 +122,14 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PER_PROPAGATION(NAME) \
   RELATIVE (NAME, propagations)
 
-#define PER_REUSED_TRAIL(NAME) \
-  RELATIVE (NAME, restarts_reused_trails)
+#define PER_RESTART(NAME) \
+  RELATIVE (NAME, restarts)
 
 #define PER_SECOND(NAME) \
   kissat_average (statistics->NAME, time)
 
-#ifndef METRICS
-#define PER_TRN_RESOLVED(NAME) \
-  -1
-#else
-#define PER_TRN_RESOLVED(NAME) \
-  RELATIVE (NAME, hyper_ternary_resolved)
-#endif
+#define PER_SWEEP_VARIABLES(NAME) \
+  kissat_average (statistics->NAME, statistics->sweep_variables)
 
 #define PER_VARIABLE(NAME) \
   kissat_average (statistics->NAME, variables)
@@ -110,7 +140,7 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PER_VIVIFY_CHECK(NAME) \
   RELATIVE (NAME, vivify_checks)
 
-#ifndef STATISTICS
+#if 0 //ndef STATISTICS
 #define PER_WALKS(NAME) \
   -1
 #else
@@ -128,17 +158,59 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PCNT_ARENA_RESIZED(NAME) \
   PERCENT (NAME, arena_resized)
 
-#define PCNT_CACHE_INSERTED(NAME) \
-  PERCENT (NAME, cache_inserted)
-
 #define PCNT_CLS_ADDED(NAME) \
   PERCENT (NAME, clauses_added)
+
+#define PCNT_CLS_IMPROVED(NAME) \
+  PERCENT (NAME, clauses_improved)
+
+#define PCNT_CLS_IMPROVED(NAME) \
+  PERCENT (NAME, clauses_improved)
+
+#define PCNT_CLS_FACTORED(NAME) \
+  PERCENT (NAME, clauses_factored)
+
+#define PCNT_CLS_LEARNED(NAME) \
+  PERCENT (NAME, clauses_learned)
+
+#define PCNT_CLS_ORIGINAL(NAME) \
+  PERCENT (NAME, clauses_original)
+
+#define PCNT_CLS_REDUCED(NAME) \
+  PERCENT (NAME, clauses_reduced)
+
+#define PCNT_CLS_USED(NAME) \
+  PERCENT (NAME, clauses_used)
 
 #define PCNT_COLLECTIONS(NAME) \
   PERCENT (NAME, garbage_collections)
 
 #define PCNT_CONFLICTS(NAME) \
   PERCENT (NAME, conflicts)
+
+#define PCNT_CONGRCOLS(NAME) \
+  PERCENT (NAME, congruent_collisions)
+
+#define PCNT_CONGRGATES(NAME) \
+  PERCENT (NAME, congruent_gates)
+
+#define PCNT_CONGRLOOKUP(NAME) \
+  PERCENT (NAME, congruent_lookups)
+
+#define PCNT_CONGRMATCHED(NAME) \
+  PERCENT (NAME, congruent_matched)
+
+#define PCNT_CONGREWR(NAME) \
+  PERCENT (NAME, congruent_rewritten)
+
+#define PCNT_CONGRSIMPS(NAME) \
+  PERCENT (NAME, congruent_simplified)
+
+#define PCNT_CONGRUENT(NAME) \
+  PERCENT (NAME, congruent)
+
+#define PCNT_CONGRUNARY(NAME) \
+  PERCENT (NAME, congruent_unary)
 
 #define PCNT_DECISIONS(NAME) \
   PERCENT (NAME, decisions)
@@ -154,6 +226,12 @@ kissat_statistics_print (kissat * solver, bool verbose)
 
 #define PCNT_EXTRACTED(NAME) \
   PERCENT (NAME, gates_extracted)
+
+#define PCNT_IRREDUNDANT(NAME) \
+  PERCENT (NAME, clauses_irredundant)
+
+#define PCNT_KITTEN_FLIP(NAME) \
+  PERCENT (NAME, kitten_flip)
 
 #define PCNT_KITTEN_SOLVED(NAME) \
   PERCENT (NAME, kitten_solved)
@@ -173,6 +251,9 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PCNT_REDUNDANT_CLAUSES(NAME) \
   PERCENT (NAME, clauses_redundant)
 
+#define PCNT_REORDERED(NAME) \
+  PERCENT (NAME, reordered)
+
 #define PCNT_REPHASED(NAME) \
   PERCENT (NAME, rephased)
 
@@ -182,17 +263,32 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PCNT_RESTARTS(NAME) \
   PERCENT (NAME, restarts)
 
+#define PCNT_RESTARTS_LEVELS(NAME) \
+  PERCENT (NAME, restarts_levels)
+
 #define PCNT_SEARCHES(NAME) \
   PERCENT (NAME, searches)
 
-#define PCNT_STR(NAME) \
+#define PCNT_STRENGTHENED(NAME) \
   PERCENT (NAME, strengthened)
 
-#define PCNT_SUB(NAME) \
+#define PCNT_SUBSUMED(NAME) \
   PERCENT (NAME, subsumed)
 
 #define PCNT_SUBSUMPTION_CHECK(NAME) \
   PERCENT (NAME, subsumption_checks)
+
+#define PCNT_SWEEP_FLIP_BACKBONE(NAME) \
+  PERCENT (NAME, sweep_flip_backbone)
+
+#define PCNT_SWEEP_FLIP_EQUIVALENCES(NAME) \
+  PERCENT (NAME, sweep_flip_equivalences)
+
+#define PCNT_SWEEP_SOLVED_BACKBONE(NAME) \
+  PERCENT (NAME, sweep_solved_backbone)
+
+#define PCNT_SWEEP_SOLVED_EQUIVALENCES(NAME) \
+  PERCENT (NAME, sweep_solved_equivalences)
 
 #define PCNT_SWEEP_SOLVED(NAME) \
   PERCENT (NAME, sweep_solved)
@@ -205,14 +301,17 @@ kissat_statistics_print (kissat * solver, bool verbose)
   PERCENT (NAME, ticks)
 #endif
 
-#define PCNT_TRN_RESOLVED(NAME) \
-  PERCENT (NAME, hyper_ternary_resolved)
-
 #define PCNT_VARIABLES(NAME) \
   kissat_percent (statistics->NAME, variables)
 
 #define PCNT_VIVIFIED(NAME) \
   PERCENT (NAME, vivified)
+
+#define PCNT_VIVIFY_IMP(NAME) \
+  PERCENT (NAME, vivified_implied)
+
+#define PCNT_VIVIFY_INST(NAME) \
+  PERCENT (NAME, vivified_instantiated)
 
 #define PCNT_VIVIFY_CHECK(NAME) \
   PERCENT (NAME, vivify_checks)
@@ -220,11 +319,11 @@ kissat_statistics_print (kissat * solver, bool verbose)
 #define PCNT_VIVIFY_PROBES(NAME) \
   PERCENT (NAME, vivify_probes)
 
-#define PCNT_VIVIFY_STR(NAME) \
-  PERCENT (NAME, vivify_strengthened)
+#define PCNT_VIVIFY_SHRUNKEN(NAME) \
+  PERCENT (NAME, vivified_shrunken)
 
 #define PCNT_VIVIFY_SUB(NAME) \
-  PERCENT (NAME, vivify_subsumed)
+  PERCENT (NAME, vivified_subsumed)
 
 #define PCNT_WALKS(NAME) \
   PERCENT (NAME, walks)
@@ -234,22 +333,16 @@ kissat_statistics_print (kissat * solver, bool verbose)
     PRINT_STAT (#NAME, statistics->NAME, OTHER(NAME), UNITS, TYPE);
 #define IGNORE(...)
 
-    METRICS_COUNTERS_AND_STATISTICS
+  METRICS_COUNTERS_AND_STATISTICS
 
 #undef COUNTER
 #undef METRIC
 #undef STATISTIC
 
-    fflush (stdout);
-
-#else
-  (void) verbose;
-  (void) statistics;
-#endif
-
+  fflush (stdout);
 }
 
-// *INDENT-ON*
+// clang-format on
 
 #elif defined(NDEBUG)
 int kissat_statistics_dummy_to_avoid_warning;
@@ -261,99 +354,59 @@ int kissat_statistics_dummy_to_avoid_warning;
 
 #include "inlinevector.h"
 
-void
-kissat_check_statistics (kissat * solver)
-{
+void kissat_check_statistics (kissat *solver) {
   if (solver->inconsistent)
     return;
 
   size_t redundant = 0;
   size_t irredundant = 0;
-  size_t hyper_ternaries = 0;
   size_t arena_garbage = 0;
 
-  for (all_clauses (c))
-    {
-      if (c->garbage)
-	{
-	  arena_garbage += kissat_actual_bytes_of_clause (c);
-	  continue;
-	}
-      if (c->hyper)
-	hyper_ternaries++;
-      if (c->redundant)
-	redundant++;
-      else
-	irredundant++;
+  for (all_clauses (c)) {
+    if (c->garbage) {
+      arena_garbage += kissat_actual_bytes_of_clause (c);
+      continue;
     }
+    if (c->redundant)
+      redundant++;
+    else
+      irredundant++;
+  }
 
-  size_t redundant_binary_watches = 0;
-  size_t irredundant_binary_watches = 0;
-  size_t hyper_binaries = 0;
+  size_t binary = 0;
 
-  if (solver->watching)
-    {
-      for (all_literals (lit))
-	{
-	  watches *watches = &WATCHES (lit);
+  if (solver->watching) {
+    for (all_literals (lit)) {
+      watches *watches = &WATCHES (lit);
 
-	  for (all_binary_blocking_watches (watch, *watches))
-	    {
-	      if (watch.type.binary)
-		{
-		  if (watch.binary.redundant)
-		    {
-		      redundant_binary_watches++;
-		      if (watch.binary.hyper)
-			hyper_binaries++;
-		    }
-		  else
-		    irredundant_binary_watches++;
-		}
-	    }
-	}
+      for (all_binary_blocking_watches (watch, *watches)) {
+        if (watch.type.binary) {
+          binary++;
+        }
+      }
     }
-  else
-    {
-      for (all_literals (lit))
-	{
-	  watches *watches = &WATCHES (lit);
+  } else {
+    for (all_literals (lit)) {
+      watches *watches = &WATCHES (lit);
 
-	  for (all_binary_large_watches (watch, *watches))
-	    {
-	      if (watch.type.binary)
-		{
-		  if (watch.binary.redundant)
-		    {
-		      redundant_binary_watches++;
-		      if (watch.binary.hyper)
-			hyper_binaries++;
-		    }
-		  else
-		    irredundant_binary_watches++;
-		}
-	    }
-	}
+      for (all_binary_large_watches (watch, *watches)) {
+        if (watch.type.binary) {
+          binary++;
+        }
+      }
     }
+  }
 
-  assert (!(redundant_binary_watches & 1));
-  assert (!(irredundant_binary_watches & 1));
-  assert (!(hyper_binaries & 1));
-
-  redundant += redundant_binary_watches / 2;
-  irredundant += irredundant_binary_watches / 2;
-  hyper_binaries /= 2;
+  assert (!(binary & 1));
+  binary /= 2;
 
   statistics *statistics = &solver->statistics;
+  assert (statistics->clauses_binary == binary);
   assert (statistics->clauses_redundant == redundant);
   assert (statistics->clauses_irredundant == irredundant);
 #ifdef METRICS
-  assert (statistics->hyper_binaries == hyper_binaries);
-  assert (statistics->hyper_ternaries == hyper_ternaries);
   assert (statistics->arena_garbage == arena_garbage);
 #else
-  (void) hyper_binaries;
-  (void) hyper_ternaries;
   (void) arena_garbage;
 #endif
 }

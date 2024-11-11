@@ -5,31 +5,29 @@
 #include "test.h"
 #include "testcnfs.h"
 
-#ifdef _POSIX_C_SOURCE
+#ifdef KISSAT_COMPRESSED
 
 #define MAX_COMPRESSED 10
 
 static const char *compressions[MAX_COMPRESSED];
 static unsigned size_compressions;
 
-#define NEW_COMPRESSION(NAME,SUFFIX) \
-do { \
-  if (!tissat_found_ ## NAME) \
-    break; \
-  assert (size_compressions < MAX_COMPRESSED); \
-  compressions[size_compressions++] = SUFFIX; \
-} while (0)
+#define NEW_COMPRESSION(NAME, SUFFIX) \
+  do { \
+    if (!tissat_found_##NAME) \
+      break; \
+    assert (size_compressions < MAX_COMPRESSED); \
+    compressions[size_compressions++] = SUFFIX; \
+  } while (0)
 
-static void
-init_compression (void)
-{
-  // *INDENT-OFF*
+static void init_compression (void) {
+  // clang-format off
   NEW_COMPRESSION (bzip2, ".bz2");
   NEW_COMPRESSION (gzip, ".gz");
-  // NEW_COMPRESSION (lzma, ".lzma");
+  NEW_COMPRESSION (lzma, ".lzma");
   NEW_COMPRESSION (7z, ".7z");
   NEW_COMPRESSION (xz, ".xz");
-  // *INDENT-ON*
+  // clang-format on
 }
 
 static unsigned compressed;
@@ -38,56 +36,53 @@ static unsigned compressed;
 
 static unsigned scheduled;
 
-static void
-schedule_prove_job_with_option (int expected,
-				const char *opt,
-				const char *cnf, const char *name)
-{
+static void schedule_prove_job_with_option (int expected, const char *opt,
+                                            const char *cnf,
+                                            const char *name) {
   char cmd[256];
-  if (!kissat_file_readable (cnf))
-    {
-      tissat_warning ("Skipping unreadable '%s'", cnf);
-      return;
-    }
+  if (!kissat_file_readable (cnf)) {
+    tissat_warning ("Skipping unreadable '%s'", cnf);
+    return;
+  }
 
-  bool drat_trim;
-  bool drabt;
+  bool drat_trim = false;
+  bool dpr_trim = false;
+  bool drabt = false;
 
-  if (!strcmp (name, "false"))
-    {
-      drabt = tissat_found_drabt;
-      drat_trim = false;
+  if (!strcmp (name, "false")) {
+    drabt = tissat_found_drabt;
+  } else if (tissat_big) {
+    drabt = tissat_found_drabt;
+    drat_trim = tissat_found_drat_trim;
+    dpr_trim = tissat_found_dpr_trim;
+  } else {
+    int drabt_pos = -1;
+    int drat_trim_pos = -1;
+    int dpr_trim_pos = -1;
+    int pos = 0;
+    if (tissat_found_drabt)
+      drabt_pos = pos++;
+    if (tissat_found_drat_trim)
+      drat_trim_pos = pos++;
+    if (tissat_found_dpr_trim)
+      dpr_trim_pos = pos++;
+    if (pos) {
+      pos = scheduled % pos;
+      drabt = (pos == drabt_pos);
+      drat_trim = (pos == drat_trim_pos);
+      dpr_trim = (pos == dpr_trim_pos);
     }
-  else if (tissat_big)
-    {
-      drabt = tissat_found_drabt;
-      drat_trim = tissat_found_drat_trim;
-    }
-  else if (tissat_found_drabt && !tissat_found_drat_trim)
-    {
-      drabt = true;
-      drat_trim = false;
-    }
-  else if (!tissat_found_drabt && tissat_found_drat_trim)
-    {
-      drabt = false;
-      drat_trim = true;
-    }
-  else
-    {
-      assert (tissat_found_drabt);
-      assert (tissat_found_drat_trim);
-      drabt = scheduled & 1;
-      drat_trim = !drabt;
-    }
+  }
 
   const char *suffix = "";
 
-#ifdef _POSIX_C_SOURCE
+#ifdef KISSAT_COMPRESSED
   bool compress;
   if (!size_compressions)
     compress = false;
   else if (drat_trim)
+    compress = false;
+  else if (dpr_trim)
     compress = false;
   else if (drabt)
     compress = (scheduled & 2);
@@ -105,51 +100,61 @@ schedule_prove_job_with_option (int expected,
   tissat_job *job = tissat_schedule_application (expected, cmd);
   scheduled++;
 
-  if (drabt)
-    {
-      if (expected == 10)
-	sprintf (cmd, "drabt -S %s %s", cnf, proof);
-      else
-	sprintf (cmd, "drabt %s %s", cnf, proof);
-      assert (strlen (cmd) < sizeof cmd);
+  if (drabt) {
+    if (expected == 10)
+      sprintf (cmd, "drabt -S %s %s", cnf, proof);
+    else
+      sprintf (cmd, "drabt %s %s", cnf, proof);
+    assert (strlen (cmd) < sizeof cmd);
 
+    tissat_schedule_command (0, cmd, job);
+  }
+
+  if (drat_trim) {
+    if (expected == 10) {
+#if 0
+	  sprintf (cmd, "drat-trim %s %s -S", cnf, proof);
+	  assert (strlen (cmd) < sizeof cmd);
+	  tissat_schedule_command (0, cmd, job);
+#endif
+    } else {
+      sprintf (cmd, "drat-trim %s %s", cnf, proof);
+      assert (strlen (cmd) < sizeof cmd);
       tissat_schedule_command (0, cmd, job);
     }
+  }
 
-  if (drat_trim)
-    {
-      if (expected == 10)
-	sprintf (cmd, "drat-trim %s %s -S", cnf, proof);
-      else
-	sprintf (cmd, "drat-trim %s %s", cnf, proof);
+  if (dpr_trim) {
+    if (expected == 10) {
+#if 0
+	  sprintf (cmd, "dpr-trim %s %s -S", cnf, proof);
+	  assert (strlen (cmd) < sizeof cmd);
+	  tissat_schedule_command (0, cmd, job);
+#endif
+    } else {
+      sprintf (cmd, "dpr-trim %s %s", cnf, proof);
       assert (strlen (cmd) < sizeof cmd);
-
       tissat_schedule_command (0, cmd, job);
     }
+  }
 }
 
-static void
-schedule_prove_job (int expected, const char *cnf, const char *name)
-{
-  if (tissat_big)
-    {
-      for (all_tissat_options (opt))
-	schedule_prove_job_with_option (expected, opt, cnf, name);
-    }
-  else
-    {
-      const char *opt = tissat_next_option (scheduled);
+static void schedule_prove_job (int expected, const char *cnf,
+                                const char *name) {
+  if (tissat_big) {
+    for (all_tissat_options (opt))
       schedule_prove_job_with_option (expected, opt, cnf, name);
-    }
+  } else {
+    const char *opt = tissat_next_option (scheduled);
+    schedule_prove_job_with_option (expected, opt, cnf, name);
+  }
 }
 
-void
-tissat_schedule_prove (void)
-{
-#ifdef _POSIX_C_SOURCE
+void tissat_schedule_prove (void) {
+#ifdef KISSAT_COMPRESSED
   init_compression ();
 #endif
-#define CNF(EXPECTED,NAME,BIG) \
+#define CNF(EXPECTED, NAME, BIG) \
   if (!BIG || tissat_big) \
     schedule_prove_job (EXPECTED, "../test/cnf/" #NAME ".cnf", #NAME);
   CNFS

@@ -5,59 +5,53 @@
 #include "array.h"
 #include "assign.h"
 #include "averages.h"
-#include "cache.h"
 #include "check.h"
+#include "classify.h"
 #include "clause.h"
-#include "clueue.h"
 #include "cover.h"
 #include "extend.h"
-#include "smooth.h"
 #include "flags.h"
 #include "format.h"
 #include "frames.h"
 #include "heap.h"
+#include "kimits.h"
 #include "kissat.h"
-#include "limits.h"
 #include "literal.h"
 #include "mode.h"
-#include "nonces.h"
 #include "options.h"
 #include "phases.h"
 #include "profile.h"
 #include "proof.h"
 #include "queue.h"
 #include "random.h"
-#include "reap.h"
 #include "reluctant.h"
 #include "rephase.h"
+#include "smooth.h"
 #include "stack.h"
 #include "statistics.h"
-#include "literal.h"
 #include "value.h"
 #include "vector.h"
 #include "watch.h"
 
 typedef struct datarank datarank;
 
-struct datarank
-{
+struct datarank {
   unsigned data;
   unsigned rank;
 };
 
 typedef struct import import;
 
-struct import
-{
-  unsigned lit:30;
-  bool imported:1;
-  bool eliminated:1;
+struct import {
+  unsigned lit;
+  bool extension;
+  bool imported;
+  bool eliminated;
 };
 
 typedef struct termination termination;
 
-struct termination
-{
+struct termination {
 #ifdef COVERAGE
   volatile uint64_t flagged;
 #else
@@ -67,7 +61,7 @@ struct termination
   int (*volatile terminate) (void *);
 };
 
-// *INDENT-OFF*
+// clang-format off
 
 typedef STACK (value) eliminated;
 typedef STACK (import) imports;
@@ -75,12 +69,11 @@ typedef STACK (datarank) dataranks;
 typedef STACK (watch) statches;
 typedef STACK (watch *) patches;
 
-// *INDENT-ON*
+// clang-format on
 
 struct kitten;
 
-struct kissat
-{
+struct kissat {
 #if !defined(NDEBUG) || defined(METRICS)
   bool backbone_computing;
 #endif
@@ -88,11 +81,9 @@ struct kissat
   bool compacting;
 #endif
   bool extended;
-#if !defined(NDEBUG) || defined(METRICS)
-  bool failed_probing;
-#endif
   bool inconsistent;
   bool iterating;
+  bool preprocessing;
   bool probing;
 #ifndef QUIET
   bool sectioned;
@@ -102,6 +93,7 @@ struct kissat
   bool transitive_reducing;
   bool vivifying;
 #endif
+  bool warming;
   bool watching;
 
   bool large_clauses_watched_after_binary_clauses;
@@ -111,6 +103,7 @@ struct kissat
   unsigned vars;
   unsigned size;
   unsigned active;
+  unsigned randec;
 
   ints export;
   ints units;
@@ -125,8 +118,6 @@ struct kissat
 
   value *values;
   phases phases;
-  cache cache;
-  nonces nonces;
 
   eliminated eliminated;
   unsigneds etrail;
@@ -134,12 +125,11 @@ struct kissat
   links *links;
   queue queue;
 
-  rephased rephased;
-
   heap scores;
   double scinc;
 
   heap schedule;
+  double scoreshift;
 
   unsigned level;
   frames frames;
@@ -170,8 +160,6 @@ struct kissat
   unsigneds removable;
   unsigneds shrinkable;
 
-  reap reap;
-
   clause conflict;
 
   bool clause_satisfied;
@@ -182,28 +170,29 @@ struct kissat
   unsigneds shadow;
 
   arena arena;
-  clueue clueue;
   vectors vectors;
   reference first_reducible;
   reference last_irredundant;
   watches *watches;
 
+  reference last_learned[4];
+
   sizes sorter;
 
   generator random;
   averages averages[2];
+  unsigned tier1[2], tier2[2];
   reluctant reluctant;
 
   bounds bounds;
+  classification classification;
   delays delays;
   enabled enabled;
-  effort last;
   limited limited;
   limits limits;
-  waiting waiting;
+  remember last;
   unsigned walked;
 
-  statistics statistics;
   mode mode;
 
   uint64_t ticks;
@@ -222,6 +211,8 @@ struct kissat
 #else
   bool gate_eliminated;
 #endif
+  bool sweep_incomplete;
+  unsigneds sweep_schedule;
 
 #if !defined(NDEBUG) || !defined(NPROOFS)
   unsigneds added;
@@ -268,33 +259,56 @@ struct kissat
   unsigned long num_imported_external_clauses;
   unsigned long num_discarded_external_clauses;
   unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;
+
+  statistics statistics;
 };
 
 #define VARS (solver->vars)
-#define LITS (2*solver->vars)
+#define LITS (2 * solver->vars)
 
-static inline unsigned
-kissat_assigned (kissat * solver)
-{
+#if 0
+#define TIEDX (GET_OPTION (focusedtiers) ? 0 : solver->stable)
+#define TIER1 (solver->tier1[TIEDX])
+#define TIER2 (solver->tier2[TIEDX])
+#else
+#define TIER1 (solver->tier1[0])
+#define TIER2 (solver->tier2[1])
+#endif
+
+#define SCORES (&solver->scores)
+
+static inline unsigned kissat_assigned (kissat *solver) {
   assert (VARS >= solver->unassigned);
   return VARS - solver->unassigned;
 }
 
 #define all_variables(IDX) \
-  unsigned IDX = 0, IDX ## _END = solver->vars; \
-  IDX != IDX ## _END; \
+  unsigned IDX = 0, IDX##_END = solver->vars; \
+  IDX != IDX##_END; \
   ++IDX
 
 #define all_literals(LIT) \
-  unsigned LIT = 0, LIT ## _END = LITS; \
-  LIT != LIT ## _END; \
+  unsigned LIT = 0, LIT##_END = LITS; \
+  LIT != LIT##_END; \
   ++LIT
 
 #define all_clauses(C) \
-  clause *       C         = (clause*) BEGIN_STACK (solver->arena), \
-         * const C ## _END = (clause*) END_STACK (solver->arena), \
-	 * C ## _NEXT; \
-  C != C ## _END && (C ## _NEXT = kissat_next_clause (C), true); \
-  C = C ## _NEXT
+  clause *C = (clause *) BEGIN_STACK (solver->arena), \
+         *const C##_END = (clause *) END_STACK (solver->arena), *C##_NEXT; \
+  C != C##_END && (C##_NEXT = kissat_next_clause (C), true); \
+  C = C##_NEXT
+
+#define capacity_last_learned \
+  (sizeof solver->last_learned / sizeof *solver->last_learned)
+
+#define real_end_last_learned (solver->last_learned + capacity_last_learned)
+
+#define really_all_last_learned(REF_PTR) \
+  reference *REF_PTR = solver->last_learned, \
+            *REF_PTR##_END = real_end_last_learned; \
+  REF_PTR != REF_PTR##_END; \
+  REF_PTR++
+
+void kissat_reset_last_learned (kissat *solver);
 
 #endif
