@@ -16,6 +16,7 @@
 #include "terminate.h"
 #include "vector.h"
 #include "watch.h"
+#include "clauseexport.h"
 
 #include <string.h>
 
@@ -710,6 +711,10 @@ static void add_factored_divider (factoring *factoring, quotient *q,
   kissat *const solver = factoring->solver;
   LOGBINARY (fresh, factor, "factored %s divider", LOGLIT (factor));
   kissat_new_binary_clause (solver, fresh, factor);
+  if (solver->options.factorexport) {
+    unsigned lits[2] = {fresh, factor};
+    kissat_export_redundant_clause (solver, 1, 2, lits);
+  }
   INC (clauses_factored);
   ADD (literals_factored, 2);
 }
@@ -723,6 +728,10 @@ static void add_factored_quotient (factoring *factoring, quotient *q,
       const unsigned other = watch.binary.lit;
       LOGBINARY (not_fresh, other, "factored quotient");
       kissat_new_binary_clause (solver, not_fresh, other);
+      if (solver->options.factorexport) {
+        unsigned lits[2] = {not_fresh, other};
+        kissat_export_redundant_clause (solver, 1, 2, lits);
+      }
       ADD (literals_factored, 2);
     } else {
       const reference c_ref = watch.large.ref;
@@ -746,6 +755,9 @@ static void add_factored_quotient (factoring *factoring, quotient *q,
       assert (found);
       ADD (literals_factored, c->size);
       kissat_new_irredundant_clause (solver);
+      if (solver->options.factorexport) {
+        kissat_export_redundant_clause (solver, 1, SIZE_STACK(*clause), clause->begin);
+      }
       CLEAR_STACK (*clause);
     }
     INC (clauses_factored);

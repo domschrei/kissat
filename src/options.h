@@ -54,6 +54,7 @@
   OPTION (factor, 1, 0, 1, "bounded variable addition") \
   OPTION (factorcandrounds, 2, 0, INT_MAX, "candidates reduction rounds") \
   OPTION (factoreffort, 50, 0, 1e6, "bounded variable effort in per mille") \
+  OPTION (factorexport, 0, 0, 1, "export new variable definitions as redundant clauses") \
   OPTION (factorhops, 3, 1, 10, "structural factoring heuristic hops") \
   OPTION (factoriniticks, 700, 1, 1000000, "initial ticks ticks in millions") \
   OPTION (factorsize, 5, 2, INT_MAX, "bounded variable addition clause size") \
