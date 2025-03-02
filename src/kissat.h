@@ -39,6 +39,8 @@ void kissat_set_decision_limit (kissat *solver, unsigned);
 
 void kissat_print_statistics (kissat *solver);
 
+void kissat_write_profile (kissat *solver, const char *path);
+
 
 
 // *** API for Mallob ***

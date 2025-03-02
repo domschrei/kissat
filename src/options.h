@@ -97,7 +97,7 @@
   OPTION (probeinit, 100, 0, INT_MAX, "initial probing interval") \
   OPTION (probeint, 100, 2, INT_MAX, "probing interval") \
   OPTION (proberounds, 2, 1, INT_MAX, "probing rounds") \
-  NQTOPT (profile, 2, 0, 4, "profile level") \
+  OPTION (profile, 2, 0, 4, "profile level") \
   OPTION (promote, 1, 0, 1, "promote clauses") \
   NQTOPT (quiet, 0, 0, 1, "disable all messages") \
   OPTION (randec, 1, 0, 1, "random decisions") \

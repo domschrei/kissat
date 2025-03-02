@@ -76,6 +76,7 @@ struct profiles {
   PROFS
 #undef PROF
   STACK (profile *) stack;
+  pthread_mutex_t mtx;
 };
 
 struct kissat;
