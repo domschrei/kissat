@@ -1,6 +1,8 @@
 #ifndef _kissat_h_INCLUDED
 #define _kissat_h_INCLUDED
 
+#include <stdbool.h>
+
 typedef struct kissat kissat;
 
 // Default (partial) IPASIR interface.
