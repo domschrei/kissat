@@ -1,6 +1,7 @@
 #include "krite.h"
 #include "inline.h"
 #include "internal.h"
+#include "statistics.h"
 #include "watch.h"
 
 #include <inttypes.h>
@@ -41,5 +42,48 @@ void kissat_write_dimacs (kissat *solver, FILE *file) {
         fprintf (file, "%d ", elit);
       }
       fputs ("0\n", file);
+    }
+}
+
+void kissat_report_dimacs (kissat * solver) {
+  size_t imported = SIZE_STACK (solver->import);
+  if (imported)
+    imported--;
+  solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES);
+  assert (solver->watching);
+  if (solver->watching) {
+    for (all_literals (ilit))
+      for (all_binary_blocking_watches (watch, WATCHES (ilit)))
+        if (watch.type.binary) {
+          const unsigned iother = watch.binary.lit;
+          if (iother < ilit)
+            continue;
+          const int elit = kissat_export_literal (solver, ilit);
+          const int eother = kissat_export_literal (solver, iother);
+          solver->report_preprocessed_lit (solver->report_preprocess_state, elit);
+          solver->report_preprocessed_lit (solver->report_preprocess_state, eother);
+          solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
+        }
+  } else {
+    for (all_literals (ilit))
+      for (all_binary_large_watches (watch, WATCHES (ilit)))
+        if (watch.type.binary) {
+          const unsigned iother = watch.binary.lit;
+          if (iother < ilit)
+            continue;
+          const int elit = kissat_export_literal (solver, ilit);
+          const int eother = kissat_export_literal (solver, iother);
+          solver->report_preprocessed_lit (solver->report_preprocess_state, elit);
+          solver->report_preprocessed_lit (solver->report_preprocess_state, eother);
+          solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
+        }
+  }
+  for (all_clauses (c))
+    if (!c->garbage && !c->redundant) {
+      for (all_literals_in_clause (ilit, c)) {
+        const int elit = kissat_export_literal (solver, ilit);
+          solver->report_preprocessed_lit (solver->report_preprocess_state, elit);
+      }
+      solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
     }
 }

@@ -5,5 +5,6 @@
 
 struct kissat;
 void kissat_write_dimacs (struct kissat *, FILE *);
+void kissat_report_dimacs (struct kissat *);
 
 #endif

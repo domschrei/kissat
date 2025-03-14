@@ -64,6 +64,10 @@ kissat *kissat_init (void) {
   solver->num_imported_external_clauses = 0;
   solver->num_discarded_external_clauses = 0;
 
+  solver->report_preprocess_state = 0;
+  solver->begin_report = 0;
+  solver->report_preprocessed_lit = 0;
+
   solver->r_ee = 0;
   solver->r_ed = 0;
   solver->r_pb = 0;
@@ -551,6 +555,15 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
 {
   solver->produce_clause_state = state;
   solver->produce_clause = produce;
+}
+
+void kissat_set_preprocessing_report_callback (kissat * solver, void *state,
+  void (*begin_report) (void *state, int vars, int cls),
+  void (*report_lit) (void *state, int lit))
+{
+  solver->report_preprocess_state = state;
+  solver->begin_report = begin_report;
+  solver->report_preprocessed_lit = report_lit;
 }
 
 struct kissat_statistics kissat_get_statistics (kissat * solver) 

@@ -6,6 +6,7 @@
 #include "eliminate.h"
 #include "inline.h"
 #include "internal.h"
+#include "krite.h"
 #include "logging.h"
 #include "lucky.h"
 #include "preprocess.h"
@@ -190,6 +191,8 @@ int kissat_search (kissat *solver) {
     res = kissat_lucky (solver);
   if (!res)
     kissat_classify (solver);
+  if (solver->report_preprocess_state)
+    kissat_report_dimacs (solver);
   if (!res && searching (solver)) {
     start_search (solver);
     while (!res) {

@@ -260,6 +260,11 @@ struct kissat {
   unsigned long num_discarded_external_clauses;
   unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;
 
+  // Preprocessing reporting
+  void *report_preprocess_state;
+  void (*begin_report) (void *state, int vars, int cls);
+  void (*report_preprocessed_lit) (void *state, int lit);
+
   statistics statistics;
 };
 
