@@ -558,7 +558,7 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
 }
 
 void kissat_set_preprocessing_report_callback (kissat * solver, void *state,
-  void (*begin_report) (void *state, int vars, int cls),
+  bool (*begin_report) (void *state, int vars, int cls),
   void (*report_lit) (void *state, int lit))
 {
   solver->report_preprocess_state = state;

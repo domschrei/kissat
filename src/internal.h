@@ -262,7 +262,7 @@ struct kissat {
 
   // Preprocessing reporting
   void *report_preprocess_state;
-  void (*begin_report) (void *state, int vars, int cls);
+  bool (*begin_report) (void *state, int vars, int cls);
   void (*report_preprocessed_lit) (void *state, int lit);
 
   statistics statistics;

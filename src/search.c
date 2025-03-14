@@ -191,7 +191,7 @@ int kissat_search (kissat *solver) {
     res = kissat_lucky (solver);
   if (!res)
     kissat_classify (solver);
-  if (solver->report_preprocess_state)
+  if (!res && solver->report_preprocess_state)
     kissat_report_dimacs (solver);
   if (!res && searching (solver)) {
     start_search (solver);

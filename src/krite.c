@@ -49,7 +49,8 @@ void kissat_report_dimacs (kissat * solver) {
   size_t imported = SIZE_STACK (solver->import);
   if (imported)
     imported--;
-  solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES);
+  bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES);
+  if (!do_report) return;
   assert (solver->watching);
   if (solver->watching) {
     for (all_literals (ilit))
