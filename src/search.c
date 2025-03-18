@@ -193,7 +193,7 @@ int kissat_search (kissat *solver) {
     kissat_classify (solver);
   if (!res && solver->report_preprocess_state)
     kissat_report_dimacs (solver);
-  if (!res && searching (solver)) {
+  if (!res && !solver->termination.flagged && searching (solver)) {
     start_search (solver);
     while (!res) {
       clause *conflict = kissat_search_propagate (solver);
