@@ -517,6 +517,24 @@ void kissat_set_terminate (kissat *solver, void *state,
   solver->termination.terminate = terminate;
 }
 
+void kissat_import_model (kissat * solver, const int *literals, int size) {
+  kissat_require_initialized (solver);
+  for (int i = 0; i < size; i++) {
+    int elit = literals[i];
+    if (elit == 0) continue;
+    const unsigned eidx = ABS (elit);
+    if (eidx >= SIZE_STACK (solver->import))
+      abort ();
+    const import *const import = &PEEK_STACK (solver->import, eidx);
+    if (!import->imported)
+      abort ();
+    if (import->eliminated) continue;
+    const unsigned ilit = import->lit;
+    const value value = elit < 0 ? -1 : 1;
+    solver->values[ilit] = value;
+  }
+}
+
 int kissat_value (kissat *solver, int elit) {
   kissat_require_initialized (solver);
   kissat_require_valid_external_internal (elit);
