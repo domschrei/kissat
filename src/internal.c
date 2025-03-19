@@ -523,11 +523,9 @@ void kissat_import_model (kissat * solver, const int *literals, int size) {
     int elit = literals[i];
     if (elit == 0) continue;
     const unsigned eidx = ABS (elit);
-    if (eidx >= SIZE_STACK (solver->import))
-      abort ();
+    if (eidx >= SIZE_STACK (solver->import)) continue;
     const import *const import = &PEEK_STACK (solver->import, eidx);
-    if (!import->imported)
-      abort ();
+    if (!import->imported) continue;
     if (import->eliminated) continue;
     const unsigned ilit = import->lit;
     const value value = elit < 0 ? -1 : 1;
