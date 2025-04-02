@@ -3,6 +3,8 @@
 #include "internal.h"
 #include "statistics.h"
 #include "watch.h"
+#include "error.h"
+#include "require.h"
 
 #include <inttypes.h>
 
@@ -45,11 +47,36 @@ void kissat_write_dimacs (kissat *solver, FILE *file) {
     }
 }
 
+unsigned gather_units (kissat * solver, bool report) {
+  size_t imported = SIZE_STACK (solver->import);
+  if (imported) imported--;
+  unsigned num_units = 0;
+  for (int elit = 1; elit <= imported; elit++) {
+    kissat_require_valid_external_internal (elit);
+    const unsigned eidx = ABS (elit);
+    if (eidx >= SIZE_STACK (solver->import)) continue;
+    const import *const import = &PEEK_STACK (solver->import, eidx);
+    if (!import->imported) continue;
+    value tmp = 0;
+    if (!import->eliminated) {
+      const unsigned ilit = import->lit;
+      tmp = VALUE (ilit);
+    }
+    if (!tmp) continue;
+    num_units += 1;
+    if (!report) continue;
+    if (elit < 0) tmp = -tmp;
+    solver->report_preprocessed_lit (solver->report_preprocess_state, tmp < 0 ? -elit : elit);
+    solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
+  }
+  return num_units;
+}
+
 void kissat_report_dimacs (kissat * solver) {
   size_t imported = SIZE_STACK (solver->import);
-  if (imported)
-    imported--;
-  bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES);
+  if (imported) imported--;
+  unsigned num_units = gather_units(solver, false);
+  bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) return;
   assert (solver->watching);
   if (solver->watching) {
@@ -87,4 +114,8 @@ void kissat_report_dimacs (kissat * solver) {
       }
       solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
     }
+  if (num_units == 0) return;
+  unsigned now_num_units = gather_units(solver, true);
+  assert(now_num_units == num_units);
 }
+
