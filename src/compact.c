@@ -373,4 +373,6 @@ void kissat_finalize_compacting (kissat *solver, unsigned vars,
   solver->compacting = false;
 #endif
   kissat_decrease_size (solver);
+  // invalidate cube by forcing re-import
+  if (!EMPTY_STACK(solver->cubevars)) solver->importextcube = true;
 }

@@ -144,6 +144,9 @@ void kissat_backtrack_without_updating_phases (kissat *solver,
        (size_t) (new_end - trail));
   solver->propagate = new_end;
 
+  // re-enable variable decisions based on external cube
+  solver->cubeassigned = false;
+
   assert (!solver->extended);
 }
 

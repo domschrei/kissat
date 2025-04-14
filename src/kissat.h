@@ -75,6 +75,14 @@ void kissat_set_preprocessing_report_callback (kissat * solver, void *state,
 
 void kissat_import_model (kissat * solver, const int *literals, int size);
 
-// TODO get branching literal: use kissat_next_decision_variable in decide.h ?
+// Force the solver to prioritize the provided literals when making decisions.
+// Can be called asynchronously during search. Call with size == 0 to reset.
+void kissat_force_cube (kissat * solver, const int *literals, int size);
+
+// Prompt the solver to occasionally report up to max_vars variables that it considers the most vital
+// (e.g., based on VSIDS heap or VMTF queue position). The provided function is called whenever the
+// solver successfully imports one or several shared clauses.
+void kissat_set_vital_variables_callback (kissat * solver, int max_vars, void *state,
+    void (*report_vital_vars) (void *state, int *vars, unsigned size));
 
 #endif

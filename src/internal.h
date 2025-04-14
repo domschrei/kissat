@@ -32,6 +32,7 @@
 #include "value.h"
 #include "vector.h"
 #include "watch.h"
+#include <bits/pthreadtypes.h>
 
 typedef struct datarank datarank;
 
@@ -265,6 +266,19 @@ struct kissat {
   bool (*begin_report) (void *state, int vars, int cls);
   void (*report_preprocessed_lit) (void *state, int lit);
 
+  STACK(unsigned) cubevars;
+  STACK(value) cubephases;
+  bool cubeassigned;
+
+  STACK(unsigned) extcube;
+  volatile bool importextcube;
+  pthread_mutex_t mtx_extcube;
+
+  void *vital_vars_state;
+  int max_vital_vars;
+  void (*vote_vital_variables) (void *state, int *vars, unsigned size);
+  bool voted_initially;
+
   statistics statistics;
 };
 
@@ -315,5 +329,6 @@ static inline unsigned kissat_assigned (kissat *solver) {
   REF_PTR++
 
 void kissat_reset_last_learned (kissat *solver);
+void kissat_import_cube (kissat * solver);
 
 #endif

@@ -3,8 +3,11 @@
 #include "inlineheap.h"
 #include "inlinequeue.h"
 #include "inline.h" // new
+#include "literal.h"
 #include "print.h"
+#include "stack.h"
 
+#include <pthread.h>
 #include <inttypes.h>
 
 static unsigned last_enqueued_unassigned_variable (kissat *solver) {
@@ -215,6 +218,21 @@ int kissat_decide_phase (kissat *solver, unsigned idx) {
   return res < 0 ? -1 : 1;
 }
 
+void next_cube_literal(kissat *solver, unsigned *idx, value *val) {
+  if (solver->cubeassigned) return;
+  const value *const values = solver->values;
+  for (unsigned i = 0; i < SIZE_STACK(solver->cubevars); i++) {
+    const unsigned res = PEEK_STACK(solver->cubevars, i);
+    if (!VALID_INTERNAL_INDEX(res)) continue;
+    if (values[LIT (res)]) continue;
+    *idx = res;
+    *val = PEEK_STACK(solver->cubephases, i);
+    solver->cubeassigned = i+1 == SIZE_STACK(solver->cubevars);
+    return;
+  }
+  solver->cubeassigned = true;
+}
+
 void kissat_decide (kissat *solver) {
   START (decide);
   assert (solver->unassigned);
@@ -229,8 +247,13 @@ void kissat_decide (kissat *solver) {
   }
   solver->level++;
   assert (solver->level != INVALID_LEVEL);
-  const unsigned idx = kissat_next_decision_variable (solver);
-  const value value = kissat_decide_phase (solver, idx);
+  unsigned idx = INVALID_IDX;
+  value value;
+  next_cube_literal(solver, &idx, &value);
+  if (idx == INVALID_IDX) {
+    idx = kissat_next_decision_variable (solver);
+    value = kissat_decide_phase (solver, idx);
+  }
   unsigned lit = LIT (idx);
   if (value < 0)
     lit = NOT (lit);

@@ -6,19 +6,23 @@
 #include "import.h"
 #include "inline.h"
 #include "inlineframes.h"
+#include "inlineheap.h"
 #include "print.h"
 #include "propsearch.h"
 #include "require.h"
 #include "resize.h"
 #include "resources.h"
 #include "clauseimport.h"
+#include "restart.h"
 #include "search.h"
+#include "stack.h"
 
 #include <assert.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 void kissat_reset_last_learned (kissat *solver) {
   for (really_all_last_learned (p))
@@ -67,6 +71,17 @@ kissat *kissat_init (void) {
   solver->report_preprocess_state = 0;
   solver->begin_report = 0;
   solver->report_preprocessed_lit = 0;
+
+  pthread_mutex_init(&solver->mtx_extcube, 0);
+  INIT_STACK(solver->extcube);
+  solver->importextcube = false;
+  INIT_STACK(solver->cubevars);
+  INIT_STACK(solver->cubephases);
+  solver->cubeassigned = true;
+
+  solver->vital_vars_state = 0;
+  solver->vote_vital_variables = 0;
+  solver->voted_initially = false;
 
   solver->r_ee = 0;
   solver->r_ed = 0;
@@ -604,6 +619,63 @@ struct kissat_statistics kissat_get_statistics (kissat * solver)
   return stats_out;
 }
 
+void vote_vital_variables (kissat *solver) {
+  if (!solver->vital_vars_state) return;
+
+  STACK(int) voted_vital_vars;
+  INIT_STACK(voted_vital_vars);
+
+  int max_vars_per_source = solver->max_vital_vars / 2;
+  bool odd = max_vars_per_source % 2 == 1;
+
+  // VSIDS heap: just traverse array from front to back, take first unassigned variables
+  {
+    heap *scores = SCORES;
+    const value *const values = solver->values;
+    unsigned nb_from_heap = 0;
+    for (unsigned i = 0; nb_from_heap < max_vars_per_source+odd && i < SIZE_STACK(scores->stack); i++) {
+      unsigned res = PEEK_STACK(scores->stack, i);
+      if (res && !values[LIT (res)]) {
+        PUSH_STACK(voted_vital_vars, kissat_export_literal(solver, res));
+        nb_from_heap++;
+      }
+    }
+  }
+
+  // VMTF queue: take first unassigned variables from the front
+  {
+    assert (solver->unassigned);
+    const links *const links = solver->links;
+    const value *const values = solver->values;
+    unsigned nb_from_queue = 0;
+    unsigned res = solver->queue.search.idx;
+    while (nb_from_queue < max_vars_per_source) {
+      if (values[LIT (res)]) {
+        do {
+          res = links[res].prev;
+          if (DISCONNECTED (res)) break;
+        } while (values[LIT (res)]);
+      }
+      if (DISCONNECTED (res)) break;
+      if (res) {
+        PUSH_STACK(voted_vital_vars, kissat_export_literal(solver, res));
+        nb_from_queue++;
+      }
+      res = links[res].prev;
+    }
+  }
+
+  // Convert literals to variables (i.e., remove signs)
+  for (unsigned i = 0; i < SIZE_STACK(voted_vital_vars); i++)
+    BEGIN_STACK(voted_vital_vars)[i] = abs(BEGIN_STACK(voted_vital_vars)[i]);
+
+  // Callback for reporting the vital variables
+  solver->vote_vital_variables(solver->vital_vars_state,
+    BEGIN_STACK(voted_vital_vars), SIZE_STACK(voted_vital_vars));
+
+  RELEASE_STACK(voted_vital_vars);
+}
+
 bool kissat_importing_redundant_clauses (kissat * solver) 
 {
   if (solver->produce_clause == 0) return false;
@@ -619,6 +691,9 @@ void kissat_import_redundant_clauses (kissat * solver)
   int size = 0;
   int glue = 0;
   solver->num_conflicts_at_last_import = solver->statistics.conflicts;
+
+  // Perform 1st voting after the first few conflicts
+  bool perform_var_voting = !solver->voted_initially && solver->statistics.conflicts >= 100;
 
   while (true) {
     solver->produce_clause (solver->produce_clause_state, &buffer, &size, &glue);
@@ -688,6 +763,8 @@ void kissat_import_redundant_clauses (kissat * solver)
       continue;
     }
 
+    perform_var_voting = true; // set flag since *some* clause got imported
+
     // Was the clauses shortened (due to fixed literals) so it should be re-exported?
     const bool shortened = false; //effectiveSize < originalSize;
 
@@ -752,6 +829,11 @@ void kissat_import_redundant_clauses (kissat * solver)
     solver->num_imported_external_clauses++;
   }
 
+  if (perform_var_voting) {
+    vote_vital_variables (solver);
+    solver->voted_initially = true;
+  }
+
   //printf("KISSAT next import @ %lu conflicts\n", solver->num_conflicts_at_last_import);
 }
 
@@ -759,4 +841,45 @@ void kissat_set_initial_variable_phases (kissat * solver, signed char *lookup, i
 {
   solver->initial_variable_phases = lookup;
   solver->initial_variable_phases_len = size;
+}
+
+void kissat_force_cube (kissat * solver, const int *literals, int size) {
+  pthread_mutex_lock(&solver->mtx_extcube);
+  CLEAR_STACK(solver->extcube);
+  for (unsigned i = 0; i < size; i++) {
+    const int elit = literals[i];
+    if (elit == 0) continue;
+    PUSH_STACK(solver->extcube, elit);
+  }
+  solver->importextcube = true;
+  pthread_mutex_unlock(&solver->mtx_extcube);
+}
+
+void kissat_import_cube (kissat * solver) {
+  CLEAR_STACK(solver->cubevars);
+  CLEAR_STACK(solver->cubephases);
+  pthread_mutex_lock(&solver->mtx_extcube);
+  assert(solver->importextcube);
+  solver->importextcube = false;
+  for (unsigned i = 0; i < SIZE_STACK(solver->extcube); i++) {
+    const int elit = PEEK_STACK(solver->extcube, i);
+    const unsigned eidx = ABS (elit);
+    if (eidx >= SIZE_STACK (solver->import)) continue;
+    const import *const import = &PEEK_STACK (solver->import, eidx);
+    if (!import->imported) continue;
+    if (import->eliminated) continue;
+    const unsigned ilit = import->lit;
+    const value value = elit < 0 ? -1 : 1;
+    PUSH_STACK(solver->cubevars, ilit);
+    PUSH_STACK(solver->cubephases, value);
+  }
+  pthread_mutex_unlock(&solver->mtx_extcube);
+  solver->cubeassigned = SIZE_STACK(solver->cubevars) == 0;
+}
+
+void kissat_set_vital_variables_callback (kissat * solver, int max_vars, void *state,
+    void (*report_vital_vars) (void *state, int *vars, unsigned size)) {
+  solver->vital_vars_state = state;
+  solver->max_vital_vars = max_vars;
+  solver->vote_vital_variables = report_vital_vars;
 }
