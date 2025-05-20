@@ -1,0 +1,9 @@
+<toolSet name="External Tools">
+  <tool name="ksst make" showInMainMenu="false" showInEditor="false" showInProject="false" showInSearchPopup="false" disabled="false" useConsole="true" showConsoleOnStdOut="false" showConsoleOnStdErr="false" synchronizeAfterRun="true">
+    <exec>
+      <option name="COMMAND" value="make" />
+      <option name="PARAMETERS" value="-j 16" />
+      <option name="WORKING_DIRECTORY" value="$USER_HOME$/Documents/03-PhD/kissat-sweep-repo/kissat" />
+    </exec>
+  </tool>
+</toolSet>

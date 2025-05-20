@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CLionExternalBuildManager">
+    <target id="4aed0c67-2b90-40eb-8cfc-88e635c5c162" name="ksst make custom target" defaultType="TOOL">
+      <configuration id="d4b5ff3f-be34-4a25-b50a-8663a553eb6e" name="ksst make custom target">
+        <build type="TOOL">
+          <tool actionId="Tool_External Tools_ksst make" />
+        </build>
+      </configuration>
+    </target>
+  </component>
+</project>
