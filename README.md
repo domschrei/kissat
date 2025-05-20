@@ -1,4 +1,4 @@
-Testing some new functions of Kissat inside Mallob.
+Testing some new parallelizations of Kissat inside Mallob.
 
 <hr/>
 
