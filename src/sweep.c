@@ -1949,6 +1949,12 @@ bool kissat_sweep (kissat *solver) {
                            statistics->sweep_equivalences - equivalences,
                            solver->statistics.sweep_units - units, swept);
       limit *= 10;
+      printf(
+                           ",,, solver %" PRIu64 " found %" PRIu64 " equivalences and %" PRIu64
+                           " units after sweeping %" PRIu64 " variables \n",
+                           (uint64_t) GET_OPTION(globalId),
+                           statistics->sweep_equivalences - equivalences,
+                           solver->statistics.sweep_units - units, swept);
     }
   }
   /*
