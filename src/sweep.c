@@ -1551,7 +1551,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
   ADD (sweep_clauses, sweeper->encoded);
   ADD (sweep_environment, SIZE_STACK (sweeper->vars));
   kissat_extremely_verbose (solver,
-                            "sweeping variable %d environment of "
+                            "sweeping       variable %d:  environment of "
                             "%zu variables %u clauses depth %u",
                             kissat_export_literal (solver, LIT (idx)),
                             SIZE_STACK (sweeper->vars), sweeper->encoded,
@@ -1949,9 +1949,8 @@ bool kissat_sweep (kissat *solver) {
                            statistics->sweep_equivalences - equivalences,
                            solver->statistics.sweep_units - units, swept);
       limit *= 10;
-      printf(
-                           ",,, solver %" PRIu64 " found %" PRIu64 " equivalences and %" PRIu64
-                           " units after sweeping %" PRIu64 " variables \n",
+      kissat_custom_message( ",,, solver %" PRIu64 " found %" PRIu64 " equivalences and %" PRIu64
+                           " units after sweeping %" PRIu64 " variables",
                            (uint64_t) GET_OPTION(globalId),
                            statistics->sweep_equivalences - equivalences,
                            solver->statistics.sweep_units - units, swept);

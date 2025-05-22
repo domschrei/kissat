@@ -115,6 +115,17 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
   va_end (ap);
 }
 
+
+
+void kissat_custom_message(const char *fmt, ...) {
+  va_list ap;
+  va_start(ap, fmt);
+  print_message (RED, fmt, &ap);
+  va_end (ap);
+}
+
+
+
 void kissat_section (kissat *solver, const char *name) {
   if (verbosity (solver) < 0)
     return;
