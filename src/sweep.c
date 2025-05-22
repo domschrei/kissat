@@ -1939,6 +1939,10 @@ bool kissat_sweep (kissat *solver) {
              * Sweep the environment of this variable. Hope to find some equivalences, or direct forced assignemts.
              */
         sweep_variable (&sweeper, idx);
+
+    // kissat_custom_message(solver, "-%" PRIu64 "- v %" PRIu64, GET_OPTION(globalId), idx);
+    kissat_custom_message(solver, "v %" PRIu64, idx);
+
     kissat_extremely_verbose (
         solver, "swept[%" PRIu64 "] external variable %d %s", swept,
         kissat_export_literal (solver, LIT (idx)), res);
@@ -1949,7 +1953,8 @@ bool kissat_sweep (kissat *solver) {
                            statistics->sweep_equivalences - equivalences,
                            solver->statistics.sweep_units - units, swept);
       limit *= 10;
-      kissat_custom_message( ",,, solver %" PRIu64 " found %" PRIu64 " equivalences and %" PRIu64
+      kissat_custom_message(solver,
+                            "solver %" PRIu64 " found %" PRIu64 " equivalences and %" PRIu64
                            " units after sweeping %" PRIu64 " variables",
                            (uint64_t) GET_OPTION(globalId),
                            statistics->sweep_equivalences - equivalences,

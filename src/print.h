@@ -39,7 +39,7 @@ ATTRIBUTE_FORMAT (4, 5);
 
 
 
-void kissat_custom_message(const char *fmt, ...);
+void kissat_custom_message(struct kissat *, const char *fmt, ...);
 
 
 

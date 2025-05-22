@@ -117,10 +117,21 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
 
 
 
-void kissat_custom_message(const char *fmt, ...) {
+void kissat_custom_message(kissat *solver, const char *fmt, ...) {
+  uint64_t globalId = GET_OPTION(globalId);
+  uint64_t num_spaces = 15 * globalId;
+
+  // Stack buffer: 90 spaces max + room for fmt
+  char new_fmt[1024];  // More than enough for typical use
+  memset(new_fmt, ' ', num_spaces);
+  new_fmt[num_spaces] = '\0';  // Null-terminate the space padding
+
+  // Safely append the original format string
+  strncat(new_fmt, fmt, sizeof(new_fmt) - num_spaces - 1);
+
   va_list ap;
   va_start(ap, fmt);
-  print_message (RED, fmt, &ap);
+  print_message (YELLOW, new_fmt, &ap);
   va_end (ap);
 }
 
