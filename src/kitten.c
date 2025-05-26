@@ -949,6 +949,8 @@ static unsigned import_literal (kitten *kitten, unsigned elit) {
   return ilit;
 }
 
+
+
 static unsigned export_literal (kitten *kitten, unsigned ilit) {
   const unsigned iidx = ilit / 2;
   assert (iidx < SIZE_STACK (kitten->export));
@@ -956,6 +958,8 @@ static unsigned export_literal (kitten *kitten, unsigned ilit) {
   const unsigned elit = 2 * eidx + (ilit & 1);
   return elit;
 }
+
+
 
 unsigned new_learned_klause (kitten *kitten) {
   unsigned res = new_reference (kitten);
@@ -1518,6 +1522,12 @@ static int decide (kitten *kitten) {
   return 0;
 }
 
+
+
+
+
+
+
 static void inconsistent (kitten *kitten, unsigned ref) {
   assert (ref != INVALID);
   assert (kitten->inconsistent == INVALID);
@@ -1573,6 +1583,11 @@ static void inconsistent (kitten *kitten, unsigned ref) {
   CLEAR_STACK (*analyzed);
   CLEAR_STACK (*resolved);
 }
+
+
+
+
+
 
 static int propagate_units (kitten *kitten) {
   if (kitten->inconsistent != INVALID)
@@ -1867,6 +1882,20 @@ int kitten_solve (kitten *kitten) {
 
 int kitten_status (kitten *kitten) { return kitten->status; }
 
+
+
+
+
+
+
+
+
+
+ /*
+  * We had an UNSAT result from kitten, now find the clausal core.
+  * Does reverse traversal of the implication graph from the final conflict clause (kitten->inconsistent)
+  * and walks backwards to it's parents, until all learned parent-clauses are included
+  */
 unsigned kitten_compute_clausal_core (kitten *kitten,
                                       uint64_t *learned_ptr) {
   REQUIRE_STATUS (20);
@@ -1882,6 +1911,9 @@ unsigned kitten_compute_clausal_core (kitten *kitten,
   unsigned original = 0;
   uint64_t learned = 0;
 
+   /*
+    * Core starts with the conflict clause of kitten
+    */
   unsigned reason_ref = kitten->inconsistent;
 
   if (reason_ref == INVALID) {
@@ -1899,12 +1931,18 @@ unsigned kitten_compute_clausal_core (kitten *kitten,
 
   while (!EMPTY_STACK (*resolved)) {
     const unsigned c_ref = POP_STACK (*resolved);
+     /*
+      * Small trick: the INVALID token marks that the next clause is part of the clausal core
+      */
     if (c_ref == INVALID) {
       const unsigned d_ref = POP_STACK (*resolved);
       ROG (d_ref, "core[%zu]", SIZE_STACK (*core));
       PUSH_STACK (*core, d_ref);
       klause *d = dereference_klause (kitten, d_ref);
       assert (!is_core_klause (d));
+       /*
+        *marked as core clause so we don't visit it again
+        */
       set_core_klause (d);
       if (is_learned_klause (d))
         learned++;
@@ -1914,9 +1952,16 @@ unsigned kitten_compute_clausal_core (kitten *kitten,
       klause *c = dereference_klause (kitten, c_ref);
       if (is_core_klause (c))
         continue;
+       /*
+        * The clause is a core clause, we mark it as such via the INVALID marker
+        * (but dont immediately add it to the core, instead first collect it's antecedents)
+        */
       PUSH_STACK (*resolved, c_ref);
       PUSH_STACK (*resolved, INVALID);
       ROG (c_ref, "analyzing antecedent core");
+       /*
+        * Only learned clauses have antecedents
+        */
       if (!is_learned_klause (c))
         continue;
       for (all_antecedents (d_ref, c)) {
@@ -1943,6 +1988,17 @@ DONE:
   return original;
 }
 
+
+
+
+
+
+
+
+
+
+
+
 void kitten_traverse_core_ids (kitten *kitten, void *state,
                                void (*traverse) (void *, unsigned)) {
   REQUIRE_STATUS (21);
@@ -1968,6 +2024,9 @@ void kitten_traverse_core_ids (kitten *kitten, void *state,
   assert (kitten->status == 21);
 }
 
+ /*
+  *After we have extracted the core, now traverse its clauses and save all the literals
+  */
 void kitten_traverse_core_clauses (kitten *kitten, void *state,
                                    void (*traverse) (void *, bool, size_t,
                                                      const unsigned *)) {

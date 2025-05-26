@@ -382,8 +382,8 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
 
 
 /**
-* Sweep a clause, referenced via ref
-* i.e.: add its variables to the environment and add the clause to kitten (per clause only those literals that are not yet decided)
+* Sweep a clause, given by it's reference
+* sweeping == add its variables to the environment and add the clause to kitten (per clause only those literals that are not yet decided)
 * Don't sweep a clause if
 * --its already satisfied (by some kissat-var with value==1)
 * --its already been swept
@@ -403,19 +403,35 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
   for (all_literals_in_clause (lit, c)) {
     const value value = values[lit];
     if (value > 0) {  
-	/* skip the clause because one of it's literals is already set to true */	
+	    /*
+	     * skip the clause
+	     * one of it's literals is already set to true
+	     *
+	     */
       kissat_mark_clause_as_garbage (solver, c);
       CLEAR_STACK (sweeper->clause);
       return;
     }
-    if (value < 0)  //don't copy literals that are already set to false
+    if (value < 0)
+      /*
+         don't consider literals that are already to false
+         Instead, their complement literal will be included
+       */
       continue;
+    /**
+     * Temporary buffer to pass this single clause to kitten
+     */
     PUSH_STACK (sweeper->clause, lit);
   }
   PUSH_STACK (sweeper->refs, ref); //remember that we swept this clause
   c->swept = true;
   sweep_clause (sweeper, depth);
 }
+
+
+
+
+
 
 static void save_core_clause (void *state, bool learned, size_t size,
                               const unsigned *lits) {
@@ -452,6 +468,13 @@ static void save_core_clause (void *state, bool learned, size_t size,
 #endif
   PUSH_STACK (*core, INVALID_LIT);
 }
+
+
+
+
+
+
+
 
 static void add_core (sweeper *sweeper, unsigned core_idx) {
   kissat *solver = sweeper->solver;
@@ -531,6 +554,13 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
 #endif
 }
 
+
+
+
+ /*
+  *We had an UNSAT result from a kitten call, i.e. an UNSAT core.
+  *Now save this UNSAT result for further processing.
+  */
 static void save_core (sweeper *sweeper, unsigned core) {
   kissat *solver = sweeper->solver;
   LOG ("saving extracted core[%u] lemmas", core);
@@ -540,6 +570,10 @@ static void save_core (sweeper *sweeper, unsigned core) {
   kitten_compute_clausal_core (solver->kitten, 0);
   kitten_traverse_core_clauses (solver->kitten, sweeper, save_core_clause);
 }
+
+
+
+
 
 static void clear_core (sweeper *sweeper, unsigned core_idx) {
   kissat *solver = sweeper->solver;
@@ -598,7 +632,7 @@ static void init_backbone_and_partition (sweeper *sweeper) {
     const unsigned lit = LIT (idx);
     const unsigned not_lit = NOT (lit);
     const signed char tmp = kitten_value (solver->kitten, lit);//read the value from the kitten SAT solution
-    const unsigned candidate = (tmp < 0) ? not_lit : lit; //Candidates are those literals used in the solution
+    const unsigned candidate = (tmp < 0) ? not_lit : lit; //Candidates are those literals from the solution, as these literals are "positive"
     LOG ("sweeping candidate %s", LOGLIT (candidate));
     PUSH_STACK (sweeper->backbone, candidate);
     PUSH_STACK (sweeper->partition, candidate);
@@ -609,11 +643,17 @@ static void init_backbone_and_partition (sweeper *sweeper) {
   LOGPARTITION ("initialized equivalence candidates");
 }
 
+
+
+
+
 static void sweep_empty_clause (sweeper *sweeper) {
   assert (!sweeper->solver->inconsistent);
   save_add_clear_core (sweeper);
   assert (sweeper->solver->inconsistent);
 }
+
+
 
 
 /**
@@ -763,7 +803,7 @@ static void sweep_refine (sweeper *sweeper) {
 /**
  * iteratively flip every literal from the backbone, only keep those that resist flipping.
  * --> Backbone shrinks.
- * If -lit flip gives new model: Kick the literal from the backbone. Leave the value flipped in the model (!) i.e., the model is constantly walking through the solution-space
+ * If -lit flip gives new model: Kick the literal from the backbone. Leaves the flipped value in the model (!) i.e. with every flip the model random-walk through the solution-space
  * If -lit flip is unsat:        Keep the literal in the backbone, we could not rule it out via a cheap flip
  */
 static void flip_backbone_literals (struct sweeper *sweeper) {
@@ -832,7 +872,8 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
   }
 
    /*
-   *   //Just for fun try normal flipping now. Maybe it works now --given the current model-random-walk-situation, removing this lit from the backbones
+   *   //Try lucky normal flipping . Maybe it works now given the current random-walk-situation
+   *   //If flip works, remove this lit from the backbone
    */
   INC (sweep_flip_backbone);
   if (kitten_status (kitten) == 10 && kitten_flip_literal (kitten, lit)) {
@@ -843,7 +884,8 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
   }
 
   /*
-      Check whether there is *any* model where lit is flipped.
+   *  Random flip was not successful. Amp up the investment.
+      Run expensive SAT call to check whether there is *any* model where lit is flipped.
      */
   LOG ("flipping %s failed", LOGLIT (lit));
   const unsigned not_lit = NOT (lit);
@@ -852,8 +894,8 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
   int res = sweep_solve (sweeper);
   if (res == 10) {
     /*
-    There *is* a model with this lit flipped.
-    So this lit is not a backbone, and the new model is new enough to contain info on kicked backbone-cadidates and split partition classed
+    Found a model with this lit flipped.
+    So this lit is not a backbone, and the new model is new information to further split partition classed
      */
     LOG ("sweeping backbone candidate %s failed", LOGLIT (lit));
     sweep_refine (sweeper);
@@ -863,8 +905,10 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
 
   if (res == 20) {
     /*
-     * The current kitten klauses are unsatisfiable when assuming not_lit,
-     * thus we know lit, and can propagate it
+     * The current lit IS a backbone, because kitten couldn't find any model without this lit
+     * the larger the environment is, the more constraints there are to show that a literal is a backbone
+     * Larger environment ==> More detected backbones
+     * We found the backbone even with the limited environment, nice. Now propagate this as a unit clause.
      */
     LOG ("sweep unit %s", LOGLIT (lit));
     save_add_clear_core (sweeper);
@@ -1316,6 +1360,11 @@ static void flip_partition_literals (struct sweeper *sweeper) {
        total_flipped, round);
 }
 
+/*
+  Test conclusively whether (lit, other) are equivalent literals.
+  If yes, map them together
+  If no, then we found a new model that allows further partition refinement
+*/
 static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
                                           unsigned other) {
   kissat *solver = sweeper->solver;
@@ -1329,8 +1378,14 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   assert (begin + 3 <= end);
   assert (end[-3] == lit);
   assert (end[-2] == other);
+   /*
+    * If after the second literal comes directly the class boundary, the class consists only of these two literals
+    */
   const unsigned third = (end - begin == 3) ? INVALID_LIT : end[-4];
   const int status = kitten_status (kitten);
+   /*
+    *Try cheap flip of the first literal
+    */
   if (status == 10 && kitten_flip_literal (kitten, lit)) {
     INC (sweep_flip_equivalences);
     INC (sweep_flipped_equivalences);
@@ -1347,6 +1402,9 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     }
     LOGPARTITION ("refined equivalence candidates");
     return false;
+   /*
+    *Try cheap flip of the second literal
+    */
   } else if (status == 10 && kitten_flip_literal (kitten, other)) {
     ADD (sweep_flip_equivalences, 2);
     INC (sweep_flipped_equivalences);
@@ -1366,11 +1424,17 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   if (status == 10)
     ADD (sweep_flip_equivalences, 2);
   LOG ("flipping %s and %s both failed", LOGLIT (lit), LOGLIT (other));
+   /*
+    *Now invest first hard SAT call (G -l k)
+    */
   kitten_assume (kitten, not_lit);
   kitten_assume (kitten, other);
   INC (sweep_solved_equivalences);
   int res = sweep_solve (sweeper);
   if (res == 10) {
+     /*
+      * SAT model was able to split l and k, because it found a solution with (-l k)
+      */
     INC (sweep_sat_equivalences);
     LOG ("first sweeping implication %s -> %s failed", LOGLIT (other),
          LOGLIT (lit));
@@ -1388,13 +1452,23 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   LOG ("first sweeping implication %s -> %s succeeded", LOGLIT (other),
        LOGLIT (lit));
 
+   /*
+    * Store this UNSAT-Core for (G -l k)
+    */
   save_core (sweeper, 0);
 
+   /*
+    * The first SAT call could not split (l k), because it returned unsatisfiable for (-l k)
+    * Now try the symmetric case (G l -k)
+    */
   kitten_assume (kitten, lit);
   kitten_assume (kitten, not_other);
   res = sweep_solve (sweeper);
   INC (sweep_solved_equivalences);
   if (res == 10) {
+     /*
+      * Found a split. l and k are not equivalent.
+      */
     INC (sweep_sat_equivalences);
     LOG ("second sweeping implication %s <- %s failed", LOGLIT (other),
          LOGLIT (lit));
@@ -1410,10 +1484,16 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     return false;
   }
 
+   /*
+    * Found out that l and k are indeed equivalent, bc both SAT calls (G -l k) and (G l -k) returned UNSAT.
+    */
   INC (sweep_unsat_equivalences);
   LOG ("second sweeping implication %s <- %s succeeded too", LOGLIT (other),
        LOGLIT (lit));
 
+   /*
+    *Store also the second UNSAT core for (G l -k)
+    */
   save_core (sweeper, 1);
 
   LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));
@@ -1480,9 +1560,9 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
   unsigned depth = 1;
 
   /**
-     * l.4
-     * Construct the environment around idx
-     */
+   * l.4
+   * Construct the environment around idx
+   */
   while (!limit_reached) {
     if (sweeper->encoded >= sweeper->limit.clauses) {
       LOG ("environment clause limit reached");
@@ -1514,8 +1594,8 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
     }
 
     /*
-        * Read the next variable from the stack to expand the environment.
-        */
+    * Expand the environment by reading the next variable from the current environment
+    */
     const unsigned idx = PEEK_STACK (sweeper->vars, expand);
     LOG ("traversing and adding clauses of %s", LOGVAR (idx));
     for (unsigned sign = 0; sign < 2; sign++) {
@@ -1525,15 +1605,15 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
         if (watch.type.binary) {
           const unsigned other = watch.binary.lit;
           /*
-                     * Add clause and variables to environment
-                     * For binary clauses, need extra checks whether it's necessary to include them in the environment
-                     */
+           * Add clause and variables to environment
+           * For binary clauses, need extra checks whether it's necessary to include them
+           */
           sweep_binary (sweeper, depth, lit, other);
         } else {
           reference ref = watch.large.ref;
           /*
-                     * Add clause and variables to environment
-                    */
+           * Add clause and variables to environment
+          */
           sweep_reference (sweeper, depth, ref);
         }
         if (SIZE_STACK (sweeper->vars) >= sweeper->limit.vars) {
@@ -1547,6 +1627,11 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
     }
     expand++;
   }
+  /*
+   *L.3
+   *Environment around idx is now collected and kitten knows all its clauses
+    Ask kitten to find a first model
+   */
   ADD (sweep_depth, depth);
   ADD (sweep_clauses, sweeper->encoded);
   ADD (sweep_environment, SIZE_STACK (sweeper->vars));
@@ -1556,11 +1641,6 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
                             kissat_export_literal (solver, LIT (idx)),
                             SIZE_STACK (sweeper->vars), sweeper->encoded,
                             depth);
-  /*
-     *L.3
-     *Environment around idx is now collected and kitten knows all its clauses
-      Ask kitten to find a first model
-     */
   int res = sweep_solve (sweeper);
   LOG ("sub-solver returns '%d'", res);
   if (res == 10) {
@@ -1571,11 +1651,11 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
 #endif
     START (sweepbackbone);
     /*
-        *L.6
-       Kitten has found a first model
-       Narrow down the backbone via cheap flips. Flip successful -> Literal is not backbone, can be kicked
-       Then try hard to flip one literal in particular
-       */
+      *L.6
+     Kitten has found a first model
+     Narrow down the backbone via cheap flips. Flip successful -> Literal is not backbone, can be kicked
+     Then try hard to flip one literal in particular
+     */
     while (!EMPTY_STACK (sweeper->backbone)) {
       if (solver->inconsistent || TERMINATED (sweep_terminated_3) ||
           kitten_ticks_limit_hit (sweeper, "backbone refinement")) {
@@ -1585,9 +1665,9 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
         goto DONE;
       }
       /*
-             L.8-9
-             Cheap refine of the backbone: try lucky flips
-            */
+       L.8-9
+       Cheap refine of the backbone: try lucky flips
+        */
       flip_backbone_literals (sweeper);
       if (TERMINATED (sweep_terminated_4) ||
           kitten_ticks_limit_hit (sweeper, "backbone refinement")) {
@@ -1597,9 +1677,9 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
       if (EMPTY_STACK (sweeper->backbone))
         break;
       /*
-             * L.8-14
-             * Expensive refine of the situation: conclusively test whether lit is backbone or not. Either way, it is no longer a backbone cadidate after this.
-             */
+       * L.8-14
+       * Expensive SAT call: conclusively test whether lit is backbone or not. Either way, it is no longer a candidate after this.
+       */
       const unsigned lit = POP_STACK (sweeper->backbone);
       if (!ACTIVE (IDX (lit)))
         continue;
@@ -1622,12 +1702,12 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
     solved = solver->statistics.sweep_solved;
 #endif
     /*
-         * L.15-22
-         * The backbone is now empty.
-         * All backbone-variables have been propagated
-         * All non-backbone variables are partitioned into potential equivalence classes
-         * Now: Check pairwise within a class which variables are actually equivalent
-          */
+     * L.15-22
+     * The backbone is now empty.
+     * All backbone-variables have been propagated
+     * All non-backbone variables are partitioned into potential equivalence classes
+     * Now: Check pairwise within a class which variables are actually equivalent
+      */
     START (sweepequivalences);
     while (!EMPTY_STACK (sweeper->partition)) {
       if (solver->inconsistent || TERMINATED (sweep_terminated_5) ||
@@ -1638,8 +1718,8 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
         goto DONE;
       }
       /*
-            * Lucky attempts to quickly
-            */
+        * Lucky attempts to quickly split partitions again
+        */
       flip_partition_literals (sweeper);
       if (TERMINATED (sweep_terminated_6) ||
           kitten_ticks_limit_hit (sweeper, "backbone refinement")) {
@@ -1653,6 +1733,9 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
         assert (end[-1] == INVALID_LIT);
         unsigned lit = end[-3];
         unsigned other = end[-2];
+        /*
+          Test conclusively whether (lit,other) are equivalent literals
+        */
         if (sweep_equivalence_candidates (sweeper, lit, other))
           success = true;
       } else
@@ -1703,7 +1786,7 @@ typedef STACK(sweep_candidate) sweep_candidates;
 
 #define RANK_SWEEP_CANDIDATE(CAND) (CAND).rank
 
-/*
+/**
  *  Checks how many watches idx has
  *  if zero positive watches or zero negative watches, returns false.
     Else: sets occ = pos_watches + neg_watches
@@ -1737,6 +1820,9 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   INIT_STACK (fresh);
   flags *const flags = solver->flags;
   const bool incomplete = solver->sweep_incomplete;
+  /**
+   * put EVERY variable in the sweeper->vars stack
+   */
   for (all_variables (idx)) {
     struct flags *const f = flags + idx;
     if (!f->active)
@@ -1926,8 +2012,8 @@ bool kissat_sweep (kissat *solver) {
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks)
       break;
     /*
-         * Get the next root-variable to sweep around
-         */
+     * Get the next root-variable "idx" to sweep around
+     */
     unsigned idx = next_scheduled (&sweeper);
     if (idx == INVALID_IDX)
       break;
@@ -1935,12 +2021,11 @@ bool kissat_sweep (kissat *solver) {
 #ifndef QUIET
     const char *res =
 #endif
-      /*
-             * Sweep the environment of this variable. Hope to find some equivalences, or direct forced assignemts.
-             */
-        sweep_variable (&sweeper, idx);
+    /*
+     * Sweep the environment of this variable. Hope to split some equivalences or find direct assignments.
+     */
+    sweep_variable (&sweeper, idx);
 
-    // kissat_custom_message(solver, "-%" PRIu64 "- v %" PRIu64, GET_OPTION(globalId), idx);
     kissat_custom_message(solver, "v %" PRIu64, idx);
 
     kissat_extremely_verbose (
