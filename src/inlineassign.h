@@ -5,6 +5,13 @@
 #define kissat_assign kissat_fast_assign
 #endif
 
+
+
+
+
+ /*
+  *Assign a given literal. Level is the decision level. For assigned unit clauses from backbone sweeping, level=0
+  */
 static inline void kissat_assign (kissat *solver, const bool probing,
                                   const unsigned level,
 #ifdef FAST_ASSIGN
@@ -14,6 +21,9 @@ static inline void kissat_assign (kissat *solver, const bool probing,
                                   unsigned reason) {
   const unsigned not_lit = NOT (lit);
 
+   /*
+    *Since we assign lit=1, the clauses watched by not_lit must be updated and search for a new watcher
+    */
   watches watches = WATCHES (not_lit);
   if (!kissat_empty_vector (&watches)) {
     watch *w = BEGIN_WATCHES (watches);
@@ -26,6 +36,13 @@ static inline void kissat_assign (kissat *solver, const bool probing,
   assert (!values[lit]);
   assert (!values[not_lit]);
 
+   /*
+    * Explicitly set the literal value to true
+    *
+    * Not quite sure why we do this redundant work of storing the variable value two times, for lit and not_lit, as they contain exactly the same information
+    * Maybe it makes it a bit more convenient to code, but we could also just read values[lit] and negate it when we need it for not_lit ?
+    * Especially since this approach here consumes 16 bits per lit when in theory only 2 bits would be needed (assigned/unassigned, true/false)
+    */
   values[lit] = 1;
   values[not_lit] = -1;
 
@@ -58,6 +75,9 @@ static inline void kissat_assign (kissat *solver, const bool probing,
   }
 #endif
 
+   /*
+    *store some information about this literal assignment
+    */
   struct assigned b;
 
   b.level = level;
@@ -76,6 +96,18 @@ static inline void kissat_assign (kissat *solver, const bool probing,
   struct assigned *a = assigned + idx;
   *a = b;
 }
+
+
+
+
+
+
+
+
+
+
+
+
 
 static inline unsigned
 kissat_assignment_level (kissat *solver, value *values, assigned *assigned,

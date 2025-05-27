@@ -68,6 +68,9 @@ static inline void kissat_enqueue (kissat *solver, unsigned idx) {
   kissat_check_queue (solver);
 }
 
+
+
+
 static inline void kissat_dequeue (kissat *solver, unsigned idx) {
   assert (idx < solver->vars);
   LOG ("dequeued %s", LOGVAR (idx));
@@ -86,6 +89,9 @@ static inline void kissat_dequeue (kissat *solver, unsigned idx) {
   kissat_dequeue_links (idx, links, &solver->queue);
   kissat_check_queue (solver);
 }
+
+
+
 
 static inline void kissat_move_to_front (kissat *solver, unsigned idx) {
   queue *queue = &solver->queue;

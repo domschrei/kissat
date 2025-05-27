@@ -1892,9 +1892,8 @@ int kitten_status (kitten *kitten) { return kitten->status; }
 
 
  /*
-  * We had an UNSAT result from kitten, now find the clausal core.
-  * Does reverse traversal of the implication graph from the final conflict clause (kitten->inconsistent)
-  * and walks backwards to it's parents, until all learned parent-clauses are included
+  * Traverse the implication graph backwards, starting from the conflict clause (given in kitten->inconsistent)
+  * Store all the clauses encountered during backwards traversal via their reference on *core
   */
 unsigned kitten_compute_clausal_core (kitten *kitten,
                                       uint64_t *learned_ptr) {
@@ -1937,11 +1936,15 @@ unsigned kitten_compute_clausal_core (kitten *kitten,
     if (c_ref == INVALID) {
       const unsigned d_ref = POP_STACK (*resolved);
       ROG (d_ref, "core[%zu]", SIZE_STACK (*core));
+       /*
+        * here we don't yet look at the literals, we just push the clause on the stack, to traverse the implication graph
+        * Only in the next function (traverse core clauses) we kick out those clauses which are already satisfied, i.e only then we end up truly with core clauses
+        */
       PUSH_STACK (*core, d_ref);
       klause *d = dereference_klause (kitten, d_ref);
       assert (!is_core_klause (d));
        /*
-        *marked as core clause so we don't visit it again
+        *mark the clause as core so we don't add it a second time
         */
       set_core_klause (d);
       if (is_learned_klause (d))
@@ -2024,8 +2027,13 @@ void kitten_traverse_core_ids (kitten *kitten, void *state,
   assert (kitten->status == 21);
 }
 
+
+
+
+
  /*
-  *After we have extracted the core, now traverse its clauses and save all the literals
+  * Collects explicitly all the literals from a given core clause (the loop)
+  * Then looks at each literals value and adds the clause-literals to the core-stack if all are unsatisfied (traverse) (when coming from sweeping, where traverse = save_core_clause )
   */
 void kitten_traverse_core_clauses (kitten *kitten, void *state,
                                    void (*traverse) (void *, bool, size_t,
@@ -2049,6 +2057,10 @@ void kitten_traverse_core_clauses (kitten *kitten, void *state,
     const size_t size = SIZE_STACK (*eclause);
     const unsigned *elits = eclause->begin;
     ROG (reference_klause (kitten, c), "traversing");
+     /*
+      *When coming from sweep.c:
+      *Check the values of each literal, and only push the clause to the core if all literals are unsatisfied
+      */
     traverse (state, learned, size, elits);
     CLEAR_STACK (*eclause);
     traversed++;
@@ -2059,6 +2071,11 @@ void kitten_traverse_core_clauses (kitten *kitten, void *state,
 
   assert (kitten->status == 21);
 }
+
+
+
+
+
 
 void kitten_shrink_to_clausal_core (kitten *kitten) {
   REQUIRE_STATUS (21);

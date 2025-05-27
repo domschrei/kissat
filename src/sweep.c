@@ -433,6 +433,10 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
 
 
 
+ /*
+  Recieves the literals of implication graph clause and checks whether any literal has a satisfied value
+  If all are unsatisfied, adds the clause-literals to the core-stack (marked off with INVALID_LIT boundaries per clause)
+*/
 static void save_core_clause (void *state, bool learned, size_t size,
                               const unsigned *lits) {
   sweeper *sweeper = state;
@@ -440,18 +444,30 @@ static void save_core_clause (void *state, bool learned, size_t size,
   if (solver->inconsistent)
     return;
   const value *const values = solver->values;
+   /*
+    * sweeper->save is either 0 or 1, i.e. this is core[save]
+    */
   unsigneds *core = sweeper->core + sweeper->save;
   size_t saved = SIZE_STACK (*core);
   const unsigned *end = lits + size;
   unsigned non_false = 0;
+   /*
+    *Iterate over the literals of the given clause
+    */
   for (const unsigned *p = lits; p != end; p++) {
     const unsigned lit = *p;
     const value value = values[lit];
     if (value > 0) {
+       /*
+        *clause is already satisfied. Abort, not part of the core
+        */
       LOGLITS (size, lits, "extracted %s satisfied lemma", LOGLIT (lit));
       RESIZE_STACK (*core, saved);
       return;
     }
+     /*
+      * clause up to now not satisfied, extend the clause in the core by this literal
+      */
     PUSH_STACK (*core, lit);
     if (value < 0)
       continue;
@@ -466,6 +482,10 @@ static void save_core_clause (void *state, bool learned, size_t size,
   size_t saved_size = SIZE_STACK (*core) - saved;
   LOGLITS (saved_size, saved_lits, "saved core[%u]", sweeper->save);
 #endif
+   /*
+    *Whole clause (all it's individual literals) has been copied onto the core-stack,
+    *mark the end of the clause via an INVALID_LIT marker
+    */
   PUSH_STACK (*core, INVALID_LIT);
 }
 
@@ -476,6 +496,12 @@ static void save_core_clause (void *state, bool learned, size_t size,
 
 
 
+ /*
+  * Add information from an UNSAT core to kissat
+  *
+  * Situation: had UNSAT result, traversed the implication graph, collected all its clauses, then kept only those which were actually unsatisfied.
+  *
+  */
 static void add_core (sweeper *sweeper, unsigned core_idx) {
   kissat *solver = sweeper->solver;
   if (solver->inconsistent)
@@ -488,6 +514,9 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
   unsigned *q = BEGIN_STACK (*core);
   const unsigned *const end_core = END_STACK (*core), *p = q;
 
+   /*
+    *Loop through the clauses of the core (separated by INVALID_LIT) markers)
+    */
   while (p != end_core) {
     const unsigned *c = p;
     while (*p != INVALID_LIT)
@@ -496,15 +525,25 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
     size_t old_size = p - c;
     LOGLITS (old_size, c, "simplifying extracted core[%u] lemma", core_idx);
 #endif
+     /*
+      * c = Start of claue
+      * p = End of clause
+      */
     bool satisfied = false;
     unsigned unit = INVALID_LIT;
 
     unsigned *d = q;
 
+     /*
+      *loop through literals of this clause
+      */
     for (const unsigned *l = c; !satisfied && l != p; l++) {
       const unsigned lit = *l;
       const value value = values[lit];
       if (value > 0) {
+         /*
+          *skip clause if it is satisfied
+          */
         satisfied = true;
         break;
       }
@@ -536,6 +575,9 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
       LOG ("sweeping produced unit %s", LOGLIT (unit));
       CHECK_AND_ADD_UNIT (unit);
       ADD_UNIT_TO_PROOF (unit);
+       /*
+        * Within the core there is a unit clause ----> Assign (and propagate?) it
+        */
       kissat_assign_unit (solver, unit, "sweeping backbone reason");
       INC (sweep_units);
       continue;
@@ -557,6 +599,10 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
 
 
 
+
+
+
+
  /*
   *We had an UNSAT result from a kitten call, i.e. an UNSAT core.
   *Now save this UNSAT result for further processing.
@@ -567,7 +613,13 @@ static void save_core (sweeper *sweeper, unsigned core) {
   assert (core == 0 || core == 1);
   assert (EMPTY_STACK (sweeper->core[core]));
   sweeper->save = core;
+   /*
+    * collect all clauses (only their reference, not their individual literals) by traversing the implication graph backwards
+    */
   kitten_compute_clausal_core (solver->kitten, 0);
+   /*
+    * keep only those clauses that are actually unsatisfied (by looking at all the individual literals), i.e. kick out those that have satisfied literals
+    */
   kitten_traverse_core_clauses (solver->kitten, sweeper, save_core_clause);
 }
 
@@ -1362,8 +1414,8 @@ static void flip_partition_literals (struct sweeper *sweeper) {
 
 /*
   Test conclusively whether (lit, other) are equivalent literals.
-  If yes, map them together
-  If no, then we found a new model that allows further partition refinement
+  If yes, map one to the other
+  If not, then we found a new model that allows further partition refinement
 */
 static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
                                           unsigned other) {
@@ -1433,7 +1485,7 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   int res = sweep_solve (sweeper);
   if (res == 10) {
      /*
-      * SAT model was able to split l and k, because it found a solution with (-l k)
+      * SAT model was able to split l and k, because it found a solution (-l k)
       */
     INC (sweep_sat_equivalences);
     LOG ("first sweeping implication %s -> %s failed", LOGLIT (other),
@@ -1485,7 +1537,8 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   }
 
    /*
-    * Found out that l and k are indeed equivalent, bc both SAT calls (G -l k) and (G l -k) returned UNSAT.
+    * Found out that l and k are indeed equivalent!
+    *  both SAT calls (G -l k) and (G l -k) returned UNSAT.
     */
   INC (sweep_unsat_equivalences);
   LOG ("second sweeping implication %s <- %s succeeded too", LOGLIT (other),
@@ -1499,12 +1552,12 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));
   INC (sweep_equivalences);
 
-  add_core (sweeper, 0);
-  add_binary (solver, lit, not_other);
+  add_core (sweeper, 0);      //Tell kissat about (G -l k) UNSAT
+  add_binary (solver, lit, not_other); //encode the equivalence of the two literals via two symmetric clauses
   clear_core (sweeper, 0);
 
-  add_core (sweeper, 1);
-  add_binary (solver, not_lit, other);
+  add_core (sweeper, 1);     //Tell kissat about (G l -k) UNSAT
+  add_binary (solver, not_lit, other); //encode the equivalence of the two literals via two symmetric clauses
   clear_core (sweeper, 1);
 
   unsigned repr;
@@ -1703,10 +1756,11 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
 #endif
     /*
      * L.15-22
+     * Check pairwise within a class which variables are actually equivalent
+     *
      * The backbone is now empty.
      * All backbone-variables have been propagated
      * All non-backbone variables are partitioned into potential equivalence classes
-     * Now: Check pairwise within a class which variables are actually equivalent
       */
     START (sweepequivalences);
     while (!EMPTY_STACK (sweeper->partition)) {

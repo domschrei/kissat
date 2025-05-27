@@ -57,6 +57,9 @@ void kissat_activate_literals (kissat *solver, unsigned size,
     activate_literal (solver, lits[i]);
 }
 
+
+
+
 void kissat_mark_fixed_literal (kissat *solver, unsigned lit) {
   assert (VALUE (lit) > 0);
   const unsigned idx = IDX (lit);
@@ -73,6 +76,9 @@ void kissat_mark_fixed_literal (kissat *solver, unsigned lit) {
   PUSH_STACK (solver->units, elit);
   LOG ("pushed external unit literal %d (internal %u)", elit, lit);
 }
+
+
+
 
 void kissat_mark_eliminated_variable (kissat *solver, unsigned idx) {
   const unsigned lit = LIT (idx);
