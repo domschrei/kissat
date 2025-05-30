@@ -1610,12 +1610,12 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     sweep_remove (sweeper, lit);
   }
 
+ /*
+  *L.9
+  *Re-introduce the (new) representative variable to the queue
+  */
   const unsigned repr_idx = IDX (repr);
-   /*
-    *L.9
-    *Re-introduce the (new) representative variable to the sweeping schedule
-    */
-
+  schedule_inner (sweeper, repr_idx);
 
   return true;
 }
