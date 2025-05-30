@@ -988,7 +988,7 @@ static bool scheduled_variable (sweeper *sweeper, unsigned idx) {
 
 
 /**
-*Move idx to the end of the schedule queue
+*Move idx to the end of the schedule queue ("last") (where it will be immediately the next to be popped)
 **/
 static void schedule_inner (sweeper *sweeper, unsigned idx) {
   kissat *const solver = sweeper->solver;
@@ -1039,7 +1039,7 @@ static void schedule_inner (sweeper *sweeper, unsigned idx) {
 
 
 /**
- *Move idx to the end of the schedule queue
+ *Move idx to the start of the schedule queue ("first") (where it will not be popped for a long time)
 **/
 static void schedule_outer (sweeper *sweeper, unsigned idx) {
 #if !defined(NDEBUG) || defined(LOGGING)
@@ -1064,7 +1064,7 @@ static void schedule_outer (sweeper *sweeper, unsigned idx) {
 
 
 /**
-*Pop the last idx from the schedule queue
+*Pop the *last* idx from the schedule queue
 **/
 static unsigned next_scheduled (sweeper *sweeper) {
 #if !defined(NDEBUG) || defined(LOGGING)
@@ -1095,6 +1095,13 @@ static unsigned next_scheduled (sweeper *sweeper) {
   unsigned IDX = sweeper->first, NEXT_##IDX; \
   IDX != INVALID_IDX && (NEXT_##IDX = sweeper->next[IDX], true); \
   IDX = NEXT_##IDX
+
+
+
+
+
+
+
 
 static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
                                           unsigned repr) {
@@ -1320,6 +1327,19 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
 #endif
 }
 
+
+
+
+
+
+
+
+
+
+
+ /*
+  *Remove lit from it's partition class, because it was found to be equivalent with some other representative
+  */
 static void sweep_remove (sweeper *sweeper, unsigned lit) {
   kissat *solver = sweeper->solver;
   assert (sweeper->reprs[lit] != lit);
@@ -1353,6 +1373,12 @@ static void sweep_remove (sweeper *sweeper, unsigned lit) {
   (void) solver;
 #endif
 }
+
+
+
+
+
+
 
 static void flip_partition_literals (struct sweeper *sweeper) {
   struct kissat *solver = sweeper->solver;
@@ -1560,12 +1586,21 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   add_binary (solver, not_lit, other); //encode the equivalence of the two literals via two symmetric clauses
   clear_core (sweeper, 1);
 
+   /*
+    *  Replace one literal by the other
+    */
   unsigned repr;
   if (lit < other) {
     repr = sweeper->reprs[other] = lit;
     sweeper->reprs[not_other] = not_lit;
+     /*
+      * Replace "other" in all (watched?) clauses with lit
+      */
     substitute_connected_clauses (sweeper, other, lit);
     substitute_connected_clauses (sweeper, not_other, not_lit);
+     /*
+      * Remove "other" from the partition
+      */
     sweep_remove (sweeper, other);
   } else {
     repr = sweeper->reprs[lit] = other;
@@ -1576,10 +1611,18 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   }
 
   const unsigned repr_idx = IDX (repr);
-  schedule_inner (sweeper, repr_idx);
+   /*
+    *L.9
+    *Re-introduce the (new) representative variable to the sweeping schedule
+    */
+
 
   return true;
 }
+
+
+
+
 
 static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
@@ -1647,7 +1690,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
     }
 
     /*
-    * Expand the environment by reading the next variable from the current environment
+    * Expand the environment by reading it's next variable
     */
     const unsigned idx = PEEK_STACK (sweeper->vars, expand);
     LOG ("traversing and adding clauses of %s", LOGVAR (idx));
@@ -1788,7 +1831,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
         unsigned lit = end[-3];
         unsigned other = end[-2];
         /*
-          Test conclusively whether (lit,other) are equivalent literals
+          Test conclusively whether already in the given environment (lit,other) are equivalent literals
         */
         if (sweep_equivalence_candidates (sweeper, lit, other))
           success = true;
@@ -1906,7 +1949,7 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
 
 /*
  * Empties the remaining-stack and puts selected variables back to the end of the schedule queue
- * (variable put back if: active, not-yet-scheduled and scheduable)
+ * (variable put back if active AND not-yet-scheduled AND scheduable)
  */
 static unsigned reschedule_previously_remaining (sweeper *sweeper) {
   kissat *solver = sweeper->solver;
@@ -2080,7 +2123,7 @@ bool kissat_sweep (kissat *solver) {
      */
     sweep_variable (&sweeper, idx);
 
-    kissat_custom_message(solver, "v %" PRIu64, idx);
+    // kissat_custom_message(solver, "v %" PRIu64, idx);
 
     kissat_extremely_verbose (
         solver, "swept[%" PRIu64 "] external variable %d %s", swept,
