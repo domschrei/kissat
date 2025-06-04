@@ -1917,6 +1917,12 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   INIT_STACK (fresh);
   flags *const flags = solver->flags;
   const bool incomplete = solver->sweep_incomplete;
+
+  int globalId = GET_OPTION(globalId);
+  int globalNumSolvers = GET_OPTION(globalNumSolvers);
+  int round_robin_count = 0;
+
+
   /**
    * put EVERY variable in the sweeper->vars stack
    */
@@ -1933,6 +1939,19 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
       FLAGS (idx)->sweep = false;
       continue;
     }
+
+    //This solver applies sweeping only to every globalNumSolvers-th variable
+    round_robin_count++;
+    if (round_robin_count == globalNumSolvers) {
+      round_robin_count = 0;
+    }
+    if (round_robin_count!=globalId) {
+      continue;
+    }
+    if (SIZE_STACK(fresh) < 100) {
+      kissat_custom_message(solver, "[%i] Stack idx %i", globalId, idx);
+    }
+
     sweep_candidate cand;
     cand.rank = occ;
     cand.idx = idx;
@@ -2136,8 +2155,8 @@ bool kissat_sweep (kissat *solver) {
                            solver->statistics.sweep_units - units, swept);
       limit *= 10;
       kissat_custom_message(solver,
-                            "solver %" PRIu64 " found %" PRIu64 " equivalences and %" PRIu64
-                           " units after sweeping %" PRIu64 " variables",
+                            "[%" PRIu64 "]: %" PRIu64 " eq %" PRIu64
+                           " u swept %" PRIu64"",
                            (uint64_t) GET_OPTION(globalId),
                            statistics->sweep_equivalences - equivalences,
                            solver->statistics.sweep_units - units, swept);

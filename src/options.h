@@ -71,6 +71,7 @@
   OPTION (forward, 1, 0, 1, "forward subsumption in BVE") \
   OPTION (forwardeffort, 100, 0, 1e6, "effort in per mille") \
   OPTION (globalId, 0, 0, 1e6, "global solver ID provided by some external framework (e.g., mallob)") \
+  OPTION (globalNumSolvers, 1, 1, 1e6, "the total number of solvers currently working on this problem, controlled by some external framework (e.g., mallob)") \
   OPTION (ifthenelse, 1, 0, 1, "extract and eliminate if-then-else gates") \
   OPTION (incremental, 0, 0, 1, "enable incremental solving") \
   OPTION (jumpreasons, 1, 0, 1, "jump binary reasons") \

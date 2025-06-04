@@ -287,6 +287,13 @@ void kissat_print_statistics (kissat *solver) {
   (void) solver;
 }
 
+
+
+
+
+ /*
+  *Was geht hier bitte alles schon beim Hinzufügen eines Literals ab
+  */
 void kissat_add (kissat *solver, int elit) {
   kissat_require_initialized (solver);
   kissat_require (!GET (searches), "incremental solving not supported");
