@@ -125,7 +125,13 @@ void kissat_custom_message(kissat *solver, const char *fmt, ...) {
   char new_fmt[1024];
   memset(new_fmt, ' ', num_spaces);
   new_fmt[num_spaces] = '\0';
-  strncat(new_fmt, fmt, sizeof(new_fmt) - num_spaces - 1);
+
+  // Prepend [globalId] to the format string
+  char prefix[64];
+  snprintf(prefix, sizeof(prefix), "[%" PRIu64 "] ", globalId);
+
+  strncat(new_fmt, prefix, sizeof(new_fmt) - strlen(new_fmt) - 1);
+  strncat(new_fmt, fmt, sizeof(new_fmt) - strlen(new_fmt) - 1);
 
   va_list ap;
   va_start(ap, fmt);

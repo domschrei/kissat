@@ -1927,29 +1927,43 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
    * put EVERY variable in the sweeper->vars stack
    */
   for (all_variables (idx)) {
-    struct flags *const f = flags + idx;
-    if (!f->active)
-      continue;
-    if (incomplete && !f->sweep)
-      continue;
-    if (scheduled_variable (sweeper, idx))
-      continue;
-    size_t occ;
-    if (!scheduable_variable (sweeper, idx, &occ)) {
-      FLAGS (idx)->sweep = false;
-      continue;
-    }
 
-    //This solver applies sweeping only to every globalNumSolvers-th variable
+    //Consider only every n-th variables for sweeping, to partition them between solvers. Here, n=globalNumSolvers
+    bool passed_round_robin = false;
     round_robin_count++;
     if (round_robin_count == globalNumSolvers) {
       round_robin_count = 0;
     }
-    if (round_robin_count!=globalId) {
+    if (round_robin_count==(globalId+1)) {
+      passed_round_robin = true;
+    }
+
+    struct flags *const f = flags + idx;
+    if (!f->active) {
+      if (idx<500 && passed_round_robin) kissat_custom_message(solver,"skip %i: !active",idx);
       continue;
     }
+    if (incomplete && !f->sweep) {
+      if (idx<500 && passed_round_robin) kissat_custom_message(solver,"skip %i: !sweep",idx);
+      continue;
+    }
+    if (scheduled_variable (sweeper, idx)) {
+      if (idx<500 && passed_round_robin) kissat_custom_message(solver,"skip %i: already scheduled",idx);
+      continue;
+    }
+    size_t occ;
+    if (!scheduable_variable (sweeper, idx, &occ)) {
+      FLAGS (idx)->sweep = false;
+      if (idx<500 && passed_round_robin) kissat_custom_message(solver,"skip %i: !scheduable",idx);
+      continue;
+    }
+
+    if (!passed_round_robin)
+      continue;
+
+
     if (SIZE_STACK(fresh) < 100) {
-      kissat_custom_message(solver, "[%i] Stack idx %i", globalId, idx);
+      kissat_custom_message(solver, "Stack %i", idx);
     }
 
     sweep_candidate cand;
@@ -2030,7 +2044,7 @@ static void mark_incomplete (sweeper *sweeper) {
 }
 
 /*
- * Set up the variables to sweep over and their order
+ * Set up the variables to sweep, and their order. Returns the number of scheduled variables
  */
 static unsigned schedule_sweeping (sweeper *sweeper) {
   const unsigned rescheduled = reschedule_previously_remaining (sweeper);
@@ -2114,6 +2128,7 @@ bool kissat_sweep (kissat *solver) {
   /*
     * Set up the variables to sweep over and their order
     */
+  kissat_custom_message(solver, "--starting kissat_sweep %i--",0);
   const unsigned scheduled = schedule_sweeping (&sweeper);
   uint64_t swept = 0, limit = 10;
   /*
@@ -2155,9 +2170,7 @@ bool kissat_sweep (kissat *solver) {
                            solver->statistics.sweep_units - units, swept);
       limit *= 10;
       kissat_custom_message(solver,
-                            "[%" PRIu64 "]: %" PRIu64 " eq %" PRIu64
-                           " u swept %" PRIu64"",
-                           (uint64_t) GET_OPTION(globalId),
+                           "%" PRIu64 " eq %" PRIu64 " u swept %" PRIu64"",
                            statistics->sweep_equivalences - equivalences,
                            solver->statistics.sweep_units - units, swept);
     }
@@ -2166,6 +2179,8 @@ bool kissat_sweep (kissat *solver) {
     * Finished sweeping. Some cleanup and statistics.
     */
   kissat_very_verbose (solver, "swept %" PRIu64 " variables", swept);
+  kissat_custom_message(solver, "finished sweeping. Swept %" PRIu64 " variables", swept);
+
   equivalences = statistics->sweep_equivalences - equivalences,
   units = solver->statistics.sweep_units - units;
   kissat_phase (solver, "sweep", GET (sweep),
