@@ -16,7 +16,8 @@
 #include <string.h>
 
 /**
- * static int sweep_solve (sweeper *sweeper) {
+ * Overview of all methods
+static int sweep_solve (sweeper *sweeper) {
 void  x   set_kitten_ticks_limit (sweeper *sweeper) {
 bool  x   kitten_ticks_limit_hit (sweeper *sweeper, const char *when) {
 void      init_sweeper (kissat *solver, sweeper *sweeper) {
@@ -733,7 +734,7 @@ static void sweep_refine_partition (sweeper *sweeper) {
   // -- set to true in the kitten model
   for (const unsigned *p = old_begin, *q; p != old_end; p = q + 1) {
     unsigned assigned_true = 0, other;
-    //Only scan through one single class (classes are separated by INVALID_LIT)
+    //Now scanning through one single class (classes are separated by INVALID_LIT)
     for (q = p; (other = *q) != INVALID_LIT; q++) {
       if (sweep_repr (sweeper, other) != other)
         continue;
@@ -962,6 +963,7 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
      * Larger environment ==> More detected backbones
      * We found the backbone even with the limited environment, nice. Now propagate this as a unit clause.
      */
+    kissat_custom_message(solver, "          U! %i", IDX(lit));
     LOG ("sweep unit %s", LOGLIT (lit));
     save_add_clear_core (sweeper);
     INC (sweep_unsat_backbone);
@@ -988,7 +990,8 @@ static bool scheduled_variable (sweeper *sweeper, unsigned idx) {
 
 
 /**
-*Move idx to the end of the schedule queue ("last") (where it will be immediately the next to be popped)
+* Schedule idx to be the very next variable to be popped for sweeping
+* By moving it to the end ("last") of the schedule queue
 **/
 static void schedule_inner (sweeper *sweeper, unsigned idx) {
   kissat *const solver = sweeper->solver;
@@ -1577,6 +1580,8 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
 
   LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));
   INC (sweep_equivalences);
+  kissat_custom_message(solver,"         %i == %i", IDX(lit), IDX(other));
+  // kissat_custom_message(solver, "(Repr  %i == %i)", IDX(sweeper->reprs[lit]), IDX(sweeper->reprs[other]));
 
   add_core (sweeper, 0);      //Tell kissat about (G -l k) UNSAT
   add_binary (solver, lit, not_other); //encode the equivalence of the two literals via two symmetric clauses
@@ -1612,9 +1617,10 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
 
  /*
   *L.9
-  *Re-introduce the (new) representative variable to the queue
+  *Re-introduce the representative variable to the queue, to be immediately scheduled next
   */
   const unsigned repr_idx = IDX (repr);
+  // kissat_custom_message(solver, "    re %i (%i)", repr_idx, kissat_export_literal(solver, LIT (repr_idx) ));
   schedule_inner (sweeper, repr_idx);
 
   return true;
@@ -1753,6 +1759,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
      Then try hard to flip one literal in particular
      */
     while (!EMPTY_STACK (sweeper->backbone)) {
+      kissat_custom_message(solver, "    B(%i)", SIZE_STACK(sweeper->backbone));
       if (solver->inconsistent || TERMINATED (sweep_terminated_3) ||
           kitten_ticks_limit_hit (sweeper, "backbone refinement")) {
         limit_reached = true;
@@ -1786,6 +1793,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
 #ifndef QUIET
     units = solver->statistics.sweep_units - units;
     solved = solver->statistics.sweep_solved - solved;
+    kissat_custom_message(solver, "  %i SAT-B", solved);
     kissat_extremely_verbose (
         solver,
         "complete swept variable %d backbone with %" PRIu64
@@ -1807,6 +1815,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
       */
     START (sweepequivalences);
     while (!EMPTY_STACK (sweeper->partition)) {
+      kissat_custom_message(solver, "    P(%i)", SIZE_STACK(sweeper->partition));
       if (solver->inconsistent || TERMINATED (sweep_terminated_5) ||
           kitten_ticks_limit_hit (sweeper, "partition refinement")) {
         limit_reached = true;
@@ -1831,7 +1840,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
         unsigned lit = end[-3];
         unsigned other = end[-2];
         /*
-          Test conclusively whether already in the given environment (lit,other) are equivalent literals
+          Test conclusively whether "lit" and "other" are already in the given environment equivalent literals
         */
         if (sweep_equivalence_candidates (sweeper, lit, other))
           success = true;
@@ -1842,6 +1851,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
 #ifndef QUIET
     equivalences = solver->statistics.sweep_equivalences - equivalences;
     solved = solver->statistics.sweep_solved - solved;
+    kissat_custom_message(solver, "  %i SAT-P", solved);
     if (equivalences)
       kissat_extremely_verbose (
           solver,
@@ -1918,11 +1928,11 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   flags *const flags = solver->flags;
   const bool incomplete = solver->sweep_incomplete;
 
-  int globalId = GET_OPTION(globalId);
-  int globalNumSolvers = GET_OPTION(globalNumSolvers);
-  int round_robin_count = 0;
-
-
+  const size_t globalId = GET_OPTION(globalId);
+  const size_t globalNumSolvers = GET_OPTION(globalNumSolvers);
+  size_t round_robin_count = 0;
+  const size_t LOG_CUTOFF = 30;
+  kissat_custom_message(solver, "Total variables: %i, Solver id %i, Num solvers %i", solver->vars, globalId, globalNumSolvers);
   /**
    * put EVERY variable in the sweeper->vars stack
    */
@@ -1934,27 +1944,28 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
     if (round_robin_count == globalNumSolvers) {
       round_robin_count = 0;
     }
-    if (round_robin_count==(globalId+1)) {
+    if (round_robin_count==globalId) {
       passed_round_robin = true;
     }
+    int elit = kissat_export_literal (solver, LIT (idx));
 
     struct flags *const f = flags + idx;
     if (!f->active) {
-      if (idx<500 && passed_round_robin) kissat_custom_message(solver,"skip %i: !active",idx);
+      if (idx<LOG_CUTOFF && passed_round_robin) kissat_custom_message(solver,"skip %i (%d): !active",idx, elit);
       continue;
     }
     if (incomplete && !f->sweep) {
-      if (idx<500 && passed_round_robin) kissat_custom_message(solver,"skip %i: !sweep",idx);
+      if (idx<LOG_CUTOFF && passed_round_robin) kissat_custom_message(solver,"skip %i: !sweep",idx);
       continue;
     }
     if (scheduled_variable (sweeper, idx)) {
-      if (idx<500 && passed_round_robin) kissat_custom_message(solver,"skip %i: already scheduled",idx);
+      if (idx<LOG_CUTOFF && passed_round_robin) kissat_custom_message(solver,"skip %i: already scheduled",idx);
       continue;
     }
     size_t occ;
     if (!scheduable_variable (sweeper, idx, &occ)) {
       FLAGS (idx)->sweep = false;
-      if (idx<500 && passed_round_robin) kissat_custom_message(solver,"skip %i: !scheduable",idx);
+      if (idx<LOG_CUTOFF && passed_round_robin) kissat_custom_message(solver,"skip %i: !scheduable",idx);
       continue;
     }
 
@@ -1963,7 +1974,7 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
 
 
     if (SIZE_STACK(fresh) < 100) {
-      kissat_custom_message(solver, "Stack %i", idx);
+      kissat_custom_message(solver, "Stack %i (%d) wc %i", idx, elit, occ);
     }
 
     sweep_candidate cand;
@@ -1973,9 +1984,22 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   }
   const size_t size = SIZE_STACK (fresh);
   assert (size <= UINT_MAX);
+
   RADIX_STACK (sweep_candidate, unsigned, fresh, RANK_SWEEP_CANDIDATE);
-  for (all_stack (sweep_candidate, cand, fresh))
+  /*
+   * Variables are now sorted ascending by their watchlist-count
+   * Insert them in the scheduling queue such that the LOWEST watchlist counts are popped FIRST
+   */
+  size_t enqueued_vars = 0;
+  for (all_stack (sweep_candidate, cand, fresh)) {
     schedule_outer (sweeper, cand.idx);
+    enqueued_vars++;
+    if (enqueued_vars < LOG_CUTOFF || enqueued_vars > size - LOG_CUTOFF) {
+      int elit = kissat_export_literal (solver, LIT (cand.idx));
+      kissat_custom_message (solver, "Enqueued %i (%i), wc %i", cand.idx, elit, cand.rank);
+    }
+  }
+
   RELEASE_STACK (fresh);
   return size;
 }
@@ -2052,6 +2076,7 @@ static unsigned schedule_sweeping (sweeper *sweeper) {
   const unsigned scheduled = fresh + rescheduled;
   const unsigned incomplete = incomplete_variables (sweeper);
   kissat *solver = sweeper->solver;
+
 #ifndef QUIET
   kissat_phase (solver, "sweep", GET (sweep),
                 "scheduled %u variables %.0f%% "
@@ -2070,6 +2095,11 @@ static unsigned schedule_sweeping (sweeper *sweeper) {
   }
   return scheduled;
 }
+
+
+
+
+
 
 static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
                                  unsigned scheduled) {
@@ -2107,6 +2137,11 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
                 kissat_percent (incomplete, scheduled));
 }
 
+
+
+
+
+
 bool kissat_sweep (kissat *solver) {
   if (!GET_OPTION (sweep))
     return false;
@@ -2128,7 +2163,7 @@ bool kissat_sweep (kissat *solver) {
   /*
     * Set up the variables to sweep over and their order
     */
-  kissat_custom_message(solver, "--starting kissat_sweep %i--",0);
+  kissat_custom_message(solver, "--starting kissat_sweep--");
   const unsigned scheduled = schedule_sweeping (&sweeper);
   uint64_t swept = 0, limit = 10;
   /*
@@ -2148,16 +2183,16 @@ bool kissat_sweep (kissat *solver) {
     unsigned idx = next_scheduled (&sweeper);
     if (idx == INVALID_IDX)
       break;
-    FLAGS (idx)->sweep = false;
+    FLAGS (idx)->sweep = false; //remember that we sweept this variable now
+    kissat_custom_message(solver, "Sw %i (%i)", idx, kissat_export_literal (solver, LIT (idx)));
 #ifndef QUIET
     const char *res =
 #endif
+        sweep_variable (&sweeper, idx);
     /*
-     * Sweep the environment of this variable. Hope to split some equivalences or find direct assignments.
+     * Sweept the environment of this variable. Hope to split some equivalences or find direct assignments.
      */
-    sweep_variable (&sweeper, idx);
 
-    // kissat_custom_message(solver, "v %" PRIu64, idx);
 
     kissat_extremely_verbose (
         solver, "swept[%" PRIu64 "] external variable %d %s", swept,
@@ -2169,23 +2204,20 @@ bool kissat_sweep (kissat *solver) {
                            statistics->sweep_equivalences - equivalences,
                            solver->statistics.sweep_units - units, swept);
       limit *= 10;
-      kissat_custom_message(solver,
-                           "%" PRIu64 " eq %" PRIu64 " u swept %" PRIu64"",
-                           statistics->sweep_equivalences - equivalences,
-                           solver->statistics.sweep_units - units, swept);
     }
   }
   /*
     * Finished sweeping. Some cleanup and statistics.
     */
   kissat_very_verbose (solver, "swept %" PRIu64 " variables", swept);
-  kissat_custom_message(solver, "finished sweeping. Swept %" PRIu64 " variables", swept);
+  // kissat_custom_message(solver, "finished sweeping. Swept %" PRIu64 " variables", swept);
 
   equivalences = statistics->sweep_equivalences - equivalences,
   units = solver->statistics.sweep_units - units;
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
+  kissat_custom_message(solver,"found %" PRIu64 " eq %" PRIu64 " units, with %"PRIu64 " swept" , equivalences,units,swept);
   unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
 

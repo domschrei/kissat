@@ -39,7 +39,7 @@ static inline void kissat_assign (kissat *solver, const bool probing,
    /*
     * Explicitly set the literal value to true
     *
-    * Not quite sure why we do this redundant work of storing the variable value two times, for lit and not_lit, as they contain exactly the same information
+    * Not quite sure why we store the variable value two times redundantly, for lit and not_lit, as they contain exactly the same information
     * Maybe it makes it a bit more convenient to code, but we could also just read values[lit] and negate it when we need it for not_lit ?
     * Especially since this approach here consumes 16 bits per lit when in theory only 2 bits would be needed (assigned/unassigned, true/false)
     */
