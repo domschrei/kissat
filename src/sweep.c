@@ -1620,8 +1620,22 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   *Re-introduce the representative variable to the queue, to be immediately scheduled next
   */
   const unsigned repr_idx = IDX (repr);
+
+  const unsigned e_repr_lit = kissat_export_literal(solver, repr);
+  const unsigned e_repr_idx = e_repr_lit & 0x7FFFFFFF;
+  const unsigned mallob_solver_count = GET_OPTION(mallob_solver_count);
+  const unsigned mallob_solver_id = GET_OPTION(mallob_solver_id);
+  if (e_repr_idx % mallob_solver_count == mallob_solver_id) {
+    kissat_custom_message(solver,"                --> enqeue %i (e%i), is in solver scope", IDX(repr), kissat_export_literal(solver, repr));
+    schedule_inner (sweeper, repr_idx);
+  } else {
+    kissat_custom_message(solver,"                --> skipped enqueue %i (e%i)", IDX(repr), kissat_export_literal(solver, repr));
+  }
   // kissat_custom_message(solver, "    re %i (%i)", repr_idx, kissat_export_literal(solver, LIT (repr_idx) ));
-  schedule_inner (sweeper, repr_idx);
+
+
+
+
 
   return true;
 }
@@ -1928,53 +1942,63 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   flags *const flags = solver->flags;
   const bool incomplete = solver->sweep_incomplete;
 
-  const size_t globalId = GET_OPTION(globalId);
-  const size_t globalNumSolvers = GET_OPTION(globalNumSolvers);
-  size_t round_robin_count = 0;
+  const size_t mallob_solver_id = GET_OPTION(mallob_solver_id);
+  const size_t mallob_solver_count = GET_OPTION(mallob_solver_count);
+  // size_t round_robin_count = 0;
   const size_t LOG_CUTOFF = 30;
-  kissat_custom_message(solver, "Total variables: %i, Solver id %i, Num solvers %i", solver->vars, globalId, globalNumSolvers);
+  kissat_custom_message(solver, "Total variables: %i, Solver id %i, Solver count %i", solver->vars, mallob_solver_id, mallob_solver_count);
   /**
-   * put EVERY variable in the sweeper->vars stack
+   * Original Kissat puts EVERY variable in the sweeper->vars stack
    */
   for (all_variables (idx)) {
 
-    //Consider only every n-th variables for sweeping, to partition them between solvers. Here, n=globalNumSolvers
-    bool passed_round_robin = false;
-    round_robin_count++;
-    if (round_robin_count == globalNumSolvers) {
-      round_robin_count = 0;
+    //With n solvers, every solver should sweep only 1/n variables
+    //A simple division method is (external_idx %n)==solver_id
+    //Need external idx, because they remain constant and all solvers agree on them. Internal idx can shift and change for the same variable
+
+    // bool passed_round_robin = false;
+    // round_robin_count++;
+    // if (round_robin_count == globalNumSolvers) {
+    //   round_robin_count = 0;
+    // }
+    // if (round_robin_count==globalId) {
+    //   passed_round_robin = true;
+    // }
+
+    // kissat_custom_message(solver, "idx %i  ilit %i", idx, LIT (idx));
+    unsigned elit = kissat_export_literal (solver, LIT (idx));
+    unsigned eidx = elit & 0x7FFFFFF; //mask off the sign
+    if (eidx % mallob_solver_count != mallob_solver_id) {
+      continue;
     }
-    if (round_robin_count==globalId) {
-      passed_round_robin = true;
-    }
-    int elit = kissat_export_literal (solver, LIT (idx));
+
 
     struct flags *const f = flags + idx;
     if (!f->active) {
-      if (idx<LOG_CUTOFF && passed_round_robin) kissat_custom_message(solver,"skip %i (%d): !active",idx, elit);
+      if (idx<LOG_CUTOFF) kissat_custom_message(solver,"skip %i: !active",idx);
       continue;
     }
     if (incomplete && !f->sweep) {
-      if (idx<LOG_CUTOFF && passed_round_robin) kissat_custom_message(solver,"skip %i: !sweep",idx);
+      if (idx<LOG_CUTOFF) kissat_custom_message(solver,"skip %i: !sweep",idx);
       continue;
     }
     if (scheduled_variable (sweeper, idx)) {
-      if (idx<LOG_CUTOFF && passed_round_robin) kissat_custom_message(solver,"skip %i: already scheduled",idx);
+      if (idx<LOG_CUTOFF) kissat_custom_message(solver,"skip %i: already scheduled",idx);
       continue;
     }
     size_t occ;
     if (!scheduable_variable (sweeper, idx, &occ)) {
       FLAGS (idx)->sweep = false;
-      if (idx<LOG_CUTOFF && passed_round_robin) kissat_custom_message(solver,"skip %i: !scheduable",idx);
+      if (idx<LOG_CUTOFF) kissat_custom_message(solver,"skip %i: !scheduable",idx);
       continue;
     }
-
-    if (!passed_round_robin)
-      continue;
+    //
+    // if (!passed_round_robin)
+    //   continue;
 
 
     if (SIZE_STACK(fresh) < 100) {
-      kissat_custom_message(solver, "Stack %i (%d) wc %i", idx, elit, occ);
+      kissat_custom_message(solver, "Stack %i (e%i) wc %i", idx, eidx, occ);
     }
 
     sweep_candidate cand;
@@ -1995,8 +2019,9 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
     schedule_outer (sweeper, cand.idx);
     enqueued_vars++;
     if (enqueued_vars < LOG_CUTOFF || enqueued_vars > size - LOG_CUTOFF) {
-      int elit = kissat_export_literal (solver, LIT (cand.idx));
-      kissat_custom_message (solver, "Enqueued %i (%i), wc %i", cand.idx, elit, cand.rank);
+      unsigned elit = kissat_export_literal (solver, LIT (cand.idx));
+      unsigned eidx = IDX(elit);
+      kissat_custom_message (solver, "Enqueued %i (e%i), wc %i", cand.idx, eidx, cand.rank);
     }
   }
 
@@ -2184,7 +2209,7 @@ bool kissat_sweep (kissat *solver) {
     if (idx == INVALID_IDX)
       break;
     FLAGS (idx)->sweep = false; //remember that we sweept this variable now
-    kissat_custom_message(solver, "Sw %i (%i)", idx, kissat_export_literal (solver, LIT (idx)));
+    kissat_custom_message(solver, "Sw %i (e%i)", idx, kissat_export_literal (solver, LIT (idx)));
 #ifndef QUIET
     const char *res =
 #endif

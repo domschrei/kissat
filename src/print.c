@@ -118,17 +118,17 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
 
 
 void kissat_custom_message(kissat *solver, const char *fmt, ...) {
-  uint64_t globalId = GET_OPTION(globalId);
-  uint64_t num_spaces = 15 * globalId;
+  uint64_t mallob_solver_id = GET_OPTION(mallob_solver_id);
+  uint64_t num_spaces = 15 * mallob_solver_id;
 
   // Add some spaces to the message to spacially distinguish the specific solver
   char new_fmt[1024];
   memset(new_fmt, ' ', num_spaces);
   new_fmt[num_spaces] = '\0';
 
-  // Prepend [globalId] to the format string
+  // Prepend [mallob_solver_id] to the format string
   char prefix[64];
-  snprintf(prefix, sizeof(prefix), "[%" PRIu64 "] ", globalId);
+  snprintf(prefix, sizeof(prefix), "[%" PRIu64 "] ", mallob_solver_id);
 
   strncat(new_fmt, prefix, sizeof(new_fmt) - strlen(new_fmt) - 1);
   strncat(new_fmt, fmt, sizeof(new_fmt) - strlen(new_fmt) - 1);

@@ -70,8 +70,6 @@
   OPTION (forcephase, 0, 0, 1, "force initial phase") \
   OPTION (forward, 1, 0, 1, "forward subsumption in BVE") \
   OPTION (forwardeffort, 100, 0, 1e6, "effort in per mille") \
-  OPTION (globalId, 0, 0, 1e6, "global solver ID provided by some external framework (e.g., mallob)") \
-  OPTION (globalNumSolvers, 1, 1, 1e6, "the total number of solvers currently working on this problem, controlled by some external framework (e.g., mallob)") \
   OPTION (ifthenelse, 1, 0, 1, "extract and eliminate if-then-else gates") \
   OPTION (incremental, 0, 0, 1, "enable incremental solving") \
   OPTION (jumpreasons, 1, 0, 1, "jump binary reasons") \
@@ -79,6 +77,8 @@
   OPTION (lucky, 1, 0, 1, "try some lucky assignments") \
   OPTION (luckyearly, 1, 0, 1, "lucky assignments before preprocessing") \
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
+  OPTION (mallob_solver_count, 1, 1, 1e6, "the total number of solvers currently employed by mallob") \
+  OPTION (mallob_solver_id, 0, 0, 1e6, "the id of this specific solver instance, provided by mallob") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \
   OPTION (minimize, 1, 0, 1, "learned clause minimization") \
   OPTION (minimizedepth, 1e3, 1, 1e6, "minimization depth") \
