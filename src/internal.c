@@ -58,6 +58,12 @@ kissat *kissat_init (void) {
   solver->produce_clause = 0;
   solver->num_conflicts_at_last_import = 0;
 
+  //Swissat Equivalence Export
+  solver->consume_equivalence_state = 0;
+  solver->consume_equivalence_buffer = 0;
+  solver->consume_equivalence = 0;
+
+
   solver->initial_variable_phases = 0;
   solver->initial_variable_phases_len = 0;
 
@@ -579,6 +585,17 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
   solver->produce_clause_state = state;
   solver->produce_clause = produce;
 }
+
+
+void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*consume) (void *state)) {
+  solver->consume_equivalence_state = state;
+  solver->consume_equivalence_buffer = buffer;
+  solver->consume_equivalence = consume;
+}
+
+
+
+
 
 void kissat_set_preprocessing_report_callback (kissat * solver, void *state,
   bool (*begin_report) (void *state, int vars, int cls),

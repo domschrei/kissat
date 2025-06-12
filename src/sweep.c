@@ -15,6 +15,8 @@
 #include <inttypes.h>
 #include <string.h>
 
+#include "clauseexport.h"
+
 /**
  * Overview of all methods
 static int sweep_solve (sweeper *sweeper) {
@@ -1106,6 +1108,11 @@ static unsigned next_scheduled (sweeper *sweeper) {
 
 
 
+ /*
+  *We found an equivalence lit == repr
+  *now we replace in the whole clause database lit --> repr
+  *Multiple things can happen per clause: it reduces to empty, unit, binary, or larger; each needs own handling
+  */
 static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
                                           unsigned repr) {
   kissat *solver = sweeper->solver;
@@ -1583,31 +1590,43 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   kissat_custom_message(solver,"         %i == %i", IDX(lit), IDX(other));
   // kissat_custom_message(solver, "(Repr  %i == %i)", IDX(sweeper->reprs[lit]), IDX(sweeper->reprs[other]));
 
-  add_core (sweeper, 0);      //Tell kissat about (G -l k) UNSAT
-  add_binary (solver, lit, not_other); //encode the equivalence of the two literals via two symmetric clauses
+  swissat_export_equivalence(solver, lit, other);
+
+   /*
+    *Tell kissat about (G -l k) UNSAT
+    *In particular relevant for proving (?), and by traversing the implication graph it might even find some more unit clauses
+    */
+  add_core (sweeper, 0);
+  add_binary (solver, lit, not_other);
   clear_core (sweeper, 0);
 
-  add_core (sweeper, 1);     //Tell kissat about (G l -k) UNSAT
-  add_binary (solver, not_lit, other); //encode the equivalence of the two literals via two symmetric clauses
+   /*
+    *Repeat for the other core, tell kissat about (G l -k) UNSAT
+    */
+  add_core (sweeper, 1);
+  add_binary (solver, not_lit, other);
   clear_core (sweeper, 1);
 
    /*
-    *  Replace one literal by the other
+    *  Now globally: Replace in the whole clause database one literal by the other
     */
   unsigned repr;
   if (lit < other) {
     repr = sweeper->reprs[other] = lit;
     sweeper->reprs[not_other] = not_lit;
      /*
-      * Replace "other" in all (watched?) clauses with lit
+      * Replace other --> lit in all (watched?) clauses
       */
     substitute_connected_clauses (sweeper, other, lit);
     substitute_connected_clauses (sweeper, not_other, not_lit);
      /*
-      * Remove "other" from the partition
+      * Remove "other" from the sweeper partition
       */
     sweep_remove (sweeper, other);
   } else {
+     /*
+      * Symmetric case for inverse lexicographic order
+      */
     repr = sweeper->reprs[lit] = other;
     sweeper->reprs[not_lit] = not_other;
     substitute_connected_clauses (sweeper, lit, other);
@@ -1617,24 +1636,24 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
 
  /*
   *L.9
-  *Re-introduce the representative variable to the queue, to be immediately scheduled next
+  *Re-introduce repr to the queue, to where it is immediately scheduled next
+  *heuristic argument: We just made progress around "repr" (and simplified some clauses) immediately search again here
   */
   const unsigned repr_idx = IDX (repr);
 
+   /*
+    * Mallob sweeping: We only re-enqueue variables that are in the scope of this particular solver, i.e. only a fraction 1/n
+    */
   const unsigned e_repr_lit = kissat_export_literal(solver, repr);
   const unsigned e_repr_idx = e_repr_lit & 0x7FFFFFFF;
   const unsigned mallob_solver_count = GET_OPTION(mallob_solver_count);
   const unsigned mallob_solver_id = GET_OPTION(mallob_solver_id);
   if (e_repr_idx % mallob_solver_count == mallob_solver_id) {
-    kissat_custom_message(solver,"                --> enqeue %i (e%i), is in solver scope", IDX(repr), kissat_export_literal(solver, repr));
+    kissat_custom_message(solver,"                --> is in solver scope, enqeue %i (e%i), ", IDX(repr), kissat_export_literal(solver, repr));
     schedule_inner (sweeper, repr_idx);
   } else {
-    kissat_custom_message(solver,"                --> skipped enqueue %i (e%i)", IDX(repr), kissat_export_literal(solver, repr));
+    kissat_custom_message(solver,"                --> skip %i (e%i)", IDX(repr), kissat_export_literal(solver, repr));
   }
-  // kissat_custom_message(solver, "    re %i (%i)", repr_idx, kissat_export_literal(solver, LIT (repr_idx) ));
-
-
-
 
 
   return true;
@@ -2020,7 +2039,7 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
     enqueued_vars++;
     if (enqueued_vars < LOG_CUTOFF || enqueued_vars > size - LOG_CUTOFF) {
       unsigned elit = kissat_export_literal (solver, LIT (cand.idx));
-      unsigned eidx = IDX(elit);
+      unsigned eidx = elit & 0x7FFFFFF;
       kissat_custom_message (solver, "Enqueued %i (e%i), wc %i", cand.idx, eidx, cand.rank);
     }
   }

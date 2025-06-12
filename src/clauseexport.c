@@ -18,3 +18,15 @@ void kissat_export_redundant_clause (kissat * solver, unsigned glue, unsigned si
   // Execute learnt clause callback
   solver->consume_clause (solver->consume_clause_state, size, glue);
 }
+
+
+
+void swissat_export_equivalence(kissat *solver, unsigned lit1, unsigned lit2) {
+  if (!solver->consume_equivalence) return;
+  const int elit1 = kissat_export_literal (solver, lit1);
+  const int elit2 = kissat_export_literal (solver, lit2);
+  solver->consume_equivalence_buffer[0] = elit1;
+  solver->consume_equivalence_buffer[1] = elit2;
+  solver->consume_equivalence (solver->consume_equivalence_state);
+
+}

@@ -57,6 +57,12 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
 // If no clause is available, the function must return clause == 0.
 void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue));
 
+
+// Set a function to be called whenever kissat learns a new equivalence during sweeping
+void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*consume) (void *state));
+
+
+
 // Basic "external" statistics struct with some interesting properties of kissat's search.
 struct kissat_statistics {unsigned long propagations; unsigned long decisions; unsigned long conflicts; unsigned long restarts; 
 unsigned long imported; unsigned long discarded; unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;};

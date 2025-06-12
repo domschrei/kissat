@@ -118,6 +118,9 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
 
 
 void kissat_custom_message(kissat *solver, const char *fmt, ...) {
+  if (GET_OPTION(mallob_custom_verbosity)<1) {
+    return;
+  }
   uint64_t mallob_solver_id = GET_OPTION(mallob_solver_id);
   uint64_t num_spaces = 15 * mallob_solver_id;
 
