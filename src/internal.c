@@ -639,6 +639,7 @@ bool kissat_importing_redundant_clauses (kissat * solver)
 
 void kissat_import_redundant_clauses (kissat * solver) 
 {
+  printf("ß Importing!\n");
   int *buffer = 0;
   int size = 0;
   int glue = 0;

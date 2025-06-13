@@ -117,12 +117,12 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
 
 
 
-void kissat_custom_message(kissat *solver, const char *fmt, ...) {
-  if (GET_OPTION(mallob_custom_verbosity)<1) {
+void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...) {
+  if (GET_OPTION(mallob_custom_sweep_verbosity)<verb) {
     return;
   }
   uint64_t mallob_solver_id = GET_OPTION(mallob_solver_id);
-  uint64_t num_spaces = 15 * mallob_solver_id;
+  uint64_t num_spaces = 20 * mallob_solver_id;
 
   // Add some spaces to the message to spacially distinguish the specific solver
   char new_fmt[1024];

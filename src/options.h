@@ -77,7 +77,7 @@
   OPTION (lucky, 1, 0, 1, "try some lucky assignments") \
   OPTION (luckyearly, 1, 0, 1, "lucky assignments before preprocessing") \
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
-  OPTION (mallob_custom_verbosity, 1, 0, 3, "the verbosity of the kissat_custom_message messages, to be set by mallob") \
+  OPTION (mallob_custom_sweep_verbosity, 1, 0, 3, "the verbosity of the kissat_custom_message messages, can be set by mallob") \
   OPTION (mallob_solver_count, 1, 1, 1e6, "the total number of solvers currently employed by mallob") \
   OPTION (mallob_solver_id, 0, 0, 1e6, "the id of this specific solver instance, provided by mallob") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \
