@@ -49,19 +49,26 @@ kissat *kissat_init (void) {
   kissat_init_checker (solver);
 #endif
 
+  //Clause Export
   solver->consume_clause_state = 0;
   solver->consume_clause_buffer = 0;
   solver->consume_clause_max_size = 0;
   solver->consume_clause = 0;
 
+  //Equivalence Export
+  solver->consume_equivalence_state = 0;
+  solver->consume_equivalence_buffer = 0;
+  solver->consume_equivalence = 0;
+
+
+  //Clause Import
   solver->produce_clause_state = 0;
   solver->produce_clause = 0;
   solver->num_conflicts_at_last_import = 0;
 
-  //Swissat Equivalence Export
-  solver->consume_equivalence_state = 0;
-  solver->consume_equivalence_buffer = 0;
-  solver->consume_equivalence = 0;
+  //Equivalence Import
+  solver->produce_equivalence_state = 0;
+  solver->produce_equivalence = 0;
 
 
   solver->initial_variable_phases = 0;
@@ -580,12 +587,6 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
   solver->consume_clause = consume;
 }
 
-void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue)) 
-{
-  solver->produce_clause_state = state;
-  solver->produce_clause = produce;
-}
-
 
 void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*consume) (void *state)) {
   solver->consume_equivalence_state = state;
@@ -593,6 +594,17 @@ void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *b
   solver->consume_equivalence = consume;
 }
 
+
+void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue))
+{
+  solver->produce_clause_state = state;
+  solver->produce_clause = produce;
+}
+
+void swissat_set_equivalence_import_callback(kissat *solver, void *state, void (*produce) (void *state, int **equivalence)) {
+  solver->produce_equivalence_state = state;
+  solver->produce_equivalence = produce;
+}
 
 
 
@@ -639,7 +651,6 @@ bool kissat_importing_redundant_clauses (kissat * solver)
 
 void kissat_import_redundant_clauses (kissat * solver) 
 {
-  printf("ß Importing!\n");
   int *buffer = 0;
   int size = 0;
   int glue = 0;
@@ -779,6 +790,30 @@ void kissat_import_redundant_clauses (kissat * solver)
 
   //printf("KISSAT next import @ %lu conflicts\n", solver->num_conflicts_at_last_import);
 }
+
+
+
+bool swissat_importing_equivalences (kissat * solver)
+{
+  if (solver->produce_equivalence == 0) return false;
+  return true;
+}
+
+
+void swissat_import_equivalences (kissat * solver) {
+  int *buffer = 0;
+  while (true) {
+    solver->produce_equivalence (solver->produce_equivalence_state, &buffer);
+    if (buffer == 0) {
+      break; // No more equivalences
+    }
+    int elit1 = buffer[0];
+    int elit2 = buffer[1];
+    kissat_custom_message(solver, 1, "imported %i==%i", elit1, elit2);
+  }
+}
+
+
 
 void kissat_set_initial_variable_phases (kissat * solver, signed char *lookup, int size)
 {

@@ -245,16 +245,22 @@ struct kissat {
   int *consume_clause_buffer;
   unsigned consume_clause_max_size;
   void (*consume_clause) (void *state, int size, int glue);
-  
-  // Clause import
-  void *produce_clause_state;
-  void (*produce_clause) (void *state, int **clause, int *size, int *glue);
-  unsigned long num_conflicts_at_last_import;
 
   // Swissat Equivalence Export
   void *consume_equivalence_state;
   int *consume_equivalence_buffer;
   void (*consume_equivalence) (void *state);
+
+
+  // Clause import
+  void *produce_clause_state;
+  void (*produce_clause) (void *state, int **clause, int *size, int *glue);
+  unsigned long num_conflicts_at_last_import;
+
+  // Swissat Equivalence Import
+  void *produce_equivalence_state;
+  void (*produce_equivalence) (void *state, int **equivalence);
+
 
 
   // Initial variable phases
