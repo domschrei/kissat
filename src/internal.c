@@ -724,7 +724,7 @@ void kissat_import_redundant_clauses (kissat * solver)
     }
 
     // Import the *original* (non shortened) clause to the proof interface
-    solver->on_lrup_import (solver->proof_log_state, id, buffer, originalSize, sig);
+    if (solver->proof) solver->on_lrup_import (solver->proof_log_state, id, buffer, originalSize, sig);
 
     if (effectiveSize == 1) {
       // Unit clause!
@@ -741,7 +741,7 @@ void kissat_import_redundant_clauses (kissat * solver)
       // If the unit was simplified from a larger clause, we need to explicitly derive the unit
       // on the basis of the imported clause and then immediately delete the original clause
       // since the solver doesn't remember it either.
-      if (simplified) {
+      if (simplified && solver->proof) {
         solver->on_drup_derivation (solver->proof_log_state, &elit, 1, glue);
         solver->on_drup_deletion (solver->proof_log_state, buffer, originalSize);
       }
@@ -772,7 +772,7 @@ void kissat_import_redundant_clauses (kissat * solver)
 
     // If the clause was simplified from a larger clause, we need to immediately delete
     // the original clause since the solver doesn't remember it either.
-    if (simplified) solver->on_drup_deletion (solver->proof_log_state, buffer, originalSize);
+    if (simplified && solver->proof) solver->on_drup_deletion (solver->proof_log_state, buffer, originalSize);
 
     if (ref != INVALID_REF) {
       // Valid reference => Long clause (size>2) 
