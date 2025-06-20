@@ -6,12 +6,14 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+typedef struct kissat kissat;
 typedef struct proof proof;
 
 struct clause;
 struct file;
 
 void kissat_init_proof (struct kissat *, struct file *, bool binary);
+void kissat_init_ext_proof (struct kissat *);
 void kissat_release_proof (struct kissat *);
 
 #ifndef QUIET

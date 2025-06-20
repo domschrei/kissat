@@ -55,7 +55,7 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
 // Sets a function which kissat may call to import a clause from another solver. The function is called
 // with the provided state and expects a literal buffer (or zero), the clause size, and the glue value as out parameters.
 // If no clause is available, the function must return clause == 0.
-void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue));
+void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue, unsigned long *id, unsigned char *sig));
 
 // Basic "external" statistics struct with some interesting properties of kissat's search.
 struct kissat_statistics {unsigned long propagations; unsigned long decisions; unsigned long conflicts; unsigned long restarts; 
@@ -76,5 +76,10 @@ void kissat_set_preprocessing_report_callback (kissat * solver, void *state,
 void kissat_import_model (kissat * solver, const int *literals, int size);
 
 // TODO get branching literal: use kissat_next_decision_variable in decide.h ?
+
+void kissat_trace_proof_internally (kissat * solver, void *state,
+    void (*on_drup_derivation) (void* state, const int* lits, int nbLits, int glue),
+    void (*on_lrup_import)     (void* state, unsigned long id, const int* lits, int nbLits, const unsigned char* sigData),
+    void (*on_drup_deletion)   (void* state, const int* lits, int nbLits));
 
 #endif

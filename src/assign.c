@@ -17,8 +17,13 @@ void kissat_assign_unit (kissat *solver, unsigned lit, const char *reason) {
 void learned_unit (kissat *solver, unsigned lit, bool export) {
   kissat_assign_unit (solver, lit, "learned reason");
   CHECK_AND_ADD_UNIT (lit);
-  ADD_UNIT_TO_PROOF (lit);
-  if (export) kissat_export_redundant_clause (solver, 1, 1, &lit);
+  if (export) {
+    ADD_UNIT_TO_PROOF (lit);
+    // Only export the clause via the explicit export callback if there is no
+    // proof logger which does the same indirectly.
+    if (!solver->proof)
+      kissat_export_redundant_clause (solver, 1, 1, &lit);
+  }
 }
 
 void kissat_learned_unit (kissat *solver, unsigned lit) {

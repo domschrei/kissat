@@ -248,7 +248,7 @@ struct kissat {
   
   // Clause import
   void *produce_clause_state;
-  void (*produce_clause) (void *state, int **clause, int *size, int *glue);
+  void (*produce_clause) (void *state, int **clause, int *size, int *glue, unsigned long *id, unsigned char *sig);
   unsigned long num_conflicts_at_last_import;
 
   // Initial variable phases
@@ -264,6 +264,13 @@ struct kissat {
   void *report_preprocess_state;
   bool (*begin_report) (void *state, int vars, int cls);
   void (*report_preprocessed_lit) (void *state, int lit);
+
+  // Proof logging
+  void *proof_log_state;
+  void (*on_drup_derivation) (void* state, const int* lits, int nbLits, int glue);
+  void (*on_lrup_import)     (void* state, unsigned long id, const int* lits, int nbLits, const unsigned char* sigData);
+  void (*on_drup_deletion)   (void* state, const int* lits, int nbLits);
+  unsigned last_glue;
 
   statistics statistics;
 };

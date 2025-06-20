@@ -110,6 +110,7 @@ static reference new_large_clause (kissat *solver, bool original,
 
 static reference new_clause (kissat *solver, bool original, bool redundant,
                              unsigned glue, unsigned size, unsigned *lits) {
+  solver->last_glue = glue;
   reference res;
   if (size == 2)
     res = new_binary_clause (solver, original, true, lits[0], lits[1]);
@@ -143,11 +144,16 @@ reference kissat_new_irredundant_clause (kissat *solver) {
   return new_clause (solver, false, false, 0, size, lits);
 }
 
+// An alternative name for the "export" parameter could be "isNonSharedClause"
+// (clauses *simplified* from an incoming clause are also non shared clauses in this sense).
 reference new_redundant_clause (kissat *solver, unsigned glue, bool export) {
   const unsigned size = SIZE_STACK (solver->clause);
   unsigned *lits = BEGIN_STACK (solver->clause);
-  if (export) kissat_export_redundant_clause (solver, glue, size, lits);
-  return new_clause (solver, false, true, glue, size, lits);
+  // If the clause is not directly a shared clause and we don't export it via the proof logger,
+  // export it via the explicit clause export callback.
+  if (export && !solver->proof) kissat_export_redundant_clause (solver, glue, size, lits);
+  // The clause is treated as "original" (w.r.t. proof logging) iff it's a shared clause.
+  return new_clause (solver, !export, true, glue, size, lits);
 }
 
 reference
