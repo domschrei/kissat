@@ -24,6 +24,7 @@ bool kissat_probing (kissat *solver) {
 }
 
 static void probe (kissat *solver) {
+  printf("ß Started new probing \n");
   kissat_backtrack_propagate_and_flush_trail (solver);
   assert (!solver->inconsistent);
   STOP_SEARCH_AND_START_SIMPLIFIER (probe);

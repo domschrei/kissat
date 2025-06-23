@@ -260,6 +260,7 @@ struct kissat {
   // Swissat Equivalence Import
   void *produce_equivalence_state;
   void (*produce_equivalence) (void *state, int **equivalence);
+  unsigned long num_conflicts_at_last_equivalence_import;
 
 
 
