@@ -61,6 +61,11 @@ unsig     schedule_sweeping (sweeper *sweeper) {
 void      unschedule_sweeping (sweeper *sweeper, unsigned swept,
 */
 
+
+const int V1_INFO_SWEEP = 1;
+const int V2_VERB_SWEEP = 2;
+const int V3_VVERB_SWEEP = 3;
+
 struct sweeper {
   kissat *solver;
   unsigned *depths;
@@ -965,7 +970,7 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
      * Larger environment ==> More detected backbones
      * We found the backbone even with the limited environment, nice. Now propagate this as a unit clause.
      */
-    kissat_custom_message(solver,1, " U! %i", IDX(lit));
+    kissat_custom_message(solver,V2_VERB_SWEEP, " U! %i", IDX(lit));
     LOG ("sweep unit %s", LOGLIT (lit));
     save_add_clear_core (sweeper);
     INC (sweep_unsat_backbone);
@@ -1587,7 +1592,7 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
 
   LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));
   INC (sweep_equivalences);
-  kissat_custom_message(solver,1," %i == %i", IDX(lit), IDX(other));
+  kissat_custom_message(solver,V2_VERB_SWEEP," %i == %i", IDX(lit), IDX(other));
   // kissat_custom_message(solver, "(Repr  %i == %i)", IDX(sweeper->reprs[lit]), IDX(sweeper->reprs[other]));
 
   swissat_export_equivalence(solver, lit, other);
@@ -1649,10 +1654,10 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   const unsigned mallob_solver_count = GET_OPTION(mallob_solver_count);
   const unsigned mallob_solver_id = GET_OPTION(mallob_solver_id);
   if (e_repr_idx % mallob_solver_count == mallob_solver_id) {
-    kissat_custom_message(solver,2,"                --> is in solver scope, enqeue %i (e%i), ", IDX(repr), kissat_export_literal(solver, repr));
+    kissat_custom_message(solver,V3_VVERB_SWEEP,"                --> is in solver scope, enqeue %i (e%i), ", IDX(repr), kissat_export_literal(solver, repr));
     schedule_inner (sweeper, repr_idx);
   } else {
-    kissat_custom_message(solver,2,"                --> skip %i (e%i)", IDX(repr), kissat_export_literal(solver, repr));
+    kissat_custom_message(solver,V3_VVERB_SWEEP,"                --> skip %i (e%i)", IDX(repr), kissat_export_literal(solver, repr));
   }
 
 
@@ -1792,7 +1797,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
      Then try hard to flip one literal in particular
      */
     while (!EMPTY_STACK (sweeper->backbone)) {
-      kissat_custom_message(solver, 2, "    B(%i)", SIZE_STACK(sweeper->backbone));
+      kissat_custom_message(solver, V3_VVERB_SWEEP, "    B(%i)", SIZE_STACK(sweeper->backbone));
       if (solver->inconsistent || TERMINATED (sweep_terminated_3) ||
           kitten_ticks_limit_hit (sweeper, "backbone refinement")) {
         limit_reached = true;
@@ -1826,7 +1831,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
 #ifndef QUIET
     units = solver->statistics.sweep_units - units;
     solved = solver->statistics.sweep_solved - solved;
-    kissat_custom_message(solver, 2, "  %i SAT-B", solved);
+    kissat_custom_message(solver, V3_VVERB_SWEEP, "  %i SAT-B", solved);
     kissat_extremely_verbose (
         solver,
         "complete swept variable %d backbone with %" PRIu64
@@ -1848,7 +1853,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
       */
     START (sweepequivalences);
     while (!EMPTY_STACK (sweeper->partition)) {
-      kissat_custom_message(solver, 2, "    P(%i)", SIZE_STACK(sweeper->partition));
+      kissat_custom_message(solver, V3_VVERB_SWEEP, "    P(%i)", SIZE_STACK(sweeper->partition));
       if (solver->inconsistent || TERMINATED (sweep_terminated_5) ||
           kitten_ticks_limit_hit (sweeper, "partition refinement")) {
         limit_reached = true;
@@ -1884,7 +1889,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
 #ifndef QUIET
     equivalences = solver->statistics.sweep_equivalences - equivalences;
     solved = solver->statistics.sweep_solved - solved;
-    kissat_custom_message(solver, 2, "  %i SAT-P", solved);
+    kissat_custom_message(solver, V3_VVERB_SWEEP, "  %i SAT-P", solved);
     if (equivalences)
       kissat_extremely_verbose (
           solver,
@@ -1965,7 +1970,7 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   const size_t mallob_solver_count = GET_OPTION(mallob_solver_count);
   // size_t round_robin_count = 0;
   const size_t LOG_CUTOFF = 30;
-  kissat_custom_message(solver, 2, "Total variables: %i, Solver id %i, Solver count %i", solver->vars, mallob_solver_id, mallob_solver_count);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Total variables: %i, Solver id %i, Solver count %i", solver->vars, mallob_solver_id, mallob_solver_count);
   /**
    * Original Kissat puts EVERY variable in the sweeper->vars stack
    */
@@ -1994,21 +1999,21 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
 
     struct flags *const f = flags + idx;
     if (!f->active) {
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,2, "skip %i: !active",idx);
+      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !active",idx);
       continue;
     }
     if (incomplete && !f->sweep) {
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,2, "skip %i: !sweep",idx);
+      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !sweep",idx);
       continue;
     }
     if (scheduled_variable (sweeper, idx)) {
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,2, "skip %i: already scheduled",idx);
+      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: already scheduled",idx);
       continue;
     }
     size_t occ;
     if (!scheduable_variable (sweeper, idx, &occ)) {
       FLAGS (idx)->sweep = false;
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,2, "skip %i: !scheduable",idx);
+      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !scheduable",idx);
       continue;
     }
     //
@@ -2017,7 +2022,7 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
 
 
     if (SIZE_STACK(fresh) < 100) {
-      kissat_custom_message(solver, 2, "Stack %i (e%i) wc %i", idx, eidx, occ);
+      kissat_custom_message(solver, V3_VVERB_SWEEP, "Stack %i (e%i) wc %i", idx, eidx, occ);
     }
 
     sweep_candidate cand;
@@ -2040,7 +2045,7 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
     if (enqueued_vars < LOG_CUTOFF || enqueued_vars > size - LOG_CUTOFF) {
       unsigned elit = kissat_export_literal (solver, LIT (cand.idx));
       unsigned eidx = elit & 0x7FFFFFF;
-      kissat_custom_message (solver, 2, "Enqueued %i (e%i), wc %i", cand.idx, eidx, cand.rank);
+      kissat_custom_message (solver, V3_VVERB_SWEEP, "Enqueued %i (e%i), wc %i", cand.idx, eidx, cand.rank);
     }
   }
 
@@ -2207,7 +2212,7 @@ bool kissat_sweep (kissat *solver) {
   /*
     * Set up the variables to sweep over and their order
     */
-  kissat_custom_message(solver,1, "--starting kissat_sweep--");
+  kissat_custom_message(solver,V2_VERB_SWEEP, "--starting kissat_sweep--");
   const unsigned scheduled = schedule_sweeping (&sweeper);
   uint64_t swept = 0, limit = 10;
   /*
@@ -2228,7 +2233,7 @@ bool kissat_sweep (kissat *solver) {
     if (idx == INVALID_IDX)
       break;
     FLAGS (idx)->sweep = false; //remember that we sweept this variable now
-    kissat_custom_message(solver, 2, "Sw %i (e%i)", idx, kissat_export_literal (solver, LIT (idx)));
+    kissat_custom_message(solver, V3_VVERB_SWEEP, "Sw %i (e%i)", idx, kissat_export_literal (solver, LIT (idx)));
 #ifndef QUIET
     const char *res =
 #endif
@@ -2261,7 +2266,7 @@ bool kissat_sweep (kissat *solver) {
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
-  kissat_custom_message(solver,1, " Finished Sweeping. Found %" PRIu64 " eq %" PRIu64 " units, with %"PRIu64 " swept\n" , equivalences,units,swept);
+  kissat_custom_message(solver,V2_VERB_SWEEP, " Finished sweeping. Found %" PRIu64 " eq %" PRIu64 " units, with %"PRIu64 " swept\n" , equivalences,units,swept);
   unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
 

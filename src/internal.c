@@ -796,8 +796,8 @@ void kissat_import_redundant_clauses (kissat * solver)
 
 bool swissat_importing_equivalences (kissat * solver)
 {
+  //condition logic just copied from kissat_importing_redundant_clauses
   if (solver->produce_equivalence == 0) return false;
-  //these conditions just copied from kissat_importing_redundant_clauses
   if (solver->level != 0) return false;
   unsigned long conflicts = solver->statistics.conflicts;
   if (conflicts == solver->num_conflicts_at_last_equivalence_import) return false;
@@ -806,6 +806,7 @@ bool swissat_importing_equivalences (kissat * solver)
 
 
 void swissat_import_equivalences (kissat * solver) {
+  kissat_custom_message(solver, 1, "looking for import");
   solver->num_conflicts_at_last_equivalence_import = solver->statistics.conflicts;
   int *buffer = 0;
   while (true) {
@@ -815,8 +816,9 @@ void swissat_import_equivalences (kissat * solver) {
     }
     int elit1 = buffer[0];
     int elit2 = buffer[1];
-    kissat_custom_message(solver, 1, "imported %i==%i", elit1, elit2);
+    kissat_custom_message(solver, 3, "imported %i==%i", elit1, elit2);
   }
+  // kissat_custom_message(solver, 1, "import end");
   // printf("ß Finished importing equivalences\n");
 }
 
