@@ -2212,7 +2212,7 @@ bool kissat_sweep (kissat *solver) {
   /*
     * Set up the variables to sweep over and their order
     */
-  kissat_custom_message(solver,V2_VERB_SWEEP, "--starting kissat_sweep--");
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--starting kissat_sweep--");
   const unsigned scheduled = schedule_sweeping (&sweeper);
   uint64_t swept = 0, limit = 10;
   /*
@@ -2266,7 +2266,7 @@ bool kissat_sweep (kissat *solver) {
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
-  kissat_custom_message(solver,V2_VERB_SWEEP, " Finished sweeping. Found %" PRIu64 " eq %" PRIu64 " units, with %"PRIu64 " swept\n" , equivalences,units,swept);
+  kissat_custom_message(solver,V1_INFO_SWEEP, " Finished sweeping. Found %" PRIu64 " eq %" PRIu64 " units, with %"PRIu64 " swept\n" , equivalences,units,swept);
   unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
 

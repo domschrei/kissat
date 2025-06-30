@@ -806,7 +806,7 @@ bool swissat_importing_equivalences (kissat * solver)
 
 
 void swissat_import_equivalences (kissat * solver) {
-  kissat_custom_message(solver, 1, "looking for import");
+  kissat_custom_message(solver, 2, "looking for import");
   solver->num_conflicts_at_last_equivalence_import = solver->statistics.conflicts;
   int *buffer = 0;
   while (true) {
