@@ -273,6 +273,11 @@ struct kissat {
   unsigned long num_discarded_external_clauses;
   unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;
 
+  // Additional distributed sweeping statistics
+  unsigned long num_discarded_external_equivalences;
+  unsigned long num_imported_external_equivalences;
+  unsigned long s_ed, s_in;
+
   // Preprocessing reporting
   void *report_preprocess_state;
   bool (*begin_report) (void *state, int vars, int cls);

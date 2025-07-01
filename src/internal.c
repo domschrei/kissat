@@ -794,33 +794,94 @@ void kissat_import_redundant_clauses (kissat * solver)
 
 
 
-bool swissat_importing_equivalences (kissat * solver)
-{
-  //condition logic just copied from kissat_importing_redundant_clauses
-  if (solver->produce_equivalence == 0) return false;
-  if (solver->level != 0) return false;
-  unsigned long conflicts = solver->statistics.conflicts;
-  if (conflicts == solver->num_conflicts_at_last_equivalence_import) return false;
-  return true;
-}
+// bool swissat_importing_equivalences (kissat * solver)
+// {
+//   //condition logic just copied from kissat_importing_redundant_clauses
+//   if (solver->produce_equivalence == 0) return false;
+//   if (solver->level != 0) return false;
+//   unsigned long conflicts = solver->statistics.conflicts;
+//   if (conflicts == solver->num_conflicts_at_last_equivalence_import) return false;
+//   return true;
+// }
 
 
-void swissat_import_equivalences (kissat * solver) {
-  kissat_custom_message(solver, 2, "looking for import");
-  solver->num_conflicts_at_last_equivalence_import = solver->statistics.conflicts;
-  int *buffer = 0;
-  while (true) {
-    solver->produce_equivalence (solver->produce_equivalence_state, &buffer);
-    if (buffer == 0) {
-      break; // No more equivalences
-    }
-    int elit1 = buffer[0];
-    int elit2 = buffer[1];
-    kissat_custom_message(solver, 3, "imported %i==%i", elit1, elit2);
-  }
-  // kissat_custom_message(solver, 1, "import end");
-  // printf("ß Finished importing equivalences\n");
-}
+// void swissat_import_equivalences (kissat * solver) {
+//   kissat_custom_message(solver, 2, "looking for import");
+//   solver->num_conflicts_at_last_equivalence_import = solver->statistics.conflicts;
+//   int *buffer = 0;
+//   while (true) {
+//     //import the next equivalence from mallob into buffer
+//     solver->produce_equivalence (solver->produce_equivalence_state, &buffer);
+//     if (buffer == 0) {
+//       break; // No more equivalences
+//     }
+//     // int elit1 = buffer[0];
+//     // int elit2 = buffer[1];
+//     kissat_custom_message(solver, 3, "imported %i==%i", buffer[0], buffer[1]);
+//
+//     unsigned ilits[2];
+//
+//     bool okToImport = true;
+//     for (unsigned i = 0; i < 2; i++) {
+//       int elit = buffer[i];
+//       if (!VALID_EXTERNAL_LITERAL (elit)) {
+//         // solver->r_ed++;
+//         okToImport = false;
+//         break;
+//       }
+//       const unsigned ilit = kissat_import_literal (solver, elit);
+//       ilits[i] = ilit;
+//       if (!VALID_INTERNAL_LITERAL (ilit)) {
+//         // solver->r_ed++;
+//         okToImport = false;
+//         break;
+//       }
+//       const unsigned idx = IDX (ilit);
+//       flags *flags = FLAGS (idx);
+//       if (!flags->active || flags->eliminated) {
+//         // Literal in an invalid state for importing this clause
+//         okToImport = false;
+//         break;
+//       }
+//     }
+//
+//     // Drop clause, or no valid literals?
+//     if (!okToImport) {
+//       // solver->num_discarded_external_clauses++;
+//       continue;
+//     }
+//
+//     unsigned lit = ilits[0];
+//     unsigned other = ilits[1];
+//
+//     if (lit < other) {
+//       repr = sweeper->reprs[other] = lit;
+//       sweeper->reprs[not_other] = not_lit;
+//        /*
+//         * Replace other --> lit in all (watched?) clauses
+//         */
+//       substitute_connected_clauses (sweeper, other, lit);
+//       substitute_connected_clauses (sweeper, not_other, not_lit);
+//        /*
+//         * Remove "other" from the sweeper partition
+//         */
+//       sweep_remove (sweeper, other);
+//     } else {
+//        /*
+//         * Symmetric case for inverse lexicographic order
+//         */
+//       repr = sweeper->reprs[lit] = other;
+//       sweeper->reprs[not_lit] = not_other;
+//       substitute_connected_clauses (sweeper, lit, other);
+//       substitute_connected_clauses (sweeper, not_lit, not_other);
+//       sweep_remove (sweeper, lit);
+//     }
+//
+//
+//   }
+//   // kissat_custom_message(solver, 1, "import end");
+//   // printf("ß Finished importing equivalences\n");
+// }
 
 
 

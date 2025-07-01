@@ -12,6 +12,8 @@
 #include "report.h"
 #include "terminate.h"
 
+#include "import.h" //Needed for equivalence import
+
 #include <inttypes.h>
 #include <string.h>
 
@@ -1111,8 +1113,6 @@ static unsigned next_scheduled (sweeper *sweeper) {
 
 
 
-
-
  /*
   *We found an equivalence lit == repr
   *now we replace in the whole clause database lit --> repr
@@ -1595,11 +1595,13 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   kissat_custom_message(solver,V2_VERB_SWEEP," %i == %i", IDX(lit), IDX(other));
   // kissat_custom_message(solver, "(Repr  %i == %i)", IDX(sweeper->reprs[lit]), IDX(sweeper->reprs[other]));
 
+  //Export this equivalence in Mallob, to share it with other solvers
   swissat_export_equivalence(solver, lit, other);
 
    /*
     *Tell kissat about (G -l k) UNSAT
     *In particular relevant for proving (?), and by traversing the implication graph it might even find some more unit clauses
+    *Uses the saved core nr. 0
     */
   add_core (sweeper, 0);
   add_binary (solver, lit, not_other);
@@ -1607,6 +1609,7 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
 
    /*
     *Repeat for the other core, tell kissat about (G l -k) UNSAT
+    *Uses the saved core nr. 1
     */
   add_core (sweeper, 1);
   add_binary (solver, not_lit, other);
@@ -1992,6 +1995,7 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
     // kissat_custom_message(solver, "idx %i  ilit %i", idx, LIT (idx));
     unsigned elit = kissat_export_literal (solver, LIT (idx));
     unsigned eidx = elit & 0x7FFFFFF; //mask off the sign
+    //this solver only cares about a small fraction of all variables
     if (eidx % mallob_solver_count != mallob_solver_id) {
       continue;
     }
@@ -2189,6 +2193,107 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
 
 
 
+bool swissat_importing_equivalences (sweeper *sweeper)
+{
+  kissat *solver = sweeper->solver;
+  if (solver->produce_equivalence == 0) return false;
+  return true;
+
+  //condition logic just copied from kissat_importing_redundant_clauses
+  // if (solver->level != 0) return false;
+  // unsigned long conflicts = solver->statistics.conflicts;
+  // if (conflicts == solver->num_conflicts_at_last_equivalence_import) return false;
+  // return true;
+}
+
+
+
+
+void swissat_import_equivalences (sweeper *sweeper) {
+  kissat *solver = sweeper->solver;
+  kissat_custom_message(solver, V2_VERB_SWEEP, "looking for import");
+  // solver->num_conflicts_at_last_equivalence_import = solver->statistics.conflicts;
+  int *buffer = 0;
+  unsigned long prev_num_imported  = solver->num_imported_external_equivalences;
+  unsigned long prev_num_discarded = solver->num_discarded_external_equivalences;
+
+  while (true) {
+    //import the next equivalence from mallob into buffer
+    solver->produce_equivalence (solver->produce_equivalence_state, &buffer);
+    if (buffer == 0) {
+      break; // No more equivalences
+    }
+    kissat_custom_message(solver, V3_VVERB_SWEEP, "learned %i==%i", buffer[0], buffer[1]);
+
+    unsigned ilits[2];
+    bool okToImport = true;
+    for (unsigned i = 0; i < 2; i++) {
+      int elit = buffer[i];
+      if (!VALID_EXTERNAL_LITERAL (elit)) {
+	solver->s_ed++;
+        okToImport = false;
+        break;
+      }
+      const unsigned ilit = kissat_import_literal (solver, elit);
+      ilits[i] = ilit;
+      if (!VALID_INTERNAL_LITERAL (ilit)) {
+	solver->s_ed++;
+        okToImport = false;
+        break;
+      }
+      const unsigned idx = IDX (ilit);
+      flags *flags = FLAGS (idx);
+      if (!flags->active || flags->eliminated) {
+        // Literal in an invalid state for importing this equivalence
+        solver->s_in++;
+        okToImport = false;
+        break;
+      }
+    }
+
+    // Drop clause, or no valid literals?
+    if (!okToImport) {
+      solver->num_discarded_external_equivalences++;
+      //counter
+      continue;
+    }
+
+    const unsigned lit    = ilits[0];
+    const unsigned other  = ilits[1];
+    const unsigned not_lit = NOT (lit);
+    const unsigned not_other = NOT (other);
+
+    if (lit < other) {
+       /*
+        * Update sweeper-internal mapping
+        */
+      sweeper->reprs[other] = lit;
+      sweeper->reprs[not_other] = not_lit;
+       /*
+        * Replace other --> lit in all (watched?) clauses
+        */
+      substitute_connected_clauses (sweeper, other, lit);
+      substitute_connected_clauses (sweeper, not_other, not_lit);
+       /*
+        * Since the equivalence is imported, no need for any further updates in the local sweeper
+        */
+    } else {
+      sweeper->reprs[lit] = other;
+      sweeper->reprs[not_lit] = not_other;
+      substitute_connected_clauses (sweeper, lit, other);
+      substitute_connected_clauses (sweeper, not_lit, not_other);
+    }
+    solver->num_imported_external_equivalences++;
+    kissat_custom_message(solver, V3_VVERB_SWEEP, "imported %i==%i", buffer[0], buffer[1]);
+  }
+
+  unsigned long new_num_imported  = solver->num_imported_external_equivalences - prev_num_imported;
+  unsigned long new_num_discarded = solver->num_discarded_external_equivalences - prev_num_discarded;
+  if (new_num_imported > 0 || new_num_discarded > 0) {
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Imported %i, Discarded %i\n", new_num_imported, new_num_discarded);
+  }
+
+}
 
 
 bool kissat_sweep (kissat *solver) {
@@ -2209,12 +2314,22 @@ bool kissat_sweep (kissat *solver) {
   uint64_t units = statistics->sweep_units;
   sweeper sweeper;
   init_sweeper (solver, &sweeper);
+
+   /*
+    * Check equivalences import already before scheduling, to have a more updated scheduling
+    */
+  if (swissat_importing_equivalences(&sweeper)) {
+    swissat_import_equivalences (&sweeper);
+  }
+
   /*
     * Set up the variables to sweep over and their order
     */
   kissat_custom_message(solver,V1_INFO_SWEEP, "--starting kissat_sweep--");
   const unsigned scheduled = schedule_sweeping (&sweeper);
   uint64_t swept = 0, limit = 10;
+
+
   /*
      * Sweep the formula until all kitten-ticks are consumed.
      * Always start with a new root variable and full-sweep its environment
@@ -2226,6 +2341,14 @@ bool kissat_sweep (kissat *solver) {
       break;
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks)
       break;
+     /*
+      * We check for new equivalences to import very often,
+      * because assuming we use sweeping as a blackbox, all the time is spent in this loop here,
+      * So we also need to poll for imports within this loop, to have any sharing input
+      */
+    if (swissat_importing_equivalences(&sweeper)) {
+      swissat_import_equivalences (&sweeper);
+    }
     /*
      * Get the next root-variable "idx" to sweep around
      */
