@@ -276,7 +276,10 @@ struct kissat {
   // Additional distributed sweeping statistics
   unsigned long num_discarded_external_equivalences;
   unsigned long num_imported_external_equivalences;
-  unsigned long s_ed, s_in;
+  unsigned long s_invalid_external;
+  unsigned long s_invalid_internal;
+  unsigned long s_inactive;
+  unsigned long s_eliminated;
 
   // Preprocessing reporting
   void *report_preprocess_state;
