@@ -2292,7 +2292,6 @@ void swissat_import_equivalences (sweeper *sweeper) {
   if (new_num_imported > 0 || new_num_discarded > 0) {
     kissat_custom_message(solver, V1_INFO_SWEEP, "Imported %i, Discarded %i\n", new_num_imported, new_num_discarded);
   }
-
 }
 
 
@@ -2412,5 +2411,6 @@ bool kissat_sweep (kissat *solver) {
   else
     REDUCE_DELAY (sweep);
   STOP (sweep);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "-- exit sweep function --");
   return eliminated;
 }

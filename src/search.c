@@ -221,8 +221,6 @@ int kissat_search (kissat *solver) {
         res = kissat_eliminate (solver);
       else if (kissat_importing_redundant_clauses (solver))
         kissat_import_redundant_clauses (solver);
-      // else if (swissat_importing_equivalences(solver))
-        // swissat_import_equivalences(solver);
       else if (conflict_limit_hit (solver))
         break;
       else if (decision_limit_hit (solver))
