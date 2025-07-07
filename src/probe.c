@@ -87,7 +87,7 @@ int kissat_probe (kissat *solver) {
   solver->last.ticks.probe = solver->statistics.search_ticks;
   assert (solver->probing);
   solver->probing = false;
-  kissat_custom_message(solver, 1, "Probing finished. Inconsistent %i\n", solver->inconsistent);
+  kissat_custom_message(solver, 1, "Probing finished. Inconsistent?-Inc%i\n", solver->inconsistent);
   return solver->inconsistent ? 20 : 0;
 }
 

@@ -280,6 +280,7 @@ struct kissat {
   unsigned long s_invalid_internal;
   unsigned long s_inactive;
   unsigned long s_eliminated;
+  unsigned long s_tautology;
 
   // Preprocessing reporting
   void *report_preprocess_state;
