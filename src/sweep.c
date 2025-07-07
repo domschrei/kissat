@@ -972,7 +972,7 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
      * Larger environment ==> More detected backbones
      * We found the backbone even with the limited environment, nice. Now propagate this as a unit clause.
      */
-    kissat_custom_message(solver,V2_VERB_SWEEP, " U! %i", IDX(lit));
+    kissat_custom_message(solver,V3_VVERB_SWEEP, " U! %i", IDX(lit));
     LOG ("sweep unit %s", LOGLIT (lit));
     save_add_clear_core (sweeper);
     INC (sweep_unsat_backbone);
@@ -1116,7 +1116,7 @@ static unsigned next_scheduled (sweeper *sweeper) {
  /*
   *We found an equivalence lit == repr
   *now we replace in the whole clause database lit --> repr
-  *Multiple things can happen per clause: it reduces to empty, unit, binary, or larger; each needs own handling
+  *Multiple things can happen to a clause: it can reduce to empty, unit, binary, or larger; each needs its own handling
   */
 static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
                                           unsigned repr) {
@@ -1228,6 +1228,22 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
           kissat_mark_clause_as_garbage (solver, c);
           continue;
         }
+
+
+         /*
+          *MALLOB DEBUG
+          */
+        if (!found) {
+          kissat_custom_message (solver,V2_VERB_SWEEP , "not finding lit %i in its own watched clause(?)", lit);
+          kissat_custom_message (solver,V2_VERB_SWEEP , "head.binary   %i", head.binary);
+          kissat_custom_message (solver,V2_VERB_SWEEP , "head.blocking %i", head.blocking);
+          kissat_custom_message (solver,V2_VERB_SWEEP , "head.large    %i", head.large);
+          kissat_custom_message (solver,V2_VERB_SWEEP , "head.type     %i", head.type);
+          kissat_custom_message (solver,V2_VERB_SWEEP , "begin watches %i", *begin_watches);
+          kissat_custom_message (solver,V2_VERB_SWEEP , "end watches   %i", *end_watches);
+
+        }
+
         assert (found);
 
         const unsigned new_size = SIZE_STACK (solver->clause);
@@ -1472,7 +1488,7 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   assert (end[-3] == lit);
   assert (end[-2] == other);
    /*
-    * If after the second literal comes directly the class boundary, the class consists only of these two literals
+    * If the class boundary comes directly after the second literal, the class consists only of these two literals
     */
   const unsigned third = (end - begin == 3) ? INVALID_LIT : end[-4];
   const int status = kitten_status (kitten);
@@ -1596,7 +1612,7 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
 
   const int elit1 = kissat_export_literal (solver, lit);
   const int elit2 = kissat_export_literal (solver, other);
-  kissat_custom_message(solver,V2_VERB_SWEEP," %i==%i", elit1, elit2);
+  kissat_custom_message(solver,V3_VVERB_SWEEP," %i==%i", elit1, elit2);
 
   // kissat_custom_message(solver, "(Repr  %i == %i)", IDX(sweeper->reprs[lit]), IDX(sweeper->reprs[other]));
 
@@ -2236,7 +2252,7 @@ void swissat_import_equivalences (sweeper *sweeper) {
     }
 
     equivalences_seen++;
-    kissat_custom_message(solver, V2_VERB_SWEEP, "try to import %i==%i", buffer[0], buffer[1]);
+    kissat_custom_message(solver, V2_VERB_SWEEP, "try to import ext lit %i==%i", buffer[0], buffer[1]);
 
     unsigned repr_ilits[2];
     bool okToImport = true;
@@ -2287,11 +2303,13 @@ void swissat_import_equivalences (sweeper *sweeper) {
 
     // Drop equivalence
     if (!okToImport) {
+      kissat_custom_message (solver, V2_VERB_SWEEP, "    skip");
       solver->num_discarded_external_equivalences++;
       continue;
     }
 
 
+    kissat_custom_message(solver, V2_VERB_SWEEP, "importing repr lit %i==%i", lit, other);
     if (lit < other) {
        /*
         * Update sweeper-internal mapping
@@ -2313,10 +2331,10 @@ void swissat_import_equivalences (sweeper *sweeper) {
       substitute_connected_clauses (sweeper, not_lit, not_other);
     }
     solver->num_imported_external_equivalences++;
-    kissat_custom_message(solver, V3_VVERB_SWEEP, "imported %i==%i", buffer[0], buffer[1]);
   }
 
   if (equivalences_seen > 0) {
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Finished importing Equivalences:");
     kissat_custom_message (solver, V1_INFO_SWEEP, "Equivalences seen: %i", equivalences_seen);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Imported  %i",        solver->num_imported_external_equivalences - prev_num_imported);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Discarded %i",        solver->num_discarded_external_equivalences - prev_num_discarded);
@@ -2370,11 +2388,11 @@ bool kissat_sweep (kissat *solver) {
      */
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop: Inconsistent 1\n");
-      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_external %i", solver->s_invalid_external);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_internal %i", solver->s_invalid_internal);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "inactive         %i", solver->s_inactive);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->s_eliminated);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop, before import: Inconsistent?-Inc1\n");
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_external %i", solver->s_invalid_external);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_internal %i", solver->s_invalid_internal);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "inactive         %i", solver->s_inactive);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->s_eliminated);
       break;
     }
     if (TERMINATED (sweep_terminated_8))
@@ -2388,6 +2406,11 @@ bool kissat_sweep (kissat *solver) {
       */
     if (swissat_importing_equivalences(&sweeper)) {
       swissat_import_equivalences (&sweeper);
+    }
+
+    if (solver->inconsistent) {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop, after import: Inconsistent?-Inc1\n");
+      break;
     }
     /*
      * Get the next root-variable "idx" to sweep around
@@ -2405,6 +2428,10 @@ bool kissat_sweep (kissat *solver) {
      * Sweept the environment of this variable. Hope to split some equivalences or find direct assignments.
      */
 
+    if (solver->inconsistent) {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop, after variable sweep: Inconsistent?-Inc1\n");
+      break;
+    }
 
     kissat_extremely_verbose (
         solver, "swept[%" PRIu64 "] external variable %d %s", swept,
