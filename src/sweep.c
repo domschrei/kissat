@@ -1234,13 +1234,14 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
           *MALLOB DEBUG
           */
         if (!found) {
-          kissat_custom_message (solver,V2_VERB_SWEEP , "not finding lit %i in its own watched clause(?)", lit);
-          kissat_custom_message (solver,V2_VERB_SWEEP , "head.binary   %i", head.binary);
-          kissat_custom_message (solver,V2_VERB_SWEEP , "head.blocking %i", head.blocking);
-          kissat_custom_message (solver,V2_VERB_SWEEP , "head.large    %i", head.large);
-          kissat_custom_message (solver,V2_VERB_SWEEP , "head.type     %i", head.type);
-          kissat_custom_message (solver,V2_VERB_SWEEP , "begin watches %i", *begin_watches);
-          kissat_custom_message (solver,V2_VERB_SWEEP , "end watches   %i", *end_watches);
+          kissat_custom_message (solver,V1_INFO_SWEEP , "assert at lit %u, repr %u", lit, repr);
+          kissat_custom_message (solver,V1_INFO_SWEEP , "not finding lit %u in its own(?) watched clause(?)", lit);
+          kissat_custom_message (solver,V1_INFO_SWEEP , "head.binary   %i", head.binary);
+          kissat_custom_message (solver,V1_INFO_SWEEP , "head.blocking %i", head.blocking);
+          kissat_custom_message (solver,V1_INFO_SWEEP , "head.large    %i", head.large);
+          kissat_custom_message (solver,V1_INFO_SWEEP , "head.type     %i", head.type);
+          kissat_custom_message (solver,V1_INFO_SWEEP , "begin watches %i", *begin_watches);
+          kissat_custom_message (solver,V1_INFO_SWEEP , "end watches   %i", *end_watches);
 
         }
 
@@ -2254,6 +2255,7 @@ void swissat_import_equivalences (sweeper *sweeper) {
     equivalences_seen++;
     kissat_custom_message(solver, V2_VERB_SWEEP, "try to import ext lit %i==%i", buffer[0], buffer[1]);
 
+    unsigned ilits[2];
     unsigned repr_ilits[2];
     bool okToImport = true;
     for (unsigned i = 0; i < 2; i++) {
@@ -2266,7 +2268,14 @@ void swissat_import_equivalences (sweeper *sweeper) {
       //Convert from external to internal
       const unsigned tmp_ilit = kissat_import_literal (solver, elit);
       //and now convert from internal to internal sweep-representative
-      const unsigned repr_ilit = sweeper->reprs[tmp_ilit];
+
+       /*
+        *CAREFUL, BUG DANGER!: We need to call the iterative function __sweep_repr(lit)__ to find the representative, not just the direct array-lookup __sweeper->reprs[lit]__ !!
+        *Because only the function can follow a potential chain of equivalences that might have emerged, and then also do path-compression on that chain
+        *The array lookup would miss such chains
+        */
+      // const unsigned repr_ilit = sweeper->reprs[tmp_ilit];
+      const unsigned repr_ilit = sweep_repr(sweeper, tmp_ilit);
 
       if (!VALID_INTERNAL_LITERAL (repr_ilit)) {
         kissat_custom_message(solver, V2_VERB_SWEEP, "elit=%i (ilit=%u) repr_ilit=%u  is invalid internal", elit, tmp_ilit, repr_ilit);
@@ -2286,6 +2295,7 @@ void swissat_import_equivalences (sweeper *sweeper) {
         okToImport = false;
         break;
       }
+      ilits[i] = tmp_ilit;
       repr_ilits[i] = repr_ilit;
     }
 
@@ -2308,8 +2318,14 @@ void swissat_import_equivalences (sweeper *sweeper) {
       continue;
     }
 
-
     kissat_custom_message(solver, V2_VERB_SWEEP, "importing repr lit %i==%i", lit, other);
+
+    if (lit==851) {
+      kissat_custom_message (solver, V1_INFO_SWEEP, "elit %i --> ilit %u --> repr_ilit %u", buffer[0], ilits[0], repr_ilits[0]);
+      kissat_custom_message (solver, V1_INFO_SWEEP, "elit %i --> ilit %u --> repr_ilit %u", buffer[1], ilits[1], repr_ilits[1]);
+    }
+
+
     if (lit < other) {
        /*
         * Update sweeper-internal mapping
@@ -2404,9 +2420,9 @@ bool kissat_sweep (kissat *solver) {
       * because assuming we use sweeping as a blackbox, all the time is spent in this loop here,
       * So we also need to poll for imports within this loop, to have any sharing input
       */
-    if (swissat_importing_equivalences(&sweeper)) {
-      swissat_import_equivalences (&sweeper);
-    }
+    // if (swissat_importing_equivalences(&sweeper)) {
+    //   swissat_import_equivalences (&sweeper);
+    // }
 
     if (solver->inconsistent) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop, after import: Inconsistent?-Inc1\n");
