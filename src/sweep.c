@@ -86,6 +86,14 @@ struct sweeper {
     uint64_t ticks;
     unsigned clauses, depth, vars;
   } limit;
+
+  //Mallob: Structures for distributed sweeping
+  unsigned *work;     //Variables scheduled for sweeping on this solver
+  char *done;         //Boolean value for each existing variable, ==1 if variable doesn't need sweeping anymore
+  unsigneds Eq;  //Equivalences found
+  unsigneds U_found;  //Units found
+
+  unsigned work_size;
 };
 
 typedef struct sweeper sweeper;
@@ -223,6 +231,13 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->limit.ticks = ticks_limit;
   }
   set_kitten_ticks_limit (sweeper);
+
+  //Mallob Distributed Sweeping
+  INIT_STACK (sweeper->Eq);
+  INIT_STACK (sweeper->U_found);
+  CALLOC (sweeper->done, VARS);  //initialize to 0 for each variable
+  // we don't initialize work yet, as its size depends on the stolen work package
+
 }
 
 static unsigned release_sweeper (sweeper *sweeper) {
@@ -250,6 +265,14 @@ static unsigned release_sweeper (sweeper *sweeper) {
   kitten_release (solver->kitten);
   solver->kitten = 0;
   kissat_resume_sparse_mode (solver, false, 0);
+
+  //Mallob Distributed Sweeping
+  RELEASE_STACK (sweeper->Eq);
+  RELEASE_STACK (sweeper->U_found);
+  DEALLOC (sweeper->done, VARS);
+  DEALLOC (sweeper->work, sweeper->work_size);
+
+
   return merged;
 }
 
@@ -510,6 +533,7 @@ static void save_core_clause (void *state, bool learned, size_t size,
   * Add information from an UNSAT core to kissat
   *
   * Situation: had UNSAT result, traversed the implication graph, collected all its clauses, then kept only those which were actually unsatisfied.
+  * This can detect new unit clauses that we can tell kissat, and apparently is also needed for proof stuff
   *
   */
 static void add_core (sweeper *sweeper, unsigned core_idx) {
@@ -586,7 +610,13 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
       CHECK_AND_ADD_UNIT (unit);
       ADD_UNIT_TO_PROOF (unit);
        /*
-        * Within the core there is a unit clause ----> Assign (and propagate?) it
+        * Within the core there is a unit clause ----> Assign it (and propagate it?)
+        */
+
+       /*
+        * Catch here Units for dedicated SweepJob-Sharing?
+        * There also exist two other places where we assign units coming from sweeping
+        * -> probably catch on all three occasions
         */
       kissat_assign_unit (solver, unit, "sweeping backbone reason");
       INC (sweep_units);
@@ -1165,6 +1195,9 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
         if (other == repr) {
           CHECK_AND_ADD_UNIT (lit);
           ADD_UNIT_TO_PROOF (lit);
+           /*
+            * Catch for Mallob Distribution
+            */
           kissat_assign_unit (solver, lit, "substituted binary clause");
           INC (sweep_units);
           break;
@@ -1263,6 +1296,9 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
           const unsigned unit = POP_STACK (solver->clause);
           CHECK_AND_ADD_UNIT (unit);
           ADD_UNIT_TO_PROOF (unit);
+           /*
+            * Catch for Mallob Distributed Buffer!
+            */
           kissat_assign_unit (solver, unit, "substituted large clause");
           INC (sweep_units);
           break;
@@ -1371,6 +1407,8 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
 
  /*
   *Remove lit from it's partition class, because it was found to be equivalent with some other representative
+  *In case lit came from an imported equivalence, maybe it doesnt even appear in the local eq class
+  *Or maybe the import does happen anyways after or before a sweep, so there might not even exist a partition to worry about during importing
   */
 static void sweep_remove (sweeper *sweeper, unsigned lit) {
   kissat *solver = sweeper->solver;
@@ -2213,6 +2251,20 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
 }
 
 
+void swissat_propagating_sweep(sweeper *sweeper, unsigned idx) {
+  size_t E_size_before = SIZE_STACK(sweeper->Eq);
+  sweep_variable(sweeper, idx);
+  size_t E_size_after  = SIZE_STACK(sweeper->Eq);
+  unsigned *q = BEGIN_STACK (sweeper->Eq);
+  //Re-sweep all equivalences that have been found in the last sweep
+  //Equivalences in Eq are stored in pairs (lit,other), with lit < other, we only re-schedule each lit, thus the i+=2 stepping
+  kissat *solver = sweeper->solver; //needed for IDX conversion (some assertion)
+  for (unsigned i = E_size_before; i < E_size_after; i+=2) {
+    unsigned eq_lit = *(q+i);
+    unsigned eq_idx = IDX (eq_lit);
+    swissat_propagating_sweep (sweeper, eq_idx);
+  }
+}
 
 
 bool swissat_importing_equivalences (sweeper *sweeper)
@@ -2255,7 +2307,7 @@ void swissat_import_equivalences (sweeper *sweeper) {
     equivalences_seen++;
     kissat_custom_message(solver, V2_VERB_SWEEP, "try to import ext lit %i==%i", buffer[0], buffer[1]);
 
-    unsigned ilits[2];
+    // unsigned ilits[2];
     unsigned repr_ilits[2];
     bool okToImport = true;
     for (unsigned i = 0; i < 2; i++) {
@@ -2270,11 +2322,10 @@ void swissat_import_equivalences (sweeper *sweeper) {
       //and now convert from internal to internal sweep-representative
 
        /*
-        *CAREFUL, BUG DANGER!: We need to call the iterative function __sweep_repr(lit)__ to find the representative, not just the direct array-lookup __sweeper->reprs[lit]__ !!
-        *Because only the function can follow a potential chain of equivalences that might have emerged, and then also do path-compression on that chain
-        *The array lookup would miss such chains
+        *CAREFUL!: We need to call the iterative function __sweep_repr(lit)__ instead of the direct array lookup __sweeper->reprs[lit]__ !!
+        *Because only the function can follow a potential chain of equivalences (and then also do path-compression on that chain)
+        *The array would miss such chains
         */
-      // const unsigned repr_ilit = sweeper->reprs[tmp_ilit];
       const unsigned repr_ilit = sweep_repr(sweeper, tmp_ilit);
 
       if (!VALID_INTERNAL_LITERAL (repr_ilit)) {
@@ -2295,7 +2346,7 @@ void swissat_import_equivalences (sweeper *sweeper) {
         okToImport = false;
         break;
       }
-      ilits[i] = tmp_ilit;
+      // ilits[i] = tmp_ilit;
       repr_ilits[i] = repr_ilit;
     }
 
@@ -2320,10 +2371,10 @@ void swissat_import_equivalences (sweeper *sweeper) {
 
     kissat_custom_message(solver, V2_VERB_SWEEP, "importing repr lit %i==%i", lit, other);
 
-    if (lit==851) {
-      kissat_custom_message (solver, V1_INFO_SWEEP, "elit %i --> ilit %u --> repr_ilit %u", buffer[0], ilits[0], repr_ilits[0]);
-      kissat_custom_message (solver, V1_INFO_SWEEP, "elit %i --> ilit %u --> repr_ilit %u", buffer[1], ilits[1], repr_ilits[1]);
-    }
+    // if (lit==851) {
+      // kissat_custom_message (solver, V1_INFO_SWEEP, "elit %i --> ilit %u --> repr_ilit %u", buffer[0], ilits[0], repr_ilits[0]);
+      // kissat_custom_message (solver, V1_INFO_SWEEP, "elit %i --> ilit %u --> repr_ilit %u", buffer[1], ilits[1], repr_ilits[1]);
+    // }
 
 
     if (lit < other) {
@@ -2350,8 +2401,8 @@ void swissat_import_equivalences (sweeper *sweeper) {
   }
 
   if (equivalences_seen > 0) {
-    kissat_custom_message (solver, V1_INFO_SWEEP, "Finished importing Equivalences:");
-    kissat_custom_message (solver, V1_INFO_SWEEP, "Equivalences seen: %i", equivalences_seen);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Eq import statistics:");
+    kissat_custom_message (solver, V1_INFO_SWEEP,"Eq's seen %i", equivalences_seen);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Imported  %i",        solver->num_imported_external_equivalences - prev_num_imported);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Discarded %i",        solver->num_discarded_external_equivalences - prev_num_discarded);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid external %i", solver->s_invalid_external - prev_invalid_external);
@@ -2359,7 +2410,7 @@ void swissat_import_equivalences (sweeper *sweeper) {
     kissat_custom_message(solver, V1_INFO_SWEEP, "Inactive         %i", solver->s_inactive - prev_inactive);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Eliminated       %i", solver->s_eliminated - prev_eliminated);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Tautology        %i", solver->s_tautology - prev_tautology);
-    kissat_custom_message(solver, V1_INFO_SWEEP, "Inconsistent?-Inc%i", solver->inconsistent);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Inconsistent? Inc%i", solver->inconsistent);
   }
 }
 
@@ -2420,9 +2471,9 @@ bool kissat_sweep (kissat *solver) {
       * because assuming we use sweeping as a blackbox, all the time is spent in this loop here,
       * So we also need to poll for imports within this loop, to have any sharing input
       */
-    // if (swissat_importing_equivalences(&sweeper)) {
-    //   swissat_import_equivalences (&sweeper);
-    // }
+    if (swissat_importing_equivalences(&sweeper)) {
+      swissat_import_equivalences (&sweeper);
+    }
 
     if (solver->inconsistent) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop, after import: Inconsistent?-Inc1\n");
@@ -2475,7 +2526,7 @@ bool kissat_sweep (kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, " Finished sweeping. Found %" PRIu64 " equivalences, %" PRIu64 " units, with %"PRIu64 " swept" , equivalences,units,swept);
   unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "end sweep loop. Inconsistent?-Inc%i", solver->inconsistent);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "end sweep loop. Inconsistent?-Inc%i", solver->inconsistent);
 
   if (!solver->inconsistent) {
     solver->propagate = solver->trail.begin;
@@ -2496,6 +2547,6 @@ bool kissat_sweep (kissat *solver) {
   else
     REDUCE_DELAY (sweep);
   STOP (sweep);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "exit sweep function. Inconsistent?-Inc%i ", solver->inconsistent);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "exit sweep function. Inconsistent?-Inc%i ", solver->inconsistent);
   return eliminated;
 }
