@@ -33,6 +33,8 @@
 #include "vector.h"
 #include "watch.h"
 
+// #include "sweep.h" //for Mallob Shweep
+
 typedef struct datarank datarank;
 
 struct datarank {
@@ -72,6 +74,9 @@ typedef STACK (watch *) patches;
 // clang-format on
 
 struct kitten;
+
+typedef struct sweeper sweeper; //for Mallob distributed Sweeping, Kissat must know about its sweeper
+
 
 struct kissat {
 #if !defined(NDEBUG) || defined(METRICS)
@@ -214,6 +219,9 @@ struct kissat {
   bool sweep_incomplete;
   unsigneds sweep_schedule;
 
+  sweeper *sweeper; //for Mallob Shweep
+
+
 #if !defined(NDEBUG) || !defined(NPROOFS)
   unsigneds added;
   unsigneds removed;
@@ -246,21 +254,25 @@ struct kissat {
   unsigned consume_clause_max_size;
   void (*consume_clause) (void *state, int size, int glue);
 
-  // Swissat Equivalence Export
-  void *consume_equivalence_state;
-  int *consume_equivalence_buffer;
-  void (*consume_equivalence) (void *state);
-
-
   // Clause import
   void *produce_clause_state;
   void (*produce_clause) (void *state, int **clause, int *size, int *glue);
   unsigned long num_conflicts_at_last_import;
 
+
+  // Swissat Equivalence Export
+  void *consume_equivalence_state;
+  int *consume_equivalence_buffer;
+  void (*consume_equivalence) (void *state);
+
   // Swissat Equivalence Import
   void *produce_equivalence_state;
   void (*produce_equivalence) (void *state, int **equivalence);
   unsigned long num_conflicts_at_last_equivalence_import;
+
+  // Mallob Updated Shared Sweeping
+  void *transfer_work_toSolver_state;
+  void (*transfer_work_toSolver) (void *state, unsigned **stolen_work, unsigned **stolen_done);
 
 
 

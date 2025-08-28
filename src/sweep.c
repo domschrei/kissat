@@ -87,13 +87,14 @@ struct sweeper {
     unsigned clauses, depth, vars;
   } limit;
 
-  //Mallob: Structures for distributed sweeping
+  //Mallob Shweep: Structures for distributed sweeping
   unsigned *work;     //Variables scheduled for sweeping on this solver
   char *done;         //Boolean value for each existing variable, ==1 if variable doesn't need sweeping anymore
-  unsigneds Eq;  //Equivalences found
-  unsigneds U_found;  //Units found
+  unsigneds EQ;  //Equivalences found
+  unsigneds UN;  //Units found
 
-  unsigned work_size;
+  unsigned work_size; //number of variables in work
+  unsigned work_head; //index of next scheduled variable in work
 };
 
 typedef struct sweeper sweeper;
@@ -161,6 +162,7 @@ Kitten:
   Some kitten initialization.
 **/
 static void init_sweeper (kissat *solver, sweeper *sweeper) {
+  solver->sweeper = sweeper; //Mallob Shweep: Kissat must also know about its sweeper
   sweeper->solver = solver;
   sweeper->encoded = 0;
   CALLOC (sweeper->depths, VARS);
@@ -233,11 +235,10 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
   set_kitten_ticks_limit (sweeper);
 
   //Mallob Distributed Sweeping
-  INIT_STACK (sweeper->Eq);
-  INIT_STACK (sweeper->U_found);
+  INIT_STACK (sweeper->EQ);
+  INIT_STACK (sweeper->UN);
   CALLOC (sweeper->done, VARS);  //initialize to 0 for each variable
   // we don't initialize work yet, as its size depends on the stolen work package
-
 }
 
 static unsigned release_sweeper (sweeper *sweeper) {
@@ -266,12 +267,13 @@ static unsigned release_sweeper (sweeper *sweeper) {
   solver->kitten = 0;
   kissat_resume_sparse_mode (solver, false, 0);
 
-  //Mallob Distributed Sweeping
-  RELEASE_STACK (sweeper->Eq);
-  RELEASE_STACK (sweeper->U_found);
+  //Mallob Sweep
+  RELEASE_STACK (sweeper->EQ);
+  RELEASE_STACK (sweeper->UN);
   DEALLOC (sweeper->done, VARS);
   DEALLOC (sweeper->work, sweeper->work_size);
 
+  //Maybe also free solver->sweeper ?
 
   return merged;
 }
@@ -2251,18 +2253,18 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
 }
 
 
-void swissat_propagating_sweep(sweeper *sweeper, unsigned idx) {
-  size_t E_size_before = SIZE_STACK(sweeper->Eq);
+void shweep_propagating_sweep(sweeper *sweeper, unsigned idx) {
+  size_t E_size_before = SIZE_STACK(sweeper->EQ);
   sweep_variable(sweeper, idx);
-  size_t E_size_after  = SIZE_STACK(sweeper->Eq);
-  unsigned *q = BEGIN_STACK (sweeper->Eq);
+  size_t E_size_after  = SIZE_STACK(sweeper->EQ);
+  unsigned *q = BEGIN_STACK (sweeper->EQ);
   //Re-sweep all equivalences that have been found in the last sweep
   //Equivalences in Eq are stored in pairs (lit,other), with lit < other, we only re-schedule each lit, thus the i+=2 stepping
   kissat *solver = sweeper->solver; //needed for IDX conversion (some assertion)
   for (unsigned i = E_size_before; i < E_size_after; i+=2) {
     unsigned eq_lit = *(q+i);
     unsigned eq_idx = IDX (eq_lit);
-    swissat_propagating_sweep (sweeper, eq_idx);
+    shweep_propagating_sweep (sweeper, eq_idx);
   }
 }
 
@@ -2414,6 +2416,90 @@ void swissat_import_equivalences (sweeper *sweeper) {
   }
 }
 
+void shweep_steal_workload(kissat *solver) {
+
+
+}
+
+ /*
+  * Copy all the still active variables from work into its beginning
+  */
+void shweep_compact_work(sweeper *sweeper) {
+  unsigned j=0;
+  unsigned *work = sweeper->work;
+  const char *done = sweeper->done;
+  const unsigned work_end = sweeper->work_size;
+  for (unsigned i = sweeper->work_head; i < work_end; i++) {
+    unsigned idx = work[i];
+    if (done[idx] == 1)
+      continue;
+    sweeper->work[j] = idx;
+    j++;
+  }
+  sweeper->work_size = j;
+  sweeper->work_head = 0;
+}
+
+
+unsigned kissat_get_max_var_idx(kissat *solver) {
+  return solver->vars;
+}
+
+//Want to allocate memory in C++ for the steal, but don't know yet how much memory.
+//So we ask first
+unsigned shweep_get_steal_amount(kissat *solver) {
+  sweeper *sweeper = solver->sweeper;
+  shweep_compact_work (sweeper);
+  unsigned half = sweeper->work_size / 2;
+  if (half <= 2) { //No longer worth it to split
+    return 0;
+  }
+  return half;
+}
+
+
+
+//Now that we
+void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, char *stolen_done, unsigned steal_amount) {
+  //Assumes that we just ran shweep_compact_work
+  //Functions are only split in two parts because we need the C++ memory allocation in-between
+  sweeper *sweeper = solver->sweeper;
+
+
+  //The stealing solver should know the complete progress known to this solver
+  memcpy(stolen_done, sweeper->done, VARS);
+
+  //This solver keeps half of his work queue (currently: the front half)
+  unsigned keep = sweeper->work_size - steal_amount;
+  unsigned *work = sweeper->work;
+  char *done = sweeper->done;
+  unsigned *work_remaining;
+  //Even those that remain locally are all copied once, probably this can be done more efficiently
+  NALLOC (work_remaining, keep);
+  for (unsigned i=0; i<keep; i++) {
+    unsigned idx = work[i];
+    work_remaining[i] = idx;
+    //The variables still scheduled for the local solver can be considered done for the stealing solver
+    stolen_done[idx] = 1;
+  }
+  //the variables that are getting stolen are copied in the provided array
+  for (unsigned i=0; i<steal_amount; i++) {
+    unsigned idx = work[i + keep];
+    stolen_work[i] = idx;
+    //The variables scheduled for the stealing solver can be considered done for the local solver
+    done[idx] = 1;
+  }
+  DEALLOC (sweeper->work, sweeper->work_size);
+  sweeper->work = work_remaining;
+  sweeper->work_size = keep;
+}
+
+void shweep_steal_workload_from_others(sweeper *sweeper) {
+
+}
+
+
+
 
 bool kissat_sweep (kissat *solver) {
   if (!GET_OPTION (sweep))
@@ -2438,9 +2524,9 @@ bool kissat_sweep (kissat *solver) {
    /*
     * Check equivalences import already before scheduling, to have a more updated scheduling
     */
-  if (swissat_importing_equivalences(&sweeper)) {
-    swissat_import_equivalences (&sweeper);
-  }
+  // if (swissat_importing_equivalences(&sweeper)) {
+    // swissat_import_equivalences (&sweeper);
+  // }
 
   /*
     * Set up the variables to sweep over and their order

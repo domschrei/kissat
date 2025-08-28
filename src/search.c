@@ -183,6 +183,9 @@ int kissat_search (kissat *solver) {
   int res = 0;
   if (solver->inconsistent)
     res = 20;
+  // if (!res && GET_OPTION (mallob_shweep)) {
+    // res =
+  // }
   if (!res && GET_OPTION (luckyearly))
     res = kissat_lucky (solver);
   if (!res && kissat_preprocessing (solver))

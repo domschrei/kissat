@@ -62,6 +62,12 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
 void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*consume) (void *state));
 void swissat_set_equivalence_import_callback(kissat *solver, void *state, void (*produce) (void *state, int **equivalence));
 
+//Updated API for shared sweeping
+// typedef struct sweeper sweeper;
+unsigned shweep_get_steal_amount(kissat *solver);
+unsigned kissat_get_max_var_idx (kissat *solver);
+void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, char *stolen_done, unsigned steal_amount);
+
 
 // Basic "external" statistics struct with some interesting properties of kissat's search.
 struct kissat_statistics {unsigned long propagations; unsigned long decisions; unsigned long conflicts; unsigned long restarts; 

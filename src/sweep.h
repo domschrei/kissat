@@ -6,4 +6,5 @@
 struct kissat;
 bool kissat_sweep (struct kissat *);
 
+
 #endif

@@ -55,10 +55,6 @@ kissat *kissat_init (void) {
   solver->consume_clause_max_size = 0;
   solver->consume_clause = 0;
 
-  //Equivalence Export
-  solver->consume_equivalence_state = 0;
-  solver->consume_equivalence_buffer = 0;
-  solver->consume_equivalence = 0;
 
 
   //Clause Import
@@ -66,11 +62,20 @@ kissat *kissat_init (void) {
   solver->produce_clause = 0;
   solver->num_conflicts_at_last_import = 0;
 
+
+  //Equivalence Export
+  solver->consume_equivalence_state = 0;
+  solver->consume_equivalence_buffer = 0;
+  solver->consume_equivalence = 0;
+
   //Equivalence Import
   solver->produce_equivalence_state = 0;
   solver->produce_equivalence = 0;
   solver->num_conflicts_at_last_equivalence_import = 0;
 
+  //Mallob updated shared sweeping
+  solver->transfer_work_toSolver_state = 0;
+  solver->transfer_work_toSolver = 0;
 
   solver->initial_variable_phases = 0;
   solver->initial_variable_phases_len = 0;
@@ -588,6 +593,13 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
   solver->consume_clause = consume;
 }
 
+void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue))
+{
+  solver->produce_clause_state = state;
+  solver->produce_clause = produce;
+}
+
+
 
 void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*consume) (void *state)) {
   solver->consume_equivalence_state = state;
@@ -595,17 +607,17 @@ void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *b
   solver->consume_equivalence = consume;
 }
 
-
-void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue))
-{
-  solver->produce_clause_state = state;
-  solver->produce_clause = produce;
-}
-
 void swissat_set_equivalence_import_callback(kissat *solver, void *state, void (*produce) (void *state, int **equivalence)) {
   solver->produce_equivalence_state = state;
   solver->produce_equivalence = produce;
 }
+
+
+void shweep_set_transfer_work_toSolver_callback(kissat *solver, void *state, void (*transfer) (void *state, unsigned **stolen_work, unsigned **stolen_done)) {
+  solver->transfer_work_toSolver_state = state;
+  solver->transfer_work_toSolver = transfer;
+}
+
 
 
 
