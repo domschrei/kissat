@@ -2416,11 +2416,6 @@ void swissat_import_equivalences (sweeper *sweeper) {
   }
 }
 
-void shweep_steal_workload(kissat *solver) {
-
-
-}
-
  /*
   * Copy all the still active variables from work into its beginning
   */
@@ -2441,7 +2436,7 @@ void shweep_compact_work(sweeper *sweeper) {
 }
 
 
-unsigned kissat_get_max_var_idx(kissat *solver) {
+unsigned shweep_get_max_var_idx(kissat *solver) {
   return solver->vars;
 }
 
@@ -2458,11 +2453,9 @@ unsigned shweep_get_steal_amount(kissat *solver) {
 }
 
 
-
-//Now that we
+//Mallob wants to steal half of this solvers work
 void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, char *stolen_done, unsigned steal_amount) {
-  //Assumes that we just ran shweep_compact_work
-  //Functions are only split in two parts because we need the C++ memory allocation in-between
+  //Assumes that we just ran shweep_compact_work. only outsourced earlier because we C++ needs first to know the steal_amount to allocate memory
   sweeper *sweeper = solver->sweeper;
 
 
@@ -2495,6 +2488,7 @@ void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, char *
 }
 
 void shweep_steal_workload_from_others(sweeper *sweeper) {
+
 
 }
 
@@ -2531,7 +2525,9 @@ bool kissat_sweep (kissat *solver) {
   /*
     * Set up the variables to sweep over and their order
     */
-  const unsigned scheduled = schedule_sweeping (&sweeper);
+  // const unsigned scheduled = schedule_sweeping (&sweeper);
+  shweep_steal_workload_from_others(&sweeper);
+
   uint64_t swept = 0, limit = 10;
 
 
@@ -2610,7 +2606,7 @@ bool kissat_sweep (kissat *solver) {
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
   kissat_custom_message(solver,V1_INFO_SWEEP, " Finished sweeping. Found %" PRIu64 " equivalences, %" PRIu64 " units, with %"PRIu64 " swept" , equivalences,units,swept);
-  unschedule_sweeping (&sweeper, swept, scheduled);
+  // unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
   kissat_custom_message(solver,V2_VERB_SWEEP, "end sweep loop. Inconsistent?-Inc%i", solver->inconsistent);
 

@@ -271,8 +271,11 @@ struct kissat {
   unsigned long num_conflicts_at_last_equivalence_import;
 
   // Mallob Updated Shared Sweeping
-  void *transfer_work_toSolver_state;
-  void (*transfer_work_toSolver) (void *state, unsigned **stolen_work, unsigned **stolen_done);
+  void *mallob_kissat_object;
+  void (*get_stolen_work_callback) (void *state, unsigned **work, unsigned *size);
+  void (*get_stolen_done_callback) (void *state, char **done, unsigned *size);
+  void (*steal_some_work_callback) (void *state, unsigned **work, char **done, unsigned *work_size);
+  // void (*work_import_callback) (void *state, unsigned **stolen_work, unsigned **stolen_done);
 
 
 
