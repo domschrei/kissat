@@ -6,5 +6,6 @@
 struct kissat;
 bool kissat_sweep (struct kissat *);
 
+int kissat_mallob_shweep(struct kissat *);
 
 #endif

@@ -74,8 +74,8 @@ kissat *kissat_init (void) {
   solver->num_conflicts_at_last_equivalence_import = 0;
 
   //Mallob updated shared sweeping
-  solver->mallob_kissat_object = 0;
-  solver->get_stolen_work_callback = 0;
+  solver->shweep_mallob_kissat_object = 0;
+  solver->shweep_search_work_callback = 0;
 
   solver->initial_variable_phases = 0;
   solver->initial_variable_phases_len = 0;
@@ -624,9 +624,9 @@ void swissat_set_equivalence_import_callback(kissat *solver, void *state, void (
 // }
 
 
-void shweep_set_steal_some_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, char **done, unsigned *work_size)) {
-  solver->mallob_kissat_object = state;
-  solver->steal_some_work_callback = callback;
+void shweep_set_search_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, char **done, unsigned *work_size)) {
+  solver->shweep_mallob_kissat_object = state;
+  solver->shweep_search_work_callback = callback;
 }
 
 
