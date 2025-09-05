@@ -260,18 +260,20 @@ struct kissat {
   unsigned long num_conflicts_at_last_import;
 
 
-  // Swissat Equivalence Export
-  void *consume_equivalence_state;
-  int *consume_equivalence_buffer;
-  void (*consume_equivalence) (void *state);
+  // Shweep Equivalence Export
+  int *shweep_export_eq_buffer;
+  void (*shweep_export_eq_callback) (void *state);
 
-  // Swissat Equivalence Import
-  void *produce_equivalence_state;
-  void (*produce_equivalence) (void *state, int **equivalence);
+  // Shweep Unit Export
+  void (*shweep_export_unit_callback) (void *state, int lit);
+
+
+  // Shweep Equivalence Import
+  void (*shweep_import_eq) (void *state, int **equivalence);
   unsigned long num_conflicts_at_last_equivalence_import;
 
   // Mallob Updated Shared Sweeping
-  void *shweep_mallob_kissat_object;
+  void *shweep_mallob_kissat_state;
   // void (*get_stolen_work_callback) (void *state, unsigned **work, unsigned *size);
   // void (*get_stolen_done_callback) (void *state, char **done, unsigned *size);
   void (*shweep_search_work_callback) (void *state, unsigned **work, char **done, unsigned *work_size);

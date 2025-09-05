@@ -20,13 +20,19 @@ void kissat_export_redundant_clause (kissat * solver, unsigned glue, unsigned si
 }
 
 
+void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
+  if (!solver->shweep_export_eq_callback) return;
+  // const int elit1 = kissat_export_literal (solver, lit);
+  // const int elit2 = kissat_export_literal (solver, other);
+  //In Shweep we dont have any variable deletion/addition/renaming, so we can work with internal literals, dont need to convert to their export representation
+  solver->shweep_export_eq_buffer[0] = lit;
+  solver->shweep_export_eq_buffer[1] = other;
+  solver->shweep_export_eq_callback (solver->shweep_mallob_kissat_state);
 
-void swissat_export_equivalence(kissat *solver, unsigned lit1, unsigned lit2) {
-  if (!solver->consume_equivalence) return;
-  const int elit1 = kissat_export_literal (solver, lit1);
-  const int elit2 = kissat_export_literal (solver, lit2);
-  solver->consume_equivalence_buffer[0] = elit1;
-  solver->consume_equivalence_buffer[1] = elit2;
-  solver->consume_equivalence (solver->consume_equivalence_state);
+}
+
+void shweep_export_unit(kissat *solver, unsigned lit) {
+  if (!solver->shweep_export_unit_callback) return;
+  solver->shweep_export_unit_callback (solver->shweep_mallob_kissat_state, lit);
 
 }

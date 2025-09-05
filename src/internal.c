@@ -64,17 +64,18 @@ kissat *kissat_init (void) {
 
 
   //Equivalence Export
-  solver->consume_equivalence_state = 0;
-  solver->consume_equivalence_buffer = 0;
-  solver->consume_equivalence = 0;
+  solver->shweep_export_eq_buffer = 0;
+  solver->shweep_export_eq_callback = 0;
 
   //Equivalence Import
-  solver->produce_equivalence_state = 0;
-  solver->produce_equivalence = 0;
+  solver->shweep_import_eq = 0;
   solver->num_conflicts_at_last_equivalence_import = 0;
 
+  //Shweep unit export
+  solver->shweep_export_unit_callback = 0;
+
   //Mallob updated shared sweeping
-  solver->shweep_mallob_kissat_object = 0;
+  solver->shweep_mallob_kissat_state = 0;
   solver->shweep_search_work_callback = 0;
 
   solver->initial_variable_phases = 0;
@@ -601,31 +602,25 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
 
 
 
-void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*consume) (void *state)) {
-  solver->consume_equivalence_state = state;
-  solver->consume_equivalence_buffer = buffer;
-  solver->consume_equivalence = consume;
+void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state)) {
+  solver->shweep_mallob_kissat_state = state;
+  solver->shweep_export_eq_buffer = buffer;
+  solver->shweep_export_eq_callback = export_callback;
 }
 
-void swissat_set_equivalence_import_callback(kissat *solver, void *state, void (*produce) (void *state, int **equivalence)) {
-  solver->produce_equivalence_state = state;
-  solver->produce_equivalence = produce;
+void swissat_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence)) {
+  solver->shweep_mallob_kissat_state = state;
+  solver->shweep_import_eq = import_callback;
 }
 
-
-// void shweep_set_stolen_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, unsigned *size)) {
-  // solver->mallob_kissat_object = state;
-  // solver->get_stolen_work_callback = callback;
-// }
-
-// void shweep_set_stolen_done_callback(kissat *solver, void *state, void (*callback) (void *state, char **done, unsigned *size)) {
-  // solver->mallob_kissat_object = state;
-  // solver->get_stolen_done_callback = callback;
-// }
+void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit)) {
+  solver->shweep_mallob_kissat_state = state;
+  solver->shweep_export_unit_callback = export_callback;
+}
 
 
 void shweep_set_search_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, char **done, unsigned *work_size)) {
-  solver->shweep_mallob_kissat_object = state;
+  solver->shweep_mallob_kissat_state = state;
   solver->shweep_search_work_callback = callback;
 }
 
