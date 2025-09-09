@@ -276,7 +276,7 @@ struct kissat {
   void *shweep_mallob_kissat_state;
   // void (*get_stolen_work_callback) (void *state, unsigned **work, unsigned *size);
   // void (*get_stolen_done_callback) (void *state, char **done, unsigned *size);
-  void (*shweep_search_work_callback) (void *state, unsigned **work, char **done, unsigned *work_size);
+  void (*shweep_search_work_callback) (void *state, unsigned **work, unsigned *work_size);
   // void (*work_import_callback) (void *state, unsigned **stolen_work, unsigned **stolen_done);
 
 

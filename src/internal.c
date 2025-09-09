@@ -619,7 +619,7 @@ void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_
 }
 
 
-void shweep_set_search_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, char **done, unsigned *work_size)) {
+void shweep_set_search_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, unsigned *work_size)) {
   solver->shweep_mallob_kissat_state = state;
   solver->shweep_search_work_callback = callback;
 }
