@@ -269,7 +269,7 @@ struct kissat {
 
 
   // Shweep Equivalence Import
-  void (*shweep_import_eq) (void *state, int **equivalence);
+  void (*shweep_import_eq_callback) (void *state, int **equivalences, unsigned *eq_count);
   unsigned long num_conflicts_at_last_equivalence_import;
 
   // Mallob Updated Shared Sweeping

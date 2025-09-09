@@ -90,10 +90,10 @@ struct sweeper {
   //Mallob Shweep: Structures for distributed sweeping
   unsigned *work;     //Variables scheduled for sweeping on this solver
   char *done;         //Boolean value for each existing variable, ==1 if variable doesn't need sweeping anymore
-  unsigneds EQ;  //Equivalences found
-  unsigneds UN;  //Units found
+  unsigneds RESWEEP;  //Local Equivalences found, for quick re-sweeping on them
+  // unsigneds UN;  //Units found (dont need to be stored locally! Can directly be exported to mallob level)
 
-  unsigned work_size; //number of variables in work
+  unsigned work_end; //number of variables in work
   unsigned work_head; //index of next scheduled variable in work
 };
 
@@ -235,9 +235,9 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
   set_kitten_ticks_limit (sweeper);
 
   if (GET_OPTION (mallob_shweep)) {
-    INIT_STACK (sweeper->EQ);
-    INIT_STACK (sweeper->UN);
-    CALLOC (sweeper->done, VARS);  //calloc = clear allocation, initializes 0 for each variable (0 = not done)
+    INIT_STACK (sweeper->RESWEEP);
+    // INIT_STACK (sweeper->UN);
+    // CALLOC (sweeper->done, VARS);  //calloc = clear allocation, initializes 0 for each variable (0 = not done)
     //don't initialize work yet, its size depends on the dynamically stolen work package
   }
 }
@@ -268,16 +268,15 @@ static unsigned release_sweeper (sweeper *sweeper) {
   solver->kitten = 0;
   kissat_resume_sparse_mode (solver, false, 0);
 
-  //Mallob Sweep
-
+  //Mallob Shared Sweeping
   if (GET_OPTION (mallob_shweep)) {
-    RELEASE_STACK (sweeper->EQ);
-    RELEASE_STACK (sweeper->UN);
-    DEALLOC (sweeper->done, VARS);
-    DEALLOC (sweeper->work, sweeper->work_size);
+    RELEASE_STACK (sweeper->RESWEEP);
+    // RELEASE_STACK (sweeper->UN);
+    // DEALLOC (sweeper->done, VARS);
+    // DEALLOC (sweeper->work, sweeper->work_end);
   }
 
-  //Maybe also free solver->sweeper ?
+  //Maybe also free the solver->sweeper itself?
 
   return merged;
 }
@@ -624,7 +623,7 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
         */
       if (GET_OPTION (mallob_shweep)) {
         shweep_export_unit(solver, unit);
-        sweeper->done[IDX(unit)]=true;
+        // sweeper->done[IDX(unit)]=true;
       }
 
 
@@ -1211,7 +1210,8 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
             */
           if (GET_OPTION (mallob_shweep)) {
             shweep_export_unit(solver, lit);
-            sweeper->done[IDX(lit)]=true;
+            // sweeper->done[IDX(lit)]=true;
+            //todo: the fact that lit is fixed is already stored in the flags... do we even need to also store it in done?
           }
 
           INC (sweep_units);
@@ -1318,7 +1318,7 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
             */
           if (GET_OPTION (mallob_shweep)) {
             shweep_export_unit(solver, lit);
-            sweeper->done[IDX(lit)]=true;
+            // sweeper->done[IDX(lit)]=true;
           }
 
           INC (sweep_units);
@@ -1696,26 +1696,13 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   clear_core (sweeper, 1);
 
 
-   /*
-    *  Additional book-keeping for shweeping.
-    *  Code duplication follows kissats original style here...
-    */
+
+  //Export this equivalence to mallob, to share it with other sweepers
   if (GET_OPTION (mallob_shweep)) {
     if (lit < other) {
-      //Remember this equivalence locally so that we can immediately re-sweep it
-      PUSH_STACK(sweeper->EQ, lit);
-      PUSH_STACK(sweeper->EQ, other);
-      //Also export it to mallob, to share it with other sweepers
       shweep_export_equivalence(solver, lit, other);
-      //Also remember that the represented variable doesn't need sweeping anymore
-      unsigned idx_other = IDX(other);
-      sweeper->done[idx_other] = true;
     } else {
-      PUSH_STACK(sweeper->EQ, other);
-      PUSH_STACK(sweeper->EQ, lit);
       shweep_export_equivalence(solver, other, lit);
-      unsigned idx_lit = IDX(lit);
-      sweeper->done[idx_lit] = true;
     }
   }
 
@@ -1753,31 +1740,16 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   *heuristic argument: We just made progress around "repr" (and simplified some clauses) immediately search again here
   */
 
-  //In case of mallob_shweep, we have our own rescheduling via the EQ Stack
+  //Vanilla sweeping now reschedules the found equivalent variable in the scheduling linked-list for immediate resweeping.
+  //In distributed sweeping, instead, for simplicity we just use a stack, as the scheduling itself is already done via the array work[]
+  const unsigned repr_idx = IDX (repr);
   if (!GET_OPTION (mallob_shweep)) {
-    const unsigned repr_idx = IDX (repr);
     schedule_inner (sweeper, repr_idx);
+  } else {
+    PUSH_STACK(sweeper->RESWEEP, repr_idx);
   }
   return true;
 
-  // const unsigned repr_idx = IDX (repr);
-
-   // /*
-   //  * Mallob sweeping: We only re-enqueue variables that are in the scope of this particular solver, i.e. only a fraction 1/n
-   //  */
-  // const unsigned e_repr_lit = kissat_export_literal(solver, repr);
-  // const unsigned e_repr_idx = e_repr_lit & 0x7FFFFFFF;
-  // const unsigned mallob_solver_count = GET_OPTION(mallob_solver_count);
-  // const unsigned mallob_solver_id = GET_OPTION(mallob_solver_id);
-  // if (e_repr_idx % mallob_solver_count == mallob_solver_id) {
-    // kissat_custom_message(solver,V3_VVERB_SWEEP,"                --> is in solver scope, enqeue %i (e%i), ", IDX(repr), kissat_export_literal(solver, repr));
-    // schedule_inner (sweeper, repr_idx);
-  // } else {
-    // kissat_custom_message(solver,V3_VVERB_SWEEP,"                --> skip %i (e%i)", IDX(repr), kissat_export_literal(solver, repr));
-  // }
-
-
-  // return true;
 }
 
 
@@ -2106,12 +2078,12 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
     // }
 
     // kissat_custom_message(solver, "idx %i  ilit %i", idx, LIT (idx));
-    unsigned elit = kissat_export_literal (solver, LIT (idx));
-    unsigned eidx = elit & 0x7FFFFFF; //mask off the sign
+    // unsigned elit = kissat_export_literal (solver, LIT (idx));
+    // unsigned eidx = elit & 0x7FFFFFF; //mask off the sign
     //this solver only cares about a small fraction of all variables
-    if (eidx % mallob_solver_count != mallob_solver_id) {
-      continue;
-    }
+    // if (eidx % mallob_solver_count != mallob_solver_id) {
+      // continue;
+    // }
 
 
     struct flags *const f = flags + idx;
@@ -2138,9 +2110,9 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
     //   continue;
 
 
-    if (SIZE_STACK(fresh) < 100) {
-      kissat_custom_message(solver, V3_VVERB_SWEEP, "Stack %i (e%i) wc %i", idx, eidx, occ);
-    }
+    // if (SIZE_STACK(fresh) < 100) {
+      // kissat_custom_message(solver, V3_VVERB_SWEEP, "Stack %i (e%i) wc %i", idx, eidx, occ);
+    // }
 
     sweep_candidate cand;
     cand.rank = occ;
@@ -2305,10 +2277,10 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
 
 
 
-bool swissat_importing_equivalences (sweeper *sweeper)
+bool shweep_importing_equivalences (sweeper *sweeper)
 {
   kissat *solver = sweeper->solver;
-  if (solver->shweep_import_eq == 0) return false;
+  if (solver->shweep_import_eq_callback == 0) return false;
   return true;
 
   //condition logic just copied from kissat_importing_redundant_clauses
@@ -2320,7 +2292,93 @@ bool swissat_importing_equivalences (sweeper *sweeper)
 
 
 
+void shweep_import_equivalences(sweeper *sweeper) {
+  kissat *solver = sweeper->solver;
 
+  unsigned long prev_num_imported  = solver->num_imported_external_equivalences;
+  unsigned long prev_num_discarded = solver->num_discarded_external_equivalences;
+  unsigned long prev_invalid_external = solver->s_invalid_external;
+  unsigned long prev_invalid_internal = solver->s_invalid_internal;
+  unsigned long prev_inactive = solver->s_inactive;
+  unsigned long prev_eliminated = solver->s_eliminated;
+  unsigned long prev_tautology = solver->s_tautology;
+  int equivalences_seen = 0;
+
+  int *imported_eq = 0;
+  unsigned eq_count = 0;
+  solver->shweep_import_eq_callback(solver->shweep_mallob_kissat_state, &imported_eq, &eq_count);
+
+  kissat_custom_message(solver, V2_VERB_SWEEP, "expecting %u equivalences to import", eq_count);
+
+  for (int eq=0; eq < eq_count; eq++) {
+    unsigned repr_ilits[2];
+    bool okToImport = true;
+    for (int i=0; i<2; i++) {
+      unsigned ilit = imported_eq[2*eq+i];
+      const unsigned repr_ilit = sweep_repr(sweeper, ilit);
+
+      if (!VALID_INTERNAL_LITERAL (repr_ilit)) {
+        kissat_custom_message(solver, V2_VERB_SWEEP, "invalid internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
+	solver->s_invalid_internal++;
+        okToImport = false;
+        break;
+      }
+      const unsigned repr_idx = IDX (repr_ilit);
+      flags *flags = FLAGS (repr_idx);
+      if (!flags->active) {
+        kissat_custom_message(solver, V2_VERB_SWEEP, "inactive internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
+        solver->s_inactive++;
+        okToImport = false;
+        break;
+      }
+      if (flags->eliminated) {
+        kissat_custom_message(solver, V2_VERB_SWEEP, "eliminated internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
+        solver->s_eliminated++;
+        okToImport = false;
+        break;
+      }
+      repr_ilits[i]=repr_ilit;
+    }
+
+    unsigned lit    = repr_ilits[0];
+    unsigned other  = repr_ilits[1];
+
+    if (other <= lit) {
+      unsigned tmp = lit;
+      lit = other;
+      other = tmp;
+    }
+    assert(lit <= other);
+
+    const unsigned not_lit = NOT (lit);
+    const unsigned not_other = NOT (other);
+
+    if (okToImport && (IDX(lit) == IDX(other))) {
+      kissat_custom_message (solver, V2_VERB_SWEEP, "    taut a==a");
+      solver->s_tautology++;
+      okToImport = false;
+    }
+
+    assert(lit < other);
+
+    kissat_custom_message(solver, V2_VERB_SWEEP, "importing equality %i==%i", lit, other);
+
+    sweeper->reprs[other] = lit;
+    sweeper->reprs[not_other] = not_lit;
+     /*
+      * Replace other by lit in all clauses
+      */
+    substitute_connected_clauses (sweeper, other, lit);
+    substitute_connected_clauses (sweeper, not_other, not_lit);
+
+    //remember that we don't need to sweep the higher lit anymore
+    // unsigned other_idx = IDX (other);
+    // sweeper->done[other_idx] = true;
+  }
+
+}
+
+//deprecated
 void swissat_import_equivalences (sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   kissat_custom_message(solver, V3_VVERB_SWEEP, "looking for import");
@@ -2337,7 +2395,7 @@ void swissat_import_equivalences (sweeper *sweeper) {
 
   while (true) {
     //import the next equivalence from mallob into buffer
-    solver->shweep_import_eq (solver->shweep_mallob_kissat_state, &buffer);
+    // solver->shweep_import_eq_callback (solver->shweep_mallob_kissat_state, &buffer);
     if (buffer == 0) {
       break; // No more equivalences
     }
@@ -2452,118 +2510,153 @@ void swissat_import_equivalences (sweeper *sweeper) {
   }
 }
 
+
+bool shweep_idx_already_done(sweeper *sweeper, unsigned idx) {
+  kissat *solver = sweeper->solver;
+  unsigned lit = LIT(idx);
+  return (!ACTIVE(idx) || sweep_repr(sweeper, lit) != lit);
+  //these are also exactly the two checks done in sweep_variable(...)
+}
+
  /*
   * Copy all the still active variables from work into its beginning
   */
 void shweep_compact_work(sweeper *sweeper) {
   unsigned j=0;
   unsigned *work = sweeper->work;
-  const char *done = sweeper->done;
-  const unsigned work_end = sweeper->work_size;
-  for (unsigned i = sweeper->work_head; i < work_end; i++) {
+  // const char *done = sweeper->done;
+  const unsigned work_size = sweeper->work_end;
+  for (unsigned i = sweeper->work_head; i < work_size; i++) {
     unsigned idx = work[i];
-    if (done[idx] == 1)
+    if (shweep_idx_already_done(sweeper, idx))
       continue;
     sweeper->work[j] = idx;
     j++;
   }
-  sweeper->work_size = j;
   sweeper->work_head = 0;
+  sweeper->work_end = j;
+  //todo: but remember true original work size for dealloc! (necessary? maybe work comes from Mallob, and is completeley managed by C++?)
 }
 
 
 unsigned shweep_get_max_var_idx(kissat *solver) {
   return solver->vars;
+  //assumes that the number of variables is also exactly the maximum index of the largest variable, i.e. there are no holes in the numbering
+  //an assumption that standard Kissat makes all the time, so we do it also here
 }
 
 //Want to allocate memory in C++ for the steal, but don't know yet how much memory.
 //So we ask first
 unsigned shweep_get_steal_amount(kissat *solver) {
   sweeper *sweeper = solver->sweeper;
+  //need to get a new overview of much work is actually left to do. Is updates among else work_end
+  //todo: maybe guard against repeated queries where work/done didn't even change in the meantime...
   shweep_compact_work (sweeper);
-  unsigned half = sweeper->work_size / 2;
-  if (half <= 2) { //No longer worth it to split
+  unsigned half = sweeper->work_end / 2;
+  if (half <= 2) { //Basecase, so little work that its not worth to split anymore
     return 0;
   }
   return half;
 }
 
-void shweep_propagating_sweep(sweeper *sweeper, unsigned idx) {
-  size_t E_size_before = SIZE_STACK(sweeper->EQ);
 
+void shweep_propagating_sweep(sweeper *sweeper, unsigned idx) {
+  kissat *solver = sweeper->solver; //needed for the assertions in the IDX(...) conversion
+
+  // size_t E_size_before = SIZE_STACK(sweeper->RESWEEP);
+  kissat_custom_message(solver,V1_INFO_SWEEP, " shweeping idx %i", idx);
   sweep_variable(sweeper, idx);
 
-  size_t E_size_after  = SIZE_STACK(sweeper->EQ);
+  // size_t E_size_after  = SIZE_STACK(sweeper->RESWEEP);
 
   //we have now done (swept) this variable
-  sweeper->done[idx] = true;
 
   //Re-sweep all equivalences that have been found in the last sweep
-  //i+=2 stepping because equivalences in EQ are stored in pairs (lit,other), with lit < other, we only re-schedule each lit
-  unsigned *q = BEGIN_STACK (sweeper->EQ);
-  kissat *solver = sweeper->solver; //needed for the assertions in the IDX(...) conversion
-  for (unsigned i = E_size_before; i < E_size_after; i+=2) {
-    unsigned repr_lit = *(q+i);
-    unsigned repr_idx = IDX (repr_lit);
-    if (!sweeper->done[repr_idx])
-      shweep_propagating_sweep (sweeper, repr_idx);
+  while (!EMPTY_STACK (sweeper->RESWEEP)) {
+    unsigned resweep_idx = POP_STACK (sweeper->RESWEEP);
+    kissat_custom_message(solver,V1_INFO_SWEEP, "re-shweeping idx %i", resweep_idx);
+    shweep_propagating_sweep (sweeper, resweep_idx);
   }
+
+  // unsigned *q = BEGIN_STACK (sweeper->RESWEEP);
+  // for (unsigned i = E_size_before; i < E_size_after; i+=2) {
+    // unsigned repr_lit = *(q+i);
+    // unsigned repr_idx = IDX (repr_lit);
+    // if (!sweeper->done[repr_idx]) {
+    // }
+  // }
+
+  // sweeper->done[idx] = true;
 
 }
 
 
 //Mallob wants to steal half of this solvers work
+//Mallob provides arrays "stolen_work" and "stolen_done" that we only fill
 void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, char *stolen_done, unsigned steal_amount) {
   //Assumes that we just ran shweep_compact_work. only outsourced earlier because we C++ needs first to know the steal_amount to allocate memory
   sweeper *sweeper = solver->sweeper;
 
-  //The stealing solver should know the complete progress known to this solver
-  memcpy(stolen_done, sweeper->done, VARS);
+  //The stealing solver should know the complete progress from this solver
+  // memcpy(stolen_done, sweeper->done, VARS);
 
   //This solver keeps half of his work queue (currently: the front half)
-  unsigned keep = sweeper->work_size - steal_amount;
-  unsigned *work = sweeper->work;
-  char *done = sweeper->done;
-  unsigned *work_remaining;
-  //Even those that remain locally are all copied once, probably this can be done more efficiently
-  NALLOC (work_remaining, keep);
-  for (unsigned i=0; i<keep; i++) {
-    unsigned idx = work[i];
-    work_remaining[i] = idx;
-    //The variables still scheduled for the local solver can be considered done for the stealing solver
-    stolen_done[idx] = 1;
-  }
-  //the variables that are getting stolen are copied in the provided array
-  for (unsigned i=0; i<steal_amount; i++) {
-    unsigned idx = work[i + keep];
-    stolen_work[i] = idx;
-    //The variables scheduled for the stealing solver can be considered done for the local solver
-    done[idx] = 1;
-  }
-  DEALLOC (sweeper->work, sweeper->work_size);
-  sweeper->work = work_remaining;
-  sweeper->work_size = keep;
+  unsigned keep_amount = sweeper->work_end - steal_amount;
+
+  memcpy(stolen_work, sweeper->work + keep_amount, steal_amount * sizeof(unsigned));
+
+  // unsigned *work = sweeper->work;
+  // char *done = sweeper->done;
+
+  //Tell the stealing solver that he doesn't need to sweep any variables that remain at the local solver
+  //todo: Do we actually need to copy this? Because, we don't copy the variables, so naturally they won't come up anyways...
+  //and if in a later stealing round we DO steal some of the remaining variables, they obv. should not be marked done yet...
+  // for (unsigned i=0; i<keep; i++) {
+    // unsigned idx = work[i];
+    // stolen_done[idx] = 1; //done for stealing solver, as it remains here
+  // }
+
+  //The variables that are getting stolen are copied for the stealing solver, and are now taken care of from the viewpoint of the local solver
+
+  //We could in principle just memcpy the second (contiguous) half of work[], but actually we also need to update done[] on each variable, so we need to see each individually anyways
+  // const unsigned work_end = sweeper->work_end;
+  // for (unsigned i=keep; i<work_end; i++) {
+    // unsigned idx = work[i];
+    // stolen_work[i] = idx; //gets stolen
+    // done[idx] = 1; //done for local solver
+  // }
+
+  //Work[] remains the same allocated array, but the active area is now reduced in half
+  sweeper->work_head = 0;
+  sweeper->work_end = keep_amount;
 }
 
 bool shweep_search_work(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
-  //We want to *replace* work, but *integrate* done. So need to keep the original done around.
-  //--> Integration already happens at Mallob-Level. Mallob receives &done, intergrates stolen_done on our memory space, discards stolen_done
-  solver->shweep_search_work_callback(solver->shweep_mallob_kissat_state, &sweeper->work, &sweeper->done, &sweeper->work_size);
-  // todo: maybe do some immediate checks on provided work, done ?
-  return sweeper->work_size;
+  //We want to *replace* work, but *add* to done. So we need to keep the original done around.
+  //Add to *done* already at Mallob-Level. Mallob receives &done, adds stolen_done info on top of existing memory space, finished.
+  solver->shweep_search_work_callback(solver->shweep_mallob_kissat_state, &sweeper->work, &sweeper->done, &sweeper->work_end);
+  //head back to start of new work
+  sweeper->work_head = 0;
+  //equalities where tracked locally for immediate re-sweeping, can forget them now (are stored separately in export buffer anyways)
+  RELEASE_STACK (sweeper->RESWEEP);
+  INIT_STACK (sweeper->RESWEEP);
+
+  kissat_custom_message (solver, V2_VERB_SWEEP, "received work size %i ", sweeper->work_end);
+  // todo: maybe some immediate checks?
+  return sweeper->work_end;
 }
 
 unsigned shweep_next_scheduled(sweeper *sweeper) {
-  while (sweeper->work_head < sweeper->work_size) {
+  while (sweeper->work_head < sweeper->work_end) {
     unsigned idx = sweeper->work[sweeper->work_head];
     sweeper->work_head++;
-    if (sweeper->done[idx]==0) {
+    if (!shweep_idx_already_done(sweeper, idx)) {
       return idx;
     }
   }
   //reached end of work
-  return 0;
+  return 0; //dummy indicator
 }
 
 
@@ -2588,6 +2681,7 @@ int kissat_mallob_shweep(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "--starting kissat_mallob_shweep--");
   init_sweeper (solver, &sweeper);
 
+  shweep_import_equivalences(&sweeper);
   shweep_search_work(&sweeper);
 
   for (;;) {
@@ -2605,12 +2699,12 @@ int kissat_mallob_shweep(kissat *solver) {
       break;
 
 
-
     unsigned idx = shweep_next_scheduled (&sweeper);
     if (idx == INVALID_IDX)
       break;
 
-    if (idx == 0) {
+    if (idx== 0) {
+      //we run out of work, try to steal from somebody
       if (!shweep_search_work (&sweeper)) {
         break;
       }

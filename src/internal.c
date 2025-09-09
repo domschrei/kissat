@@ -68,7 +68,7 @@ kissat *kissat_init (void) {
   solver->shweep_export_eq_callback = 0;
 
   //Equivalence Import
-  solver->shweep_import_eq = 0;
+  solver->shweep_import_eq_callback = 0;
   solver->num_conflicts_at_last_equivalence_import = 0;
 
   //Shweep unit export
@@ -608,9 +608,9 @@ void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *b
   solver->shweep_export_eq_callback = export_callback;
 }
 
-void swissat_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence)) {
+void swissat_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalences, unsigned *eq_count)) {
   solver->shweep_mallob_kissat_state = state;
-  solver->shweep_import_eq = import_callback;
+  solver->shweep_import_eq_callback = import_callback;
 }
 
 void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit)) {
