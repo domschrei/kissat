@@ -272,6 +272,9 @@ struct kissat {
   void (*shweep_import_eq_callback) (void *state, int **equivalences, unsigned *eq_count);
   unsigned long num_conflicts_at_last_equivalence_import;
 
+  //Shweep Uni Import
+  void (*shweep_import_units_callback) (void *state, int **units, unsigned *unit_count);
+
   // Mallob Updated Shared Sweeping
   void *shweep_mallob_kissat_state;
   // void (*get_stolen_work_callback) (void *state, unsigned **work, unsigned *size);
@@ -280,6 +283,21 @@ struct kissat {
   // void (*work_import_callback) (void *state, unsigned **stolen_work, unsigned **stolen_done);
 
 
+  // Additional distributed sweeping statistics
+  // unsigned long num_discarded_external_equivalences;
+  // unsigned long num_imported_external_equivalences;
+  // unsigned long s_invalid_external;
+  unsigned long shweep_useful_imported_eq;
+  unsigned long shweep_invalid_imported_eq;
+  unsigned long shweep_inactive_imported_eq;
+  unsigned long shweep_eliminated_imported_eq;
+  unsigned long shweep_tautological_imported_eq;
+
+  unsigned long shweep_useful_imported_units;
+  unsigned long shweep_invalid_imported_units;
+  unsigned long shweep_inactive_imported_units;
+  unsigned long shweep_eliminated_imported_units;
+  unsigned long shweep_transitive_imported_units;
 
   // Initial variable phases
   signed char *initial_variable_phases;
@@ -290,14 +308,6 @@ struct kissat {
   unsigned long num_discarded_external_clauses;
   unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;
 
-  // Additional distributed sweeping statistics
-  unsigned long num_discarded_external_equivalences;
-  unsigned long num_imported_external_equivalences;
-  unsigned long s_invalid_external;
-  unsigned long s_invalid_internal;
-  unsigned long s_inactive;
-  unsigned long s_eliminated;
-  unsigned long s_tautology;
 
   // Preprocessing reporting
   void *report_preprocess_state;

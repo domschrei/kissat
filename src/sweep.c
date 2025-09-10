@@ -2276,38 +2276,95 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
 
 
 
-bool shweep_importing_equivalences (sweeper *sweeper)
-{
-  kissat *solver = sweeper->solver;
-  if (solver->shweep_import_eq_callback == 0) return false;
-  return true;
 
-  //condition logic just copied from kissat_importing_redundant_clauses
-  // if (solver->level != 0) return false;
-  // unsigned long conflicts = solver->statistics.conflicts;
-  // if (conflicts == solver->num_conflicts_at_last_equivalence_import) return false;
-  // return true;
+bool shweep_idx_already_done(sweeper *sweeper, unsigned idx) {
+  kissat *solver = sweeper->solver;
+  unsigned lit = LIT(idx);
+  return (!ACTIVE(idx) || sweep_repr(sweeper, lit) != lit);
+  //these are also exactly the two checks done in sweep_variable(...)
 }
 
 
+void shweep_import_units(sweeper *sweeper) {
+  kissat *solver = sweeper->solver;
+  if (!solver->shweep_import_units_callback)
+    return;
+  int *imported_units = 0;
+  unsigned unit_count = 0;
+
+  unsigned long prev_useful = solver->shweep_useful_imported_units;
+  unsigned long prev_invalid = solver->shweep_invalid_imported_units;
+  unsigned long prev_inactive = solver->shweep_inactive_imported_units;
+  unsigned long prev_eliminated = solver->shweep_eliminated_imported_units;
+  unsigned long prev_transitive = solver->shweep_transitive_imported_units;
+
+  solver->shweep_import_units_callback(solver->shweep_mallob_kissat_state, &imported_units, &unit_count);
+
+  kissat_custom_message(solver, V2_VERB_SWEEP, "about to import %u units", unit_count);
+  for (int i=0; i<unit_count; i++) {
+    const unsigned unit = imported_units[i];
+
+    const bool is_transitive = (sweeper->reprs[unit] != unit);
+
+    const unsigned repr_unit = sweep_repr (sweeper, unit);
+
+    if (!VALID_INTERNAL_LITERAL (repr_unit)) {
+      kissat_custom_message(solver, V2_VERB_SWEEP, "invalid unit repr_unit=%u, imported as unit=%u", repr_unit, unit);
+      solver->shweep_invalid_imported_units++;
+      continue;
+    }
+
+    const unsigned repr_idx = IDX (repr_unit);
+    flags *flags = FLAGS (repr_idx);
+
+    if (!flags->active) {
+      kissat_custom_message(solver, V2_VERB_SWEEP, "inactive variable repr_idx=%u, imported as unit=%u", repr_idx, unit);
+      solver->shweep_inactive_imported_units++;
+      continue;
+    }
+    if (flags->eliminated) {
+      kissat_custom_message(solver, V2_VERB_SWEEP, "eliminated variable repr_idx=%u, imported as unit=%u", repr_idx, unit);
+      solver->shweep_eliminated_imported_units++;
+      continue;
+    }
+
+    if (is_transitive) {
+      kissat_custom_message(solver, V2_VERB_SWEEP, "transitive useful unit. repr_idx=%u, imported as unit=%u", repr_idx, unit);
+      solver->shweep_transitive_imported_units++;
+      //no continue, just tracking
+    }
+
+    kissat_assign_unit (solver, repr_unit, "shweep imported unit");
+    solver->shweep_useful_imported_units++;
+  }
+  if (solver->shweep_useful_imported_units != prev_useful) {
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Unit import statistics:");
+    kissat_custom_message (solver, V1_INFO_SWEEP,"Units seen %i", unit_count);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Useful     %i", solver->shweep_useful_imported_eq - prev_useful);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid    %i", solver->shweep_invalid_imported_eq - prev_invalid);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Inactive   %i", solver->shweep_inactive_imported_eq - prev_inactive);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Eliminated %i", solver->shweep_eliminated_imported_eq - prev_eliminated);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Transitive %i", solver->shweep_transitive_imported_units - prev_transitive);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Inconsistent? %i", solver->inconsistent);
+  }
+}
 
 void shweep_import_equivalences(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
+  if (!solver->shweep_import_units_callback)
+    return;
 
-  unsigned long prev_num_imported  = solver->num_imported_external_equivalences;
-  unsigned long prev_num_discarded = solver->num_discarded_external_equivalences;
-  unsigned long prev_invalid_external = solver->s_invalid_external;
-  unsigned long prev_invalid_internal = solver->s_invalid_internal;
-  unsigned long prev_inactive = solver->s_inactive;
-  unsigned long prev_eliminated = solver->s_eliminated;
-  unsigned long prev_tautology = solver->s_tautology;
+  unsigned long prev_useful = solver->shweep_useful_imported_eq;
+  unsigned long prev_invalid = solver->shweep_invalid_imported_eq;
+  unsigned long prev_inactive = solver->shweep_inactive_imported_eq;
+  unsigned long prev_eliminated = solver->shweep_eliminated_imported_eq;
+  unsigned long prev_tautology = solver->shweep_tautological_imported_eq;
   int equivalences_seen = 0;
 
   int *imported_eq = 0;
   unsigned eq_count = 0;
   solver->shweep_import_eq_callback(solver->shweep_mallob_kissat_state, &imported_eq, &eq_count);
-
-  kissat_custom_message(solver, V2_VERB_SWEEP, "expecting %u equivalences to import", eq_count);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "about to import %u equivalences", eq_count);
 
   for (int eq=0; eq < eq_count; eq++) {
     unsigned repr_ilits[2];
@@ -2318,7 +2375,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
 
       if (!VALID_INTERNAL_LITERAL (repr_ilit)) {
         kissat_custom_message(solver, V2_VERB_SWEEP, "invalid internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
-	solver->s_invalid_internal++;
+	solver->shweep_invalid_imported_eq++;
         okToImport = false;
         break;
       }
@@ -2326,13 +2383,13 @@ void shweep_import_equivalences(sweeper *sweeper) {
       flags *flags = FLAGS (repr_idx);
       if (!flags->active) {
         kissat_custom_message(solver, V2_VERB_SWEEP, "inactive internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
-        solver->s_inactive++;
+        solver->shweep_inactive_imported_eq++;
         okToImport = false;
         break;
       }
       if (flags->eliminated) {
         kissat_custom_message(solver, V2_VERB_SWEEP, "eliminated internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
-        solver->s_eliminated++;
+        solver->shweep_eliminated_imported_eq++;
         okToImport = false;
         break;
       }
@@ -2342,7 +2399,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
     unsigned lit    = repr_ilits[0];
     unsigned other  = repr_ilits[1];
 
-    if (other <= lit) {
+    if (other < lit) {
       unsigned tmp = lit;
       lit = other;
       other = tmp;
@@ -2354,8 +2411,9 @@ void shweep_import_equivalences(sweeper *sweeper) {
 
     if (okToImport && (IDX(lit) == IDX(other))) {
       kissat_custom_message (solver, V2_VERB_SWEEP, "    taut a==a");
-      solver->s_tautology++;
+      solver->shweep_tautological_imported_eq++;
       okToImport = false;
+      continue;
     }
 
     assert(lit < other);
@@ -2369,13 +2427,20 @@ void shweep_import_equivalences(sweeper *sweeper) {
       */
     substitute_connected_clauses (sweeper, other, lit);
     substitute_connected_clauses (sweeper, not_other, not_lit);
-
-    //remember that we don't need to sweep the higher lit anymore
-    // unsigned other_idx = IDX (other);
-    // sweeper->done[other_idx] = true;
+    solver->shweep_useful_imported_eq++;
   }
-
+  if (solver->shweep_useful_imported_eq != prev_useful) {
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Eq import statistics:");
+    kissat_custom_message (solver, V1_INFO_SWEEP,"Eq's seen  %i", equivalences_seen);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Imported   %i",solver->shweep_useful_imported_eq - prev_useful);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid    %i", solver->shweep_invalid_imported_eq - prev_invalid);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Inactive   %i", solver->shweep_inactive_imported_eq - prev_inactive);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Eliminated %i", solver->shweep_eliminated_imported_eq - prev_eliminated);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Tautology  %i", solver->shweep_tautological_imported_eq - prev_tautology);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Inconsistent? %i", solver->inconsistent);
+  }
 }
+
 
 //deprecated
 void swissat_import_equivalences (sweeper *sweeper) {
@@ -2383,13 +2448,13 @@ void swissat_import_equivalences (sweeper *sweeper) {
   kissat_custom_message(solver, V3_VVERB_SWEEP, "looking for import");
   // solver->num_conflicts_at_last_equivalence_import = solver->statistics.conflicts;
   int *buffer = 0;
-  unsigned long prev_num_imported  = solver->num_imported_external_equivalences;
-  unsigned long prev_num_discarded = solver->num_discarded_external_equivalences;
-  unsigned long prev_invalid_external = solver->s_invalid_external;
-  unsigned long prev_invalid_internal = solver->s_invalid_internal;
-  unsigned long prev_inactive = solver->s_inactive;
-  unsigned long prev_eliminated = solver->s_eliminated;
-  unsigned long prev_tautology = solver->s_tautology;
+  // unsigned long prev_num_imported  = solver->num_imported_external_equivalences;
+  // unsigned long prev_num_discarded = solver->num_discarded_external_equivalences;
+  // unsigned long prev_invalid_external = solver->s_invalid_external;
+  unsigned long prev_invalid_internal = solver->shweep_invalid_imported_eq;
+  unsigned long prev_inactive = solver->shweep_inactive_imported_eq;
+  unsigned long prev_eliminated = solver->shweep_eliminated_imported_eq;
+  unsigned long prev_tautology = solver->shweep_tautological_imported_eq;
   int equivalences_seen = 0;
 
   while (true) {
@@ -2408,7 +2473,7 @@ void swissat_import_equivalences (sweeper *sweeper) {
     for (unsigned i = 0; i < 2; i++) {
       int elit = buffer[i];
       if (!VALID_EXTERNAL_LITERAL (elit)) {
-        solver->s_invalid_external++;
+        // solver->s_invalid_external++;
         okToImport = false;
         break;
       }
@@ -2425,19 +2490,19 @@ void swissat_import_equivalences (sweeper *sweeper) {
 
       if (!VALID_INTERNAL_LITERAL (repr_ilit)) {
         kissat_custom_message(solver, V2_VERB_SWEEP, "elit=%i (ilit=%u) repr_ilit=%u  is invalid internal", elit, tmp_ilit, repr_ilit);
-	solver->s_invalid_internal++;
+	solver->shweep_invalid_imported_eq++;
         okToImport = false;
         break;
       }
       const unsigned repr_idx = IDX (repr_ilit);
       flags *flags = FLAGS (repr_idx);
       if (!flags->active) {
-        solver->s_inactive++;
+        solver->shweep_inactive_imported_eq++;
         okToImport = false;
         break;
       }
       if (flags->eliminated) {
-        solver->s_eliminated++;
+        solver->shweep_eliminated_imported_eq++;
         okToImport = false;
         break;
       }
@@ -2453,14 +2518,14 @@ void swissat_import_equivalences (sweeper *sweeper) {
 
     if (okToImport && (IDX(lit) == IDX(other))) {
       kissat_custom_message (solver, V2_VERB_SWEEP, "    taut a==a");
-      solver->s_tautology++;
+      solver->shweep_tautological_imported_eq++;
       okToImport = false;
     }
 
     // Drop equivalence
     if (!okToImport) {
       kissat_custom_message (solver, V2_VERB_SWEEP, "    skip");
-      solver->num_discarded_external_equivalences++;
+      // solver->num_discarded_external_equivalences++;
       continue;
     }
 
@@ -2492,30 +2557,24 @@ void swissat_import_equivalences (sweeper *sweeper) {
       substitute_connected_clauses (sweeper, lit, other);
       substitute_connected_clauses (sweeper, not_lit, not_other);
     }
-    solver->num_imported_external_equivalences++;
+    // solver->num_imported_external_equivalences++;
   }
 
   if (equivalences_seen > 0) {
     kissat_custom_message (solver, V1_INFO_SWEEP, "Eq import statistics:");
     kissat_custom_message (solver, V1_INFO_SWEEP,"Eq's seen %i", equivalences_seen);
-    kissat_custom_message(solver, V1_INFO_SWEEP, "Imported  %i",        solver->num_imported_external_equivalences - prev_num_imported);
-    kissat_custom_message(solver, V1_INFO_SWEEP, "Discarded %i",        solver->num_discarded_external_equivalences - prev_num_discarded);
-    kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid external %i", solver->s_invalid_external - prev_invalid_external);
-    kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid internal %i", solver->s_invalid_internal - prev_invalid_internal);
-    kissat_custom_message(solver, V1_INFO_SWEEP, "Inactive         %i", solver->s_inactive - prev_inactive);
-    kissat_custom_message(solver, V1_INFO_SWEEP, "Eliminated       %i", solver->s_eliminated - prev_eliminated);
-    kissat_custom_message(solver, V1_INFO_SWEEP, "Tautology        %i", solver->s_tautology - prev_tautology);
+    // kissat_custom_message(solver, V1_INFO_SWEEP, "Imported  %i",        solver->num_imported_external_equivalences - prev_num_imported);
+    // kissat_custom_message(solver, V1_INFO_SWEEP, "Discarded %i",        solver->num_discarded_external_equivalences - prev_num_discarded);
+    // kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid external %i", solver->s_invalid_external - prev_invalid_external);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid internal %i", solver->shweep_invalid_imported_eq - prev_invalid_internal);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Inactive         %i", solver->shweep_inactive_imported_eq - prev_inactive);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Eliminated       %i", solver->shweep_eliminated_imported_eq - prev_eliminated);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "Tautology        %i", solver->shweep_tautological_imported_eq - prev_tautology);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Inconsistent? Inc%i", solver->inconsistent);
   }
 }
 
 
-bool shweep_idx_already_done(sweeper *sweeper, unsigned idx) {
-  kissat *solver = sweeper->solver;
-  unsigned lit = LIT(idx);
-  return (!ACTIVE(idx) || sweep_repr(sweeper, lit) != lit);
-  //these are also exactly the two checks done in sweep_variable(...)
-}
 
  /*
   * Copy all the still active variables from work into its beginning
@@ -2560,9 +2619,10 @@ unsigned shweep_get_steal_amount(kissat *solver) {
 }
 
 
-void shweep_propagating_sweep_variable(sweeper *sweeper, unsigned idx) {
+void shweep_sweep_variable_propagating(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver; //needed for the assertions in the IDX(...) conversion
-  // sweeper->fully_compacted = false;
+
+  shweep_import_equivalences (sweeper);
 
   kissat_custom_message(solver,V1_INFO_SWEEP, " shweeping idx %i", idx);
   sweep_variable(sweeper, idx);
@@ -2572,7 +2632,7 @@ void shweep_propagating_sweep_variable(sweeper *sweeper, unsigned idx) {
   while (!EMPTY_STACK (sweeper->RESWEEP)) {
     unsigned resweep_idx = POP_STACK (sweeper->RESWEEP);
     kissat_custom_message(solver,V1_INFO_SWEEP, "re-shweeping idx %i", resweep_idx);
-    shweep_propagating_sweep_variable (sweeper, resweep_idx);
+    shweep_sweep_variable_propagating (sweeper, resweep_idx);
   }
 
 }
@@ -2611,8 +2671,8 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
     }
   }
   sweeper->work_head = head;
-  //report that no work was left
-  return 0;
+  //report that no work is left
+  return INVALID_IDX;
 }
 
 
@@ -2644,23 +2704,24 @@ int kissat_mallob_shweep(kissat *solver) {
     if (solver->inconsistent) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "--during shweep-loop: Inconsistent 1\n");
       kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_external %i", solver->s_invalid_external);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_internal %i", solver->s_invalid_internal);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "inactive         %i", solver->s_inactive);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->s_eliminated);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_internal %i", solver->shweep_invalid_imported_eq);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "inactive         %i", solver->shweep_inactive_imported_eq);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->shweep_eliminated_imported_eq);
       break;
     }
     if (TERMINATED (sweep_terminated_8))
       break;
-    if (solver->statistics.kitten_ticks > sweeper.limit.ticks)
+    if (solver->statistics.kitten_ticks > sweeper.limit.ticks) {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "# \n # \n Kitten Tick limit timeout \n # \n #");
       break;
+    }
+
 
 
     unsigned idx = shweep_next_scheduled (&sweeper);
-    if (idx == INVALID_IDX)
-      break;
 
-    if (idx==0) {
-      //we run out of work, try to steal from somebody
+    if (idx == INVALID_IDX) {
+      //we ran out of work. try to steal from somebody
       if (!shweep_search_work_from_others (&sweeper)) {
         break;
       }
@@ -2670,7 +2731,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
     // kissat_custom_message(solver, V3_VVERB_SWEEP, "Sw %i (e%i)", idx, kissat_export_literal (solver, LIT (idx)));
 
-    shweep_propagating_sweep_variable (&sweeper, idx);
+    shweep_sweep_variable_propagating (&sweeper, idx);
 
   }
 
@@ -2748,9 +2809,9 @@ bool kissat_sweep (kissat *solver) {
     if (solver->inconsistent) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop: Inconsistent 1\n");
       kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_external %i", solver->s_invalid_external);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_internal %i", solver->s_invalid_internal);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "inactive         %i", solver->s_inactive);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->s_eliminated);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_internal %i", solver->shweep_invalid_imported_eq);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "inactive         %i", solver->shweep_inactive_imported_eq);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->shweep_eliminated_imported_eq);
       break;
     }
     if (TERMINATED (sweep_terminated_8))

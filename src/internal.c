@@ -55,13 +55,13 @@ kissat *kissat_init (void) {
   solver->consume_clause_max_size = 0;
   solver->consume_clause = 0;
 
-
-
   //Clause Import
   solver->produce_clause_state = 0;
   solver->produce_clause = 0;
   solver->num_conflicts_at_last_import = 0;
 
+
+  //Shweep -------------------------------------------------------
 
   //Equivalence Export
   solver->shweep_export_eq_buffer = 0;
@@ -71,12 +71,18 @@ kissat *kissat_init (void) {
   solver->shweep_import_eq_callback = 0;
   solver->num_conflicts_at_last_equivalence_import = 0;
 
-  //Shweep unit export
+  //Unit export
   solver->shweep_export_unit_callback = 0;
 
-  //Mallob updated shared sweeping
+  //Unit import
+  solver->shweep_import_units_callback = 0;
+
+  //Workstealing
   solver->shweep_mallob_kissat_state = 0;
   solver->shweep_search_work_callback = 0;
+
+
+  //-----------------------------------------------------------------
 
   solver->initial_variable_phases = 0;
   solver->initial_variable_phases_len = 0;
@@ -618,6 +624,10 @@ void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_
   solver->shweep_export_unit_callback = export_callback;
 }
 
+void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, unsigned *unit_count)) {
+  solver->shweep_mallob_kissat_state = state;
+  solver->shweep_import_units_callback = import_callback;
+}
 
 void shweep_set_search_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, unsigned *work_size)) {
   solver->shweep_mallob_kissat_state = state;
