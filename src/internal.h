@@ -288,16 +288,20 @@ struct kissat {
   // unsigned long num_imported_external_equivalences;
   // unsigned long s_invalid_external;
   unsigned long shweep_useful_imported_eq;
+  unsigned long shweep_skipped_imported_eq;
   unsigned long shweep_invalid_imported_eq;
   unsigned long shweep_inactive_imported_eq;
   unsigned long shweep_eliminated_imported_eq;
   unsigned long shweep_tautological_imported_eq;
+  unsigned long shweep_transitive_imported_eq;
 
   unsigned long shweep_useful_imported_units;
   unsigned long shweep_invalid_imported_units;
   unsigned long shweep_inactive_imported_units;
   unsigned long shweep_eliminated_imported_units;
   unsigned long shweep_transitive_imported_units;
+
+  unsigned long shweep_skipped_bc_done;
 
   // Initial variable phases
   signed char *initial_variable_phases;

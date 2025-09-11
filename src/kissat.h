@@ -59,13 +59,13 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
 
 
 // The same, for equivalence export/import
-void swissat_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state));
-void swissat_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence));
+void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state));
+void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence, unsigned *eq_count));
 
 //Updated API for shared sweeping
 unsigned shweep_get_steal_amount(kissat *solver);
 unsigned shweep_get_max_variable_index (kissat *solver);
-void shweep_set_search_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, char **done, unsigned *work_size));
+void shweep_set_search_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, unsigned *work_size));
 void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, unsigned steal_amount);
 
 
