@@ -184,7 +184,7 @@ int kissat_search (kissat *solver) {
   int res = 0;
   if (solver->inconsistent)
     res = 20;
-  if (!res && GET_OPTION (mallob_shweep)) {
+  if (!res && GET_OPTION (mallob_is_shweeper)) {
     res = kissat_mallob_shweep(solver);
   }
   if (!res && GET_OPTION (luckyearly))

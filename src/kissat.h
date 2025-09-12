@@ -65,7 +65,7 @@ void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*
 //Updated API for shared sweeping
 unsigned shweep_get_steal_amount(kissat *solver);
 unsigned shweep_get_max_variable_index (kissat *solver);
-void shweep_set_search_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, unsigned *work_size));
+void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, unsigned *work_size));
 void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, unsigned steal_amount);
 
 

@@ -318,7 +318,7 @@ void kissat_print_statistics (kissat *solver) {
 
 
  /*
-  *Was geht hier bitte alles schon beim Hinzufügen eines Literals ab
+  *  Tell kissat about a new literal as part of a clause. elit 0 marks end of a clause
   */
 void kissat_add (kissat *solver, int elit) {
   kissat_require_initialized (solver);
@@ -629,9 +629,9 @@ void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_
   solver->shweep_import_units_callback = import_callback;
 }
 
-void shweep_set_search_work_callback(kissat *solver, void *state, void (*callback) (void *state, unsigned **work, unsigned *work_size)) {
-  solver->shweep_mallob_kissat_state = state;
-  solver->shweep_search_work_callback = callback;
+void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, unsigned *work_size)) {
+  solver->shweep_mallob_SweepJob_state = SweepJob_state;
+  solver->shweep_search_work_callback = search_callback;
 }
 
 
