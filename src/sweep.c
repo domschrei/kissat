@@ -2144,7 +2144,7 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   return size;
 }
 
-static unsigned shweep_initialize_work_variables(sweeper *sweeper) {
+static unsigned shweep_initialize_work(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   unsigneds work_stack;
   INIT_STACK (work_stack);
@@ -2173,6 +2173,9 @@ static unsigned shweep_initialize_work_variables(sweeper *sweeper) {
     }
     PUSH_STACK (work_stack, idx);
   }
+  sweeper->work = BEGIN_STACK (work_stack);
+  sweeper->work_end = SIZE_STACK (work_stack);
+  sweeper->work_head = 0;
 
 }
 
@@ -2707,6 +2710,11 @@ void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, unsign
 
 unsigned shweep_search_work_from_others(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
+  if (GET_OPTION (mallob_solver_id)==0) {
+    //root. initialize work with all variables
+
+
+  }
   //points *work to an array allocated by Mallob/C++ containing the new work, and writes it's size into work_end
   solver->shweep_search_work_callback(solver->shweep_mallob_kissat_state, &sweeper->work, &sweeper->work_end);
   sweeper->work_head = 0;
