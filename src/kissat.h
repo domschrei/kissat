@@ -58,15 +58,18 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
 void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue));
 
 
-// The same, for equivalence export/import
+//Shweep
 void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state));
-void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence, unsigned *eq_count));
+void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence, int *eq_count));
+
+void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit));
+void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count));
 
 //Updated API for shared sweeping
 unsigned shweep_get_steal_amount(kissat *solver);
-unsigned shweep_get_max_variable_index (kissat *solver);
-void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, unsigned *work_size));
-void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, unsigned steal_amount);
+unsigned shweep_get_num_vars (kissat *solver);
+void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size));
+void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int steal_amount);
 
 
 // Basic "external" statistics struct with some interesting properties of kissat's search.

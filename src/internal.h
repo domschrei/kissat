@@ -260,27 +260,21 @@ struct kissat {
   unsigned long num_conflicts_at_last_import;
 
 
-  // Shweep Equivalence Export
+  // Shweep
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state);
-
-  // Shweep Unit Export
-  void (*shweep_export_unit_callback) (void *state, int lit);
-
-
-  // Shweep Equivalence Import
-  void (*shweep_import_eq_callback) (void *state, int **equivalences, unsigned *eq_count);
+  void (*shweep_import_eq_callback) (void *state, int **equivalences, int *eq_count);
   unsigned long num_conflicts_at_last_equivalence_import;
 
-  //Shweep Uni Import
-  void (*shweep_import_units_callback) (void *state, int **units, unsigned *unit_count);
+  void (*shweep_export_unit_callback) (void *state, int lit);
+  void (*shweep_import_units_callback) (void *state, int **units, int *unit_count);
 
   // Mallob Updated Shared Sweeping
   void *shweep_mallob_kissat_state;
   void *shweep_mallob_SweepJob_state;
   // void (*get_stolen_work_callback) (void *state, unsigned **work, unsigned *size);
   // void (*get_stolen_done_callback) (void *state, char **done, unsigned *size);
-  void (*shweep_search_work_callback) (void *state, unsigned **work, unsigned *work_size);
+  void (*shweep_search_work_callback) (void *state, unsigned **work, int *work_size);
   // void (*work_import_callback) (void *state, unsigned **stolen_work, unsigned **stolen_done);
 
 

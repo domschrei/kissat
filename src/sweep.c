@@ -95,8 +95,8 @@ struct sweeper {
 
   // unsigneds UN;  //Units found (dont need to be stored locally! Can directly be exported to mallob level)
 
-  unsigned work_end; //number of variables in work
-  unsigned work_head; //index of next scheduled variable in work
+  int work_end; //number of variables in work
+  int work_head; //index of next scheduled variable in work
 
   unsigned skipped_bc_done;
 };
@@ -1283,6 +1283,8 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
          /*
           *MALLOB DEBUG
           */
+
+#ifndef NDEBUG
         if (!found) {
           kissat_custom_message (solver,V1_INFO_SWEEP , "assert at lit %u, repr %u", lit, repr);
           kissat_custom_message (solver,V1_INFO_SWEEP , "not finding lit %u in its own(?) watched clause(?)", lit);
@@ -1297,6 +1299,7 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
 
         assert (found);
 
+#endif
         const unsigned new_size = SIZE_STACK (solver->clause);
 
         if (new_size == 0) {
@@ -2066,28 +2069,6 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
    */
   for (all_variables (idx)) {
 
-    //With n solvers, every solver should sweep only 1/n variables
-    //A simple division method is (external_idx %n)==solver_id
-    //Need external idx, because they remain constant and all solvers agree on them. Internal idx can shift and change for the same variable
-
-    // bool passed_round_robin = false;
-    // round_robin_count++;
-    // if (round_robin_count == globalNumSolvers) {
-    //   round_robin_count = 0;
-    // }
-    // if (round_robin_count==globalId) {
-    //   passed_round_robin = true;
-    // }
-
-    // kissat_custom_message(solver, "idx %i  ilit %i", idx, LIT (idx));
-    // unsigned elit = kissat_export_literal (solver, LIT (idx));
-    // unsigned eidx = elit & 0x7FFFFFF; //mask off the sign
-    //this solver only cares about a small fraction of all variables
-    // if (eidx % mallob_solver_count != mallob_solver_id) {
-      // continue;
-    // }
-
-
     struct flags *const f = flags + idx;
     if (!f->active) {
       if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !active",idx);
@@ -2144,40 +2125,40 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   return size;
 }
 
-static unsigned shweep_initialize_work(sweeper *sweeper) {
-  kissat *solver = sweeper->solver;
-  unsigneds work_stack;
-  INIT_STACK (work_stack);
-  flags *const flags = solver->flags;
-  const bool incomplete = solver->sweep_incomplete;
-  const size_t LOG_CUTOFF = 30;
-  for (all_variables (idx)) {
-    struct flags *const f = flags + idx;
-    if (!f->active) {
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !active",idx);
-      continue;
-    }
-    if (incomplete && !f->sweep) {
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !sweep",idx);
-      continue;
-    }
-    if (scheduled_variable (sweeper, idx)) {
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: already scheduled",idx);
-      continue;
-    }
-    size_t occ;
-    if (!scheduable_variable (sweeper, idx, &occ)) {
-      FLAGS (idx)->sweep = false;
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !scheduable",idx);
-      continue;
-    }
-    PUSH_STACK (work_stack, idx);
-  }
-  sweeper->work = BEGIN_STACK (work_stack);
-  sweeper->work_end = SIZE_STACK (work_stack);
-  sweeper->work_head = 0;
-
-}
+// static unsigned shweep_initialize_work(sweeper *sweeper) {
+//   kissat *solver = sweeper->solver;
+//   unsigneds work_stack;
+//   INIT_STACK (work_stack);
+//   flags *const flags = solver->flags;
+//   const bool incomplete = solver->sweep_incomplete;
+//   const size_t LOG_CUTOFF = 30;
+//   for (all_variables (idx)) {
+//     struct flags *const f = flags + idx;
+//     if (!f->active) {
+//       if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !active",idx);
+//       continue;
+//     }
+//     if (incomplete && !f->sweep) {
+//       if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !sweep",idx);
+//       continue;
+//     }
+//     if (scheduled_variable (sweeper, idx)) {
+//       if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: already scheduled",idx);
+//       continue;
+//     }
+//     size_t occ;
+//     if (!scheduable_variable (sweeper, idx, &occ)) {
+//       FLAGS (idx)->sweep = false;
+//       if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !scheduable",idx);
+//       continue;
+//     }
+//     PUSH_STACK (work_stack, idx);
+//   }
+//   sweeper->work = BEGIN_STACK (work_stack);
+//   sweeper->work_end = SIZE_STACK (work_stack);
+//   sweeper->work_head = 0;
+//
+// }
 
 /*
  * Empties the remaining-stack and puts selected variables back to the end of the schedule queue
@@ -2328,7 +2309,7 @@ void shweep_import_units(sweeper *sweeper) {
   if (!solver->shweep_import_units_callback)
     return;
   int *imported_units = 0;
-  unsigned unit_count = 0;
+  int unit_count = 0;
 
   unsigned long prev_useful = solver->shweep_useful_imported_units;
   unsigned long prev_invalid = solver->shweep_invalid_imported_units;
@@ -2392,7 +2373,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
     return;
 
   int *imported_eq = 0;
-  unsigned eq_count = 0;
+  int eq_count = 0;
   solver->shweep_import_eq_callback(solver->shweep_mallob_kissat_state, &imported_eq, &eq_count);
 
   if (eq_count>0)
@@ -2636,10 +2617,10 @@ void shweep_compact_work(sweeper *sweeper) {
     //work has just been compacted and no change since then
     return;
   }
-  unsigned j=0;
+  int j=0;
   unsigned *work = sweeper->work;
-  const unsigned work_end = sweeper->work_end;
-  for (unsigned i = sweeper->work_head; i < work_end; i++) {
+  const int work_end = sweeper->work_end;
+  for (int i = sweeper->work_head; i < work_end; i++) {
     unsigned idx = work[i];
     if (shweep_idx_already_done(sweeper, idx))
       continue;
@@ -2651,9 +2632,7 @@ void shweep_compact_work(sweeper *sweeper) {
 }
 
 
-unsigned shweep_get_max_variable_index(kissat *solver) {
-  //assumes that the number of variables is also exactly the maximum index of the largest variable, i.e. there are no holes in the numbering
-  //an assumption that standard Kissat makes all the time, so we do it also here
+unsigned shweep_get_num_vars(kissat *solver) {
   return solver->vars;
 }
 
@@ -2673,12 +2652,31 @@ unsigned shweep_get_steal_amount(kissat *solver) {
   return half;
 }
 
+bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
+  kissat *solver = sweeper->solver;
+  if (!ACTIVE (idx))
+    return false;
+  const unsigned start = LIT (idx);
+  if (sweeper->reprs[start] != start)
+    return false;
+  size_t occ;
+  if (!scheduable_variable (sweeper, idx, &occ)) {
+    FLAGS (idx)->sweep = false;
+    // kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !scheduable",idx);
+    return false;
+  }
+  return true;
+}
 
 void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
-  kissat *solver = sweeper->solver;
+
+  if (!shweep_sweepable_variable(sweeper, idx))
+    return;
 
   shweep_import_units(sweeper);
   shweep_import_equivalences (sweeper);
+
+  kissat *solver = sweeper->solver;
 
   kissat_custom_message(solver,V1_INFO_SWEEP, " shweeping idx %i", idx);
 
@@ -2698,34 +2696,30 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
 
 //Mallob wants to steal half of this solvers work
 //Mallob provides arrays "stolen_work" that we only fill
-void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, unsigned steal_amount) {
+void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int steal_amount) {
   sweeper *sweeper = solver->sweeper;
   //assumes that compactification has just been done (via work_head==0),
   //this was done in a previous method such that C++ could allocate the correct size for stolen_work to pass here
   assert(sweeper->work_head==0);
-  unsigned keep_amount = sweeper->work_end - steal_amount;
+  int keep_amount = sweeper->work_end - steal_amount;
   memcpy(stolen_work, sweeper->work + keep_amount, steal_amount * sizeof(unsigned));
   sweeper->work_end = keep_amount; //local work got now reduced
 }
 
 unsigned shweep_search_work_from_others(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
-  if (GET_OPTION (mallob_solver_id)==0) {
-    //root. initialize work with all variables
-
-
-  }
-  //points *work to an array allocated by Mallob/C++ containing the new work, and writes it's size into work_end
+  //receive work by stealing it from somebody else
+  //Mallob/C++ allocates the new work memory and puts our pointer of sweeper->work on that allocated memory. we only read from that, and might compact data within that memory bound.
   solver->shweep_search_work_callback(solver->shweep_mallob_kissat_state, &sweeper->work, &sweeper->work_end);
-  sweeper->work_head = 0;
   kissat_custom_message (solver, V2_VERB_SWEEP, "received work size %i ", sweeper->work_end);
+  sweeper->work_head = 0;
   return sweeper->work_end;
 }
 
 unsigned shweep_next_scheduled(sweeper *sweeper) {
   unsigned *work = sweeper->work;
-  unsigned head = sweeper->work_head;
-  unsigned end  = sweeper->work_end;
+  int head = sweeper->work_head;
+  int end  = sweeper->work_end;
 
   while (head < end) {
     unsigned idx = work[head++];
@@ -2743,6 +2737,7 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
 
 
 int kissat_mallob_shweep(kissat *solver) {
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--jumped directly into kissat_mallob_shweep--");
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent)
@@ -2838,7 +2833,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
 
 bool initiate_shweeping_call(kissat *solver) {
-  //todo: talk with Mallob, have it read all clauses and start a distributed sweeping job
+  //todo: as the main solver, talk with Mallob and start a distributed sweeping job
   //receive units and equivalences from this job (either at the end, or maybe already live)
   //replaces the single-threaded sweeping that this solver would have done otherwise
   return 0;

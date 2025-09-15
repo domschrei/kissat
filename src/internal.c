@@ -614,7 +614,7 @@ void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *bu
   solver->shweep_export_eq_callback = export_callback;
 }
 
-void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalences, unsigned *eq_count)) {
+void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalences, int *eq_count)) {
   solver->shweep_mallob_kissat_state = state;
   solver->shweep_import_eq_callback = import_callback;
 }
@@ -624,12 +624,12 @@ void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_
   solver->shweep_export_unit_callback = export_callback;
 }
 
-void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, unsigned *unit_count)) {
+void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count)) {
   solver->shweep_mallob_kissat_state = state;
   solver->shweep_import_units_callback = import_callback;
 }
 
-void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, unsigned *work_size)) {
+void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size)) {
   solver->shweep_mallob_SweepJob_state = SweepJob_state;
   solver->shweep_search_work_callback = search_callback;
 }
