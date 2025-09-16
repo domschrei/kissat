@@ -2446,7 +2446,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
     const unsigned not_other = NOT (other);
 
     if (okToImport && (IDX(lit) == IDX(other))) {
-      kissat_custom_message (solver, V2_VERB_SWEEP, "    taut a==a");
+      // kissat_custom_message (solver, V2_VERB_SWEEP, "    taut a==a");
       solver->shweep_tautological_imported_eq++;
       okToImport = false;
     }
@@ -2640,6 +2640,9 @@ void shweep_compact_work(sweeper *sweeper) {
     work[j] = idx;
     j++;
   }
+
+  kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "compacted from head=%i,end=%i (spanning %i) to end=%i (skipping %i)",
+    sweeper->work_head, sweeper->work_end, sweeper->work_end - sweeper->work_head, j, sweeper->work_end - sweeper->work_head - j);
   sweeper->work_head = 0;
   sweeper->work_end = j;
 }
@@ -2662,6 +2665,7 @@ unsigned shweep_get_steal_amount(kissat *solver) {
   if (half <= 2) { //Basecase, so little work that it's not worth to split anymore
     return 0;
   }
+  kissat_custom_message(solver,V2_VERB_SWEEP, "have %i work, can give %i",sweeper->work_end, half);
   return half;
 }
 
@@ -2671,8 +2675,8 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
     return false;
   // if (!FLAGS(idx)->sweep)
     // return false;
-  const unsigned start = LIT (idx);
-  if (sweeper->reprs[start] != start)
+  const unsigned lit = LIT (idx);
+  if (sweeper->reprs[lit] != lit)
     return false;
   size_t occ;
   if (!scheduable_variable (sweeper, idx, &occ)) {
@@ -2685,8 +2689,8 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
 
 void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
 
-  // if (!shweep_sweepable_variable(sweeper, idx))
-    // return;
+  if (!shweep_sweepable_variable(sweeper, idx))
+    return;
 
   shweep_import_units(sweeper);
   shweep_import_equivalences (sweeper);
@@ -2702,7 +2706,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
   //This can become recursive, where we eagerly always re-sweep first on the last found equivalence
   while (!EMPTY_STACK (sweeper->RESWEEP)) {
     unsigned resweep_idx = POP_STACK (sweeper->RESWEEP);
-    kissat_custom_message(solver,V1_INFO_SWEEP, "  re-shweep idx %i", resweep_idx);
+    kissat_custom_message(solver,V1_INFO_SWEEP, "  re-shweep idx %i (SIZE_STACK %i)", resweep_idx, SIZE_STACK (sweeper->RESWEEP));
     shweep_sweep_variable_with_prop (sweeper, resweep_idx);
   }
 
