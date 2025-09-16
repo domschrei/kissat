@@ -263,7 +263,7 @@ struct kissat {
   // Shweep
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state);
-  void (*shweep_import_eq_callback) (void *state, int **equivalences, int *eq_count);
+  void (*shweep_import_eq_callback) (void *state, int **equivalences, int *eqs_size);
   unsigned long num_conflicts_at_last_equivalence_import;
 
   void (*shweep_export_unit_callback) (void *state, int lit);
