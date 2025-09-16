@@ -1701,13 +1701,17 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   clear_core (sweeper, 1);
 
 
-
   //Export this equivalence to mallob, to share it with other sweepers
   if (GET_OPTION (mallob_is_shweeper)) {
+    unsigned idx_lit = IDX(lit);
+    unsigned idx_other = IDX(other);
+
     if (lit < other) {
       shweep_export_equivalence(solver, lit, other);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "found eq idx(%u)=idx(%u),  lit(%u)==lit(%u) ", idx_lit, idx_other,lit, other );
     } else {
       shweep_export_equivalence(solver, other, lit);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "found eq idx(%u)=idx(%u),  lit(%u)==lit(%u)", idx_other, idx_lit,other,lit);
     }
   }
 
@@ -2296,11 +2300,21 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
 
 
 
-bool shweep_idx_already_done(sweeper *sweeper, unsigned idx) {
+bool shweep_var_still_open(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
   unsigned lit = LIT(idx);
-  return (!ACTIVE(idx) || sweep_repr(sweeper, lit) != lit);
-  //these are also exactly the two checks done in sweep_variable(...)
+  if (!FLAGS(idx)->sweep)
+    return false;
+  if (!ACTIVE(idx))
+    return false;
+  if (sweep_repr (sweeper, lit) != lit)
+    return false;
+  size_t occ;
+  if (!scheduable_variable (sweeper, idx, &occ)) {
+    FLAGS (idx)->sweep = false;
+    return false;
+  }
+  return true;
 }
 
 
@@ -2319,7 +2333,6 @@ void shweep_import_units(sweeper *sweeper) {
 
   solver->shweep_import_units_callback(solver->shweep_mallob_kissat_state, &imported_units, &unit_count);
 
-  kissat_custom_message(solver, V2_VERB_SWEEP, "about to import %u units", unit_count);
   for (int i=0; i<unit_count; i++) {
     const unsigned unit = imported_units[i];
     const unsigned repr_unit = sweep_repr (sweeper, unit);
@@ -2356,7 +2369,7 @@ void shweep_import_units(sweeper *sweeper) {
     solver->shweep_useful_imported_units++;
   }
   if (solver->shweep_useful_imported_units != prev_useful) {
-    kissat_custom_message (solver, V1_INFO_SWEEP, "Unit import statistics:");
+    // kissat_custom_message (solver, V1_INFO_SWEEP, "Unit import statistics:");
     kissat_custom_message (solver, V1_INFO_SWEEP,"Units seen %i", unit_count);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Useful     %i", solver->shweep_useful_imported_eq - prev_useful);
     kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid    %i", solver->shweep_invalid_imported_eq - prev_invalid);
@@ -2622,7 +2635,7 @@ void shweep_compact_work(sweeper *sweeper) {
   const int work_end = sweeper->work_end;
   for (int i = sweeper->work_head; i < work_end; i++) {
     unsigned idx = work[i];
-    if (shweep_idx_already_done(sweeper, idx))
+    if (!shweep_var_still_open(sweeper, idx))
       continue;
     work[j] = idx;
     j++;
@@ -2656,6 +2669,8 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
   if (!ACTIVE (idx))
     return false;
+  // if (!FLAGS(idx)->sweep)
+    // return false;
   const unsigned start = LIT (idx);
   if (sweeper->reprs[start] != start)
     return false;
@@ -2670,15 +2685,15 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
 
 void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
 
-  if (!shweep_sweepable_variable(sweeper, idx))
-    return;
+  // if (!shweep_sweepable_variable(sweeper, idx))
+    // return;
 
   shweep_import_units(sweeper);
   shweep_import_equivalences (sweeper);
 
   kissat *solver = sweeper->solver;
 
-  kissat_custom_message(solver,V1_INFO_SWEEP, " shweeping idx %i", idx);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "sweeping idx %i", idx);
 
   FLAGS (idx)->sweep = false; //remember that we sweept this variable now. //still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
   sweep_variable(sweeper, idx);
@@ -2687,7 +2702,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
   //This can become recursive, where we eagerly always re-sweep first on the last found equivalence
   while (!EMPTY_STACK (sweeper->RESWEEP)) {
     unsigned resweep_idx = POP_STACK (sweeper->RESWEEP);
-    kissat_custom_message(solver,V1_INFO_SWEEP, "re-shweeping idx %i", resweep_idx);
+    kissat_custom_message(solver,V1_INFO_SWEEP, "  re-shweep idx %i", resweep_idx);
     shweep_sweep_variable_with_prop (sweeper, resweep_idx);
   }
 
@@ -2713,6 +2728,15 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   kissat_custom_message (solver, V2_VERB_SWEEP, "searching for work");
   solver->shweep_search_work_callback(solver->shweep_mallob_SweepJob_state, &sweeper->work, &sweeper->work_end);
   kissat_custom_message (solver, V2_VERB_SWEEP, "received work size %i ", sweeper->work_end);
+  //We first mark all upcoming variables as to-sweep.
+  //It can then happen that a variable is sweeped early due to equivalence re-shweeping.
+  //In that case we can skip it later, noticing that by the falsified sweep flag
+  const int end = sweeper->work_end;
+  const unsigned *work = sweeper->work;
+  flags *flags = solver->flags;
+  for (int i=0; i<end; i++) {
+    flags[work[i]].sweep = true;
+  }
   sweeper->work_head = 0;
   return sweeper->work_end;
 }
@@ -2722,12 +2746,19 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
   int head = sweeper->work_head;
   int end  = sweeper->work_end;
 
+
+  // kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "head = %i", head);
+  // for (int i=0; i<10 && end > 10;i++) {
+    // kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "work[%i]= %u ", i, work[i]);
+  // }
+
   while (head < end) {
     unsigned idx = work[head++];
-    if (!shweep_idx_already_done(sweeper, idx)) {
+    if (shweep_var_still_open(sweeper, idx)) {
       sweeper->work_head = head;
       return idx;
     }
+    kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "    skip work[%i]=%u", head-1, work[head-1]);
     sweeper->skipped_bc_done++;
   }
   sweeper->work_head = head;
@@ -2793,6 +2824,8 @@ int kissat_mallob_shweep(kissat *solver) {
 
     // kissat_custom_message(solver, V3_VVERB_SWEEP, "Sw %i (e%i)", idx, kissat_export_literal (solver, LIT (idx)));
 
+
+    // kissat_custom_message(solver,V1_INFO_SWEEP, "trying to shweep idx %i", idx);
     shweep_sweep_variable_with_prop (&sweeper, idx);
 
   }
