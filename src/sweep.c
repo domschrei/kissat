@@ -2710,7 +2710,8 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   //receive work by stealing it from somebody else
   //Mallob/C++ allocates the new work memory and puts our pointer of sweeper->work on that allocated memory. we only read from that, and might compact data within that memory bound.
-  solver->shweep_search_work_callback(solver->shweep_mallob_kissat_state, &sweeper->work, &sweeper->work_end);
+  kissat_custom_message (solver, V2_VERB_SWEEP, "searching for work");
+  solver->shweep_search_work_callback(solver->shweep_mallob_SweepJob_state, &sweeper->work, &sweeper->work_end);
   kissat_custom_message (solver, V2_VERB_SWEEP, "received work size %i ", sweeper->work_end);
   sweeper->work_head = 0;
   return sweeper->work_end;
@@ -2740,12 +2741,16 @@ int kissat_mallob_shweep(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "--jumped directly into kissat_mallob_shweep--");
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
-  if (solver->inconsistent)
+  if (solver->inconsistent) {
+    kissat_custom_message(solver,V1_INFO_SWEEP, "--exiting because solver->inconsistent--");
     return false;
+  }
   if (TERMINATED (sweep_terminated_7))
     return false;
-  if (DELAYING (sweep))
+  if (DELAYING (sweep)) {
+    kissat_custom_message(solver,V1_INFO_SWEEP, "--exiting because DELAYING(sweep)--");
     return false;
+  }
   assert (!solver->level);
   assert (!solver->unflushed);
   START (sweep);
