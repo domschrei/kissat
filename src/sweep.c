@@ -2399,6 +2399,8 @@ void shweep_import_equivalences(sweeper *sweeper) {
   if (eq_count==0)
     return;
 
+  assert(eq_count < 10000); //hotfix debug, I once saw eq_count = 680.000.000 ish, catch these cases
+
   kissat_custom_message(solver, V2_VERB_SWEEP, "about to import %u equivalences", eq_count);
 
   unsigned long prev_useful = solver->shweep_useful_imported_eq;
@@ -2438,13 +2440,13 @@ void shweep_import_equivalences(sweeper *sweeper) {
       const unsigned repr_idx = IDX (repr_ilit);
       flags *flags = FLAGS (repr_idx);
       if (!flags->active) {
-        kissat_custom_message(solver, V2_VERB_SWEEP, "inactive internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
+        // kissat_custom_message(solver, V2_VERB_SWEEP, "inactive internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
         solver->shweep_inactive_imported_eq++;
         okToImport = false;
         break;
       }
       if (flags->eliminated) {
-        kissat_custom_message(solver, V2_VERB_SWEEP, "eliminated internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
+        // kissat_custom_message(solver, V2_VERB_SWEEP, "eliminated internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
         solver->shweep_eliminated_imported_eq++;
         okToImport = false;
         break;
@@ -2462,7 +2464,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
     unsigned other  = repr_ilits[1];
 
     if (IDX(lit) == IDX(other)) {
-      kissat_custom_message (solver, V2_VERB_SWEEP, " taut a==a");
+      // kissat_custom_message (solver, V2_VERB_SWEEP, " taut a==a");
       solver->shweep_tautological_imported_eq++;
       solver->shweep_skipped_imported_eq++;
       continue;
@@ -2483,7 +2485,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
 
     // assert(lit < other);
 
-    kissat_custom_message(solver, V2_VERB_SWEEP, "importing equality %i==%i", lit, other);
+    // kissat_custom_message(solver, V2_VERB_SWEEP, "importing equality %i==%i", lit, other);
 
     sweeper->reprs[other] = lit;
     sweeper->reprs[not_other] = not_lit;
@@ -2547,10 +2549,6 @@ unsigned shweep_get_steal_amount(kissat *solver) {
     return 0;
   }
   if (sweeper->work_head == sweeper->work_end) {
-    //finished whole local work, nothing to share anymore
-    //can reset both counters to underline this finished state
-    sweeper->work_head = 0;
-    sweeper->work_end = 0;
     return 0;
   }
   shweep_compact_work (sweeper);
@@ -2622,20 +2620,26 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   //receive work by stealing it from somebody else
   //Mallob/C++ allocates the new work memory and puts our pointer of sweeper->work on that allocated memory. we only read from that, and might compact data within that memory bound.
+  //Since we search for work, our current work indices are reset, so that no other stealing solver messes with them
+  sweeper->work_head = 0;
+  sweeper->work_end = 0;
   kissat_custom_message (solver, V2_VERB_SWEEP, "searching for work");
-  solver->shweep_search_work_callback(solver->shweep_mallob_SweepJob_state, &sweeper->work, &sweeper->work_end);
-  kissat_custom_message (solver, V2_VERB_SWEEP, "received work size %i ", sweeper->work_end);
-  const int end = sweeper->work_end;
+  //Decouple stolen_amount from work_end as long as possible, to not have spurious reset-writes on work_end influence the logic here
+  int stolen_amount = 0;
+  solver->shweep_search_work_callback(solver->shweep_mallob_SweepJob_state, &sweeper->work, &stolen_amount);
+  kissat_custom_message (solver, V2_VERB_SWEEP, "received work size %i ", stolen_amount);
+  // const int end = sweeper->work_end;
   const unsigned *work = sweeper->work;
   flags *flags = solver->flags;
   //We first mark all upcoming variables as to-sweep.
   //It can then happen that a variable is sweeped early due to equivalence re-shweeping.
   //In that case we can skip it later, noticing that by the falsified sweep flag
-  for (int i=0; i<end; i++) {
+  for (int i=0; i<stolen_amount; i++) {
     flags[work[i]].sweep = true;
   }
   sweeper->work_head = 0;
-  return sweeper->work_end; //returning 0 ends the shweeper, bc we didn't find any new work
+  sweeper->work_end = stolen_amount;
+  return sweeper->work_end;
 }
 
 unsigned shweep_next_scheduled(sweeper *sweeper) {
