@@ -97,6 +97,7 @@ struct sweeper {
 
   int work_end; //number of variables in work
   int work_head; //index of next scheduled variable in work
+  bool shweep_terminated;
 
   unsigned skipped_bc_done;
 };
@@ -243,6 +244,7 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->work_head=0;
     sweeper->work_end=0;
     sweeper->skipped_bc_done=0;
+    sweeper->shweep_terminated=false;
     //we don't allocate work[], that will be done by Mallob/C++ and we only work on the provided array
   }
 }
@@ -2662,6 +2664,10 @@ unsigned shweep_get_num_vars(kissat *solver) {
 unsigned shweep_get_steal_amount(kissat *solver) {
   sweeper *sweeper = solver->sweeper;
   kissat_custom_message(solver,V2_VERB_SWEEP, "got asked for steal. precompact is: work_head=%i, work_end=%i",sweeper->work_head, sweeper->work_end);
+  if (sweeper->shweep_terminated) {
+    kissat_custom_message(solver,V2_VERB_SWEEP, "I'am already terminated, asker will be terminated too, this is a left-over request, ignore");
+    return 0;
+  }
   if (sweeper->work_head == sweeper->work_end) {
     //finished whole local work, nothing to share anymore
     //can reset both counters to underline this finished state
@@ -2843,9 +2849,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   }
 
-  //regain control over *work pointers, otherwise the now-terminated C++ code might write arbitrary stuff in their former locations
-  sweeper.work_end=0;
-  sweeper.work_head=0;
+  sweeper.shweep_terminated = true;
 
   /*
     * Finished sweeping. Some cleanup and statistics.
@@ -2892,9 +2896,6 @@ bool initiate_shweeping_call(kissat *solver) {
   return 0;
 }
 
-void shweep_terminate(kissat *solver) {
-
-}
 
 bool kissat_sweep (kissat *solver) {
   if (GET_OPTION(mallob_initiate_shweeping))
