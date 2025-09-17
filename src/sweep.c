@@ -2414,7 +2414,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
     for (int i=0; i<2; i++) {
       const unsigned ilit = imported_eq[2*eq+i];
       const unsigned repr_ilit = sweep_repr(sweeper, ilit);
-      kissat_custom_message(solver, V2_VERB_SWEEP, "eq %i: ilit %i repr %i", eq, ilit, repr_ilit);
+      // kissat_custom_message(solver, V2_VERB_SWEEP, "eq %i: ilit %i repr %i", eq, ilit, repr_ilit);
 
       if (!VALID_INTERNAL_LITERAL (ilit)) {
         kissat_custom_message(solver, V2_VERB_SWEEP, "ilit %i failed assertion", ilit);
@@ -2543,7 +2543,7 @@ unsigned shweep_get_steal_amount(kissat *solver) {
   sweeper *sweeper = solver->sweeper;
   kissat_custom_message(solver,V2_VERB_SWEEP, "got asked for steal. precompact is: work_head=%i, work_end=%i",sweeper->work_head, sweeper->work_end);
   if (sweeper->shweep_terminated) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "I'am already terminated, asker will be terminated too, this is a left-over request, ignore");
+    kissat_custom_message(solver,V2_VERB_SWEEP, "I'am already terminated. Left-over request, ignore");
     return 0;
   }
   if (sweeper->work_head == sweeper->work_end) {
@@ -2761,6 +2761,7 @@ int kissat_mallob_shweep(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "end shweep loop");
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "skipping probing_propagate");
+
   // if (!solver->inconsistent) {
     // solver->propagate = solver->trail.begin;
     // kissat_probing_propagate (solver, 0, true);
