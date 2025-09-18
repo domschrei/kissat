@@ -278,6 +278,7 @@ static unsigned release_sweeper (sweeper *sweeper) {
   //Mallob Shared Sweeping
   if (GET_OPTION (mallob_is_shweeper)) {
     RELEASE_STACK (sweeper->RESWEEP);
+    solver->sweeper = 0;
   }
 
   //Maybe also free the solver->sweeper itself?
@@ -2543,6 +2544,7 @@ unsigned shweep_get_num_vars(kissat *solver) {
 //To know how much there is work left, needs to be compacted first
 unsigned shweep_get_steal_amount(kissat *solver) {
   sweeper *sweeper = solver->sweeper;
+  assert(sweeper->work_head <= sweeper->work_end);
   kissat_custom_message(solver,V2_VERB_SWEEP, "got asked for steal. precompact is: work_head=%i, work_end=%i",sweeper->work_head, sweeper->work_end);
   if (sweeper->shweep_terminated) {
     kissat_custom_message(solver,V2_VERB_SWEEP, "I'am already terminated. Left-over request, ignore");
@@ -2644,26 +2646,33 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
 
 unsigned shweep_next_scheduled(sweeper *sweeper) {
   unsigned *work = sweeper->work;
-  int head = sweeper->work_head;
-  int end  = sweeper->work_end;
 
 
-  // kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "head = %i", head);
-  // for (int i=0; i<10 && end > 10;i++) {
-    // kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "work[%i]= %u ", i, work[i]);
+  // int head = sweeper->work_head;
+  // int end  = sweeper->work_end;
+  // while (head < end) {
+    // unsigned idx = work[head++];
+    // if (shweep_var_still_open(sweeper, idx)) {
+      // sweeper->work_head = head;
+      // return idx;
+    // }
+    // kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "    skip work[%i]=%u", head-1, work[head-1]);
+    // sweeper->skipped_bc_done++;
   // }
+  // sweeper->work_head = head;
 
-  while (head < end) {
-    unsigned idx = work[head++];
+
+  //todo: maybe we want to work in the live work_head and work_end values,
+  //  such that we immediately detect when they have been changed by compactification?
+
+  while (sweeper->work_head < sweeper->work_end) {
+    unsigned idx = work[sweeper->work_head++];
     if (shweep_var_still_open(sweeper, idx)) {
-      sweeper->work_head = head;
       return idx;
     }
-    kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "    skip work[%i]=%u", head-1, work[head-1]);
+    kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "    skip work[%i]=%u", sweeper->work_head-1, work[sweeper->work_head-1]);
     sweeper->skipped_bc_done++;
   }
-  sweeper->work_head = head;
-  //report that no work is left
   return INVALID_IDX;
 }
 
