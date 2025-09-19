@@ -41,7 +41,7 @@ ATTRIBUTE_FORMAT (4, 5);
 
 void kissat_custom_message(struct kissat *, int verb, const char *fmt, ...);
 
-_Bool kissat_custom_message_retfalse(struct kissat *, int verb, const char *fmt, ...);
+_Bool kissat_custom_assert_message(struct kissat *, int verb, const char *fmt, ...);
 
 
 

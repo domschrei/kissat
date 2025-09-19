@@ -2648,7 +2648,7 @@ void shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int st
   //assumes that compactification has just been done (via work_head==0),
   //this was done in a previous method such that C++ could allocate the correct size for stolen_work to pass here
   //todo: work_head can be incremented in the meantime by the normal search!
-  assert(sweeper->work_head==0 || kissat_custom_message_retfalse(solver, V2_VERB_SWEEP, "work_head != 0 while getting stolen!"));
+  assert(sweeper->work_head==0 || kissat_custom_assert_message(solver, V2_VERB_SWEEP, "work_head != 0 while someone steals from me"));
   int keep_amount = sweeper->work_end - steal_amount;
   memcpy(stolen_work, sweeper->work + keep_amount, steal_amount * sizeof(unsigned));
   sweeper->work_end = keep_amount; //local work got now reduced

@@ -142,7 +142,7 @@ void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...)
   va_end (ap);
 }
 
-bool kissat_custom_message_retfalse(kissat *solver, const int verb, const char *fmt, ...) {
+bool kissat_custom_assert_message(kissat *solver, const int verb, const char *fmt, ...) {
   kissat_custom_message (solver, verb, fmt);
   return false;
 }
