@@ -12,6 +12,8 @@
  /*
   *When coming from sweeping, this assigns backbone literals
   *They have level=0
+  *In sweeping, this is also called from add_core and substitute_connected_clauses,
+  *as well as unit import...
   */
 void kissat_assign_unit (kissat *solver, unsigned lit, const char *reason) {
   kissat_assign (solver, solver->probing, 0, false, lit, UNIT_REASON);

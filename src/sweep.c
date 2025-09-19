@@ -495,7 +495,7 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
     kissat_custom_message (solver, V1_INFO_SWEEP, "Error: Clause size %i, clause ref %i ", SIZE_STACK(sweeper->clause), ref);
     for (all_literals_in_clause (lit, c)) {
       const value value = values[lit];
-      kissat_custom_message (solver, V1_INFO_SWEEP, "lit(%i)/idx(%i)=val %i, repr_lit(%i)", lit, IDX(lit), value, sweep_repr (sweeper, lit));
+      kissat_custom_message (solver, V1_INFO_SWEEP, "idx(%i)/lit(%i)=val %i, repr_lit(%i)", IDX(lit), lit, value, sweep_repr (sweeper, lit));
     }
   }
 
@@ -1356,8 +1356,9 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
             * Catch for Mallob Sharing
             */
           if (GET_OPTION (mallob_is_shweeper)) {
-          kissat_custom_message(solver,V2_VERB_SWEEP, " size1-U idx(%i)/lit(%i)", IDX(lit),lit);
-            shweep_export_unit(solver, lit);
+            //had bug, had "lit" here instead of "unit" !!
+            kissat_custom_message(solver,V2_VERB_SWEEP, " size1-U idx(%i)/lit(%i)", IDX(unit),unit);
+            shweep_export_unit(solver, unit);
           }
 
           INC (sweep_units);
@@ -2404,7 +2405,7 @@ void shweep_import_units(sweeper *sweeper) {
       //no continue, just tracking
     }
 
-    kissat_custom_message(solver, V2_VERB_SWEEP," importing lit(%i)/repr_lit(%i)/idx(%i)", unit, repr_unit, IDX(repr_unit));
+    kissat_custom_message(solver, V2_VERB_SWEEP," importing idx(%i),lit(%i),repr_lit(%i)", IDX(repr_unit), unit, repr_unit);
     kissat_assign_unit (solver, repr_unit, "shweep imported unit");
     solver->shweep_useful_imported_units++;
   }
