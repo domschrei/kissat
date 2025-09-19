@@ -285,14 +285,15 @@ struct kissat {
   unsigned long shweep_useful_imported_eq;
   unsigned long shweep_skipped_imported_eq;
   unsigned long shweep_invalid_imported_eq;
-  unsigned long shweep_inactive_imported_eq;
+  unsigned long shweep_unitprop_imported_eq;
+  unsigned long shweep_doublefixed_imported_eq;
   unsigned long shweep_eliminated_imported_eq;
   unsigned long shweep_tautological_imported_eq;
   unsigned long shweep_transitive_imported_eq;
 
   unsigned long shweep_useful_imported_units;
   unsigned long shweep_invalid_imported_units;
-  unsigned long shweep_inactive_imported_units;
+  unsigned long shweep_fixed_imported_units;
   unsigned long shweep_eliminated_imported_units;
   unsigned long shweep_transitive_imported_units;
 
