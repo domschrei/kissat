@@ -122,7 +122,7 @@ void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...)
     return;
   }
   uint64_t mallob_solver_id = GET_OPTION(mallob_solver_id);
-  uint64_t num_spaces = 20 * mallob_solver_id;
+  uint64_t num_spaces = 30 * mallob_solver_id;
 
   // Add some spaces to the message to spacially distinguish the specific solver
   char new_fmt[1024];
