@@ -90,13 +90,8 @@ struct sweeper {
   //Mallob Shweep: Structures for distributed sweeping
   unsigned *work;     //Variables scheduled for sweeping on this solver
   unsigneds RESWEEP;  //Local Equivalences found, for quick re-sweeping on them
-  // bool fully_compacted = false;
-  // char *done;         //Boolean value for each existing variable, ==1 if variable doesn't need sweeping anymore
-
-  // unsigneds UN;  //Units found (dont need to be stored locally! Can directly be exported to mallob level)
-
-  int work_end; //number of variables in work
-  int work_head; //index of next scheduled variable in work
+  int work_end;    //size of the allocated work array.
+  int work_head;   //index of the currently next scheduled variable in work
   bool just_imported_eqs;
   bool shweep_terminated;
 
@@ -252,7 +247,7 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->shweep_terminated=false;
     sweeper->debug_singlethread_created_work=false;
     sweeper->max_work_left=0;
-    //we don't allocate work[], that will be done by Mallob/C++ and we only work on the provided array
+    //we don't allocate the work[] array, that will be allocated by Mallob/C++ and we only operate on it
   }
 }
 
@@ -282,19 +277,24 @@ static unsigned release_sweeper (sweeper *sweeper) {
   solver->kitten = 0;
 
 
-  if (!GET_OPTION (mallob_is_shweeper)) {
+  //Normal sweeping goes back to sparse mode now, but we don't need such "clean-up" we exit now anyways
+  //Running this code often gives us the following error:
+  //  kissat: fatal error: internally leaking 512 bytes
+  //  mallob: ../src/inlinevector.h:121: kissat_dec_usable: Assertion `solver->vectors.usable > 0' failed.
+  //it seems that this code frees slightly too much memory. Though not really clear yet why and what.
+  //also, we
+  // if (!GET_OPTION (mallob_is_shweeper)) {
     kissat_resume_sparse_mode (solver, false, 0);
-    //does calls to kissat_dec_usable, which might be the causes the fatal error
-    //in shweeping we anyways don't need to get back to any working state, we leave as soon as shweeping is over
-  }
+  // }
 
-  //Mallob Shared Sweeping
+  //Mallob
   if (GET_OPTION (mallob_is_shweeper)) {
     RELEASE_STACK (sweeper->RESWEEP);
     solver->sweeper = 0;
 
     if (! solver->shweep_search_work_callback) {
-      //only relevant for single-threaded debugging. In normal use this array is allocated externally by C++
+      //this dealloc is only relevant for the single-threaded debugging case, where kissat allocates work[] itself
+      //in the normal use cases, work[] is not managed by kissat, but by mallob
       DEALLOC(sweeper->work, VARS);
     }
   }
@@ -2366,6 +2366,7 @@ void shweep_import_units(sweeper *sweeper) {
     return;
 
   kissat_custom_message(solver, V2_VERB_SWEEP, "about to import %i units", unit_count);
+  solver->shweep_total_units += unit_count;
 
   unsigned long prev_useful = solver->shweep_useful_imported_units;
   unsigned long prev_invalid = solver->shweep_invalid_imported_units;
@@ -2444,6 +2445,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
   unsigned long prev_eliminated = solver->shweep_eliminated_imported_eq;
   unsigned long prev_tautology = solver->shweep_tautological_imported_eq;
   unsigned long prev_transitive = solver->shweep_transitive_imported_eq;
+  solver->shweep_total_eq += eq_count;
 
   for (int eq=0; eq < eq_count; eq++) {
     unsigned repr_ilits[2];
@@ -2695,7 +2697,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
     //for debugging: running a single instance of kissat without Mallob/MPI overhead. Create work on my own.
     //Obviously, must deallocate this array here in the single threaded case, which is allocated by C++ in the full distributed run
     NALLOC (sweeper->work, VARS);
-    for (int idx = 0; idx < VARS; idx++) {
+    for (unsigned idx = 0; idx < VARS; idx++) {
       sweeper->work[idx] = idx;
     }
     stolen_amount = VARS;
@@ -2812,16 +2814,16 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
 
 void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
-  kissat_custom_message(solver, V1_INFO_SWEEP, "Final stats: Equivalences:");
-  kissat_custom_message(solver, V1_INFO_SWEEP, "Useful     %i", solver->shweep_useful_imported_eq);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "Final stats: %i Equivalences:", solver->shweep_total_eq);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "Useful     %i / %i ", solver->shweep_useful_imported_eq, solver->shweep_total_eq);
   kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid    %i", solver->shweep_invalid_imported_eq);
   kissat_custom_message(solver, V1_INFO_SWEEP, "Unitprop   %i", solver->shweep_unitprop_imported_eq);
   kissat_custom_message(solver, V2_VERB_SWEEP, "Doublefixd %i", solver->shweep_doublefixed_imported_eq);
   kissat_custom_message(solver, V1_INFO_SWEEP, "Eliminated %i", solver->shweep_eliminated_imported_eq);
   kissat_custom_message(solver, V1_INFO_SWEEP, "Tautology  %i", solver->shweep_tautological_imported_eq);
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
-  kissat_custom_message(solver, V1_INFO_SWEEP, "Final stats: Units:");
-  kissat_custom_message(solver, V1_INFO_SWEEP, "Useful     %i", solver->shweep_useful_imported_units);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "Final stats: %i Units:", solver->shweep_total_units);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "Useful     %i / %i", solver->shweep_useful_imported_units, solver->shweep_total_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "Invalid    %i", solver->shweep_invalid_imported_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "Fixed      %i", solver->shweep_fixed_imported_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "Eliminated %i", solver->shweep_eliminated_imported_units);
