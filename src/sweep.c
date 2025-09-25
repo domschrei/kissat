@@ -2098,11 +2098,11 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   flags *const flags = solver->flags;
   const bool incomplete = solver->sweep_incomplete;
 
-  const size_t mallob_solver_id = GET_OPTION(mallob_solver_id);
-  const size_t mallob_solver_count = GET_OPTION(mallob_solver_count);
+  // const size_t mallob_solver_id = GET_OPTION(mallob_solver_id);
+  // const size_t mallob_solver_count = GET_OPTION(mallob_solver_count);
   // size_t round_robin_count = 0;
-  const size_t LOG_CUTOFF = 30;
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Total variables: %i, Solver id %i, Solver count %i", solver->vars, mallob_solver_id, mallob_solver_count);
+  // const size_t LOG_CUTOFF = 30;
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Total variables: %i, Solver id %i, Solver count %i", solver->vars, mallob_solver_id, mallob_solver_count);
   /**
    * check every variable for active and scheduable
    */
@@ -2110,21 +2110,21 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
 
     struct flags *const f = flags + idx;
     if (!f->active) {
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !active",idx);
+      // if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !active",idx);
       continue;
     }
     if (incomplete && !f->sweep) {
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !sweep",idx);
+      // if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !sweep",idx);
       continue;
     }
     if (scheduled_variable (sweeper, idx)) {
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: already scheduled",idx);
+      // if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: already scheduled",idx);
       continue;
     }
     size_t occ;
     if (!scheduable_variable (sweeper, idx, &occ)) {
       FLAGS (idx)->sweep = false;
-      if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !scheduable",idx);
+      // if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !scheduable",idx);
       continue;
     }
     //
@@ -2153,11 +2153,11 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   for (all_stack (sweep_candidate, cand, fresh)) {
     schedule_outer (sweeper, cand.idx);
     enqueued_vars++;
-    if (enqueued_vars < LOG_CUTOFF || enqueued_vars > size - LOG_CUTOFF) {
-      unsigned elit = kissat_export_literal (solver, LIT (cand.idx));
-      unsigned eidx = elit & 0x7FFFFFF;
-      kissat_custom_message (solver, V3_VVERB_SWEEP, "Enqueued %i (e%i), wc %i", cand.idx, eidx, cand.rank);
-    }
+    // if (enqueued_vars < LOG_CUTOFF || enqueued_vars > size - LOG_CUTOFF) {
+      // unsigned elit = kissat_export_literal (solver, LIT (cand.idx));
+      // unsigned eidx = elit & 0x7FFFFFF;
+      // kissat_custom_message (solver, V3_VVERB_SWEEP, "Enqueued %i (e%i), wc %i", cand.idx, eidx, cand.rank);
+    // }
   }
 
   RELEASE_STACK (fresh);
@@ -2612,7 +2612,7 @@ unsigned shweep_get_max_steal_amount(kissat *solver) {
   int count_left = sweeper->max_work_left;
   int min_left = MIN(count_left, range_left);
   int half = min_left/2;
-  kissat_custom_message(solver,V2_VERB_SWEEP, "Steal request: have at most %i work, can give at most %i",min_left, half);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming Steal request: have at most %i work, can give at most %i",min_left, half);
   // kissat_custom_message(solver,V2_VERB_SWEEP, "  hcame for max_steal_amount %i, effectivly stole %i", max_steal_amount, j);
   return half;
 
@@ -2673,7 +2673,11 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     }
     steal_flipflop = !steal_flipflop;
   }
-  kissat_custom_message(solver,V2_VERB_SWEEP, "  steal: smbd came for max_steal_count %i, effectivly stole from me %i", max_steal_count, stolen_count);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+  kissat_custom_message(solver,V2_VERB_SWEEP, "I provide %i Variables for stealer, coming with max_steal_count %i", stolen_count, max_steal_count);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   assert(stolen_count <= max_steal_count || kissat_custom_assert_message (solver, V1_INFO_SWEEP, "Assert error stolen count"));
   sweeper->max_work_left = locally_left;
   return stolen_count;
@@ -2689,10 +2693,12 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   // sweeper->work_head = 0;
   // sweeper->work_end = 0;
   kissat_custom_message (solver, V2_VERB_SWEEP, "searching for work");
+  const int local_id = GET_OPTION(mallob_local_id);
   //Decouple stolen_amount from work_end as long as possible, to not have spurious reset-writes on work_end influence the logic here
   int stolen_amount = 0;
+
   if (solver->shweep_search_work_callback) {
-    solver->shweep_search_work_callback(solver->shweep_mallob_SweepJob_state, &sweeper->work, &stolen_amount);
+    solver->shweep_search_work_callback(solver->shweep_mallob_SweepJob_state, &sweeper->work, &stolen_amount, local_id);
   } else if (!sweeper->debug_singlethread_created_work){
     //for debugging: running a single instance of kissat without Mallob/MPI overhead. Create work on my own.
     //Obviously, must deallocate this array here in the single threaded case, which is allocated by C++ in the full distributed run
@@ -2703,7 +2709,15 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
     stolen_amount = VARS;
     sweeper->debug_singlethread_created_work=true;
   }
-  kissat_custom_message (solver, V2_VERB_SWEEP, "# steal: I received work size %i #", stolen_amount);
+
+  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+  if (stolen_amount>0)
+    kissat_custom_message (solver, V2_VERB_SWEEP, "# Successful steal: I received %i work", stolen_amount);
+  if (stolen_amount==0)
+    kissat_custom_message (solver, V2_VERB_SWEEP, "# Sweep end signal received", stolen_amount);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   // const int end = sweeper->work_end;
   const unsigned *work = sweeper->work;
   flags *flags = solver->flags;
@@ -2748,7 +2762,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
 
   kissat *solver = sweeper->solver;
 
-  kissat_custom_message(solver,V2_VERB_SWEEP, "sweeping idx %i [%i max left]", idx, sweeper->max_work_left);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_left);
 
   FLAGS (idx)->sweep = false; //remember that we sweept this variable now. //still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
   sweep_variable(sweeper, idx);
@@ -2759,7 +2773,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
   //This can become recursive, where we eagerly always re-sweep first on the last found equivalence
   while (!EMPTY_STACK (sweeper->RESWEEP)) {
     unsigned resweep_idx = POP_STACK (sweeper->RESWEEP);
-    kissat_custom_message(solver,V2_VERB_SWEEP, "  re-shweep idx %i [%i SIZE_STACK]", resweep_idx, SIZE_STACK (sweeper->RESWEEP));
+    kissat_custom_message(solver,V2_VERB_SWEEP, "re-shweep idx %i [%i SIZE_STACK]", resweep_idx, SIZE_STACK (sweeper->RESWEEP));
     shweep_sweep_variable_with_prop (sweeper, resweep_idx);
   }
 

@@ -121,8 +121,8 @@ void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...)
   if (GET_OPTION(mallob_custom_sweep_verbosity)<verb) {
     return;
   }
-  uint64_t mallob_solver_id = GET_OPTION(mallob_solver_id);
-  uint64_t num_spaces = 30 * mallob_solver_id;
+  uint64_t mallob_local_id = GET_OPTION(mallob_local_id);
+  uint64_t num_spaces = 30 * mallob_local_id;
 
   // Add some spaces to the message to spacially distinguish the specific solver
   char new_fmt[1024];
@@ -131,7 +131,7 @@ void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...)
 
   // Prepend [mallob_solver_id] to the format string
   char prefix[64];
-  snprintf(prefix, sizeof(prefix), "[%" PRIu64 "] ", mallob_solver_id);
+  snprintf(prefix, sizeof(prefix), "[%" PRIu64 "] ", mallob_local_id);
 
   strncat(new_fmt, prefix, sizeof(new_fmt) - strlen(new_fmt) - 1);
   strncat(new_fmt, fmt, sizeof(new_fmt) - strlen(new_fmt) - 1);

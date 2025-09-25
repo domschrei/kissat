@@ -80,8 +80,9 @@
   OPTION (mallob_custom_sweep_verbosity, 1, 0, 3, "the verbosity of the kissat_custom_message messages") \
   OPTION (mallob_initiate_shweeping, 0, 0, 1, "this solver initiates a shweep call when arriving at the sweep heuristic") \
   OPTION (mallob_is_shweeper, 0, 0, 1, "this solver only does shared distributed sweeping. jumps directly into sweeping") \
+  OPTION (mallob_local_id, 0, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
+  OPTION (mallob_rank, 0, 0, 1e6, "the rank of the hosting MPI process") \
   OPTION (mallob_solver_count, 1, 1, 1e6, "the total number of solvers currently employed by mallob") \
-  OPTION (mallob_solver_id, 0, 0, 1e6, "the id of this specific solver instance, provided by mallob") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \
   OPTION (minimize, 1, 0, 1, "learned clause minimization") \
   OPTION (minimizedepth, 1e3, 1, 1e6, "minimization depth") \

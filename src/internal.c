@@ -629,7 +629,7 @@ void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_
   solver->shweep_import_units_callback = import_callback;
 }
 
-void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size)) {
+void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id)) {
   solver->shweep_mallob_SweepJob_state = SweepJob_state;
   solver->shweep_search_work_callback = search_callback;
 }
