@@ -122,16 +122,17 @@ void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...)
     return;
   }
   uint64_t mallob_local_id = GET_OPTION(mallob_local_id);
-  uint64_t num_spaces = 30 * mallob_local_id;
+  uint64_t mallob_rank     = GET_OPTION(mallob_rank);
+  uint64_t num_spaces = 30 * mallob_rank + 10 * mallob_local_id;
 
   // Add some spaces to the message to spacially distinguish the specific solver
   char new_fmt[1024];
   memset(new_fmt, ' ', num_spaces);
   new_fmt[num_spaces] = '\0';
 
-  // Prepend [mallob_solver_id] to the format string
+  // Prepend [rank][local_id] to the format string
   char prefix[64];
-  snprintf(prefix, sizeof(prefix), "[%" PRIu64 "] ", mallob_local_id);
+  snprintf(prefix, sizeof(prefix), "[%" PRIu64 ",%" PRIu64  "] ", mallob_rank, mallob_local_id);
 
   strncat(new_fmt, prefix, sizeof(new_fmt) - strlen(new_fmt) - 1);
   strncat(new_fmt, fmt, sizeof(new_fmt) - strlen(new_fmt) - 1);
