@@ -2611,7 +2611,7 @@ unsigned shweep_get_num_vars(kissat *solver) {
 //To know how much there is work left, needs to be compacted first
 int shweep_get_max_steal_amount(kissat *solver) {
   if (!solver || !solver->sweeper || !solver->sweeper->initialized) {
-    //guard against very early stealing attempts where this solver is not even initialized yet
+    //guard against very early stealing attempts where this solver is not even initialized yet. happens quite often.
     kissat_custom_message(solver,V3_VVERB_SWEEP, "somebody tried to rob me, but I am not fully initialized yet");
     return 0;
   }
