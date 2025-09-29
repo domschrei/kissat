@@ -2641,7 +2641,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
   // sweeper->work_end = keep_amount; //local work got now reduced
 
   //steal every second open variable
-  kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming steal begins, could give up to %i", max_steal_count);
+  // kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming steal begins, could give up to %i", max_steal_count);
   int stolen_count=0;
   int locally_left = 0;
   bool steal_flipflop=false;
@@ -2667,10 +2667,13 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
   }
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
-  kissat_custom_message(solver,V2_VERB_SWEEP, "# I provide %i Variables out of %i max_steal_count for stealer", stolen_count, max_steal_count);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "# >> Steal: providing %i variables (locally left %i)", stolen_count, locally_left);
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
-  assert(stolen_count <= max_steal_count || kissat_custom_assert_message (solver, V1_INFO_SWEEP, "Assert error stolen count"));
+  if (stolen_count > max_steal_count) {
+    kissat_custom_assert_message (solver, V1_INFO_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
+    assert(false);
+  }
   sweeper->max_work_left = locally_left;
   return stolen_count;
 }
@@ -2708,9 +2711,9 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   if (stolen_amount>0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "# Successful steal: I received %i work", stolen_amount);
+    kissat_custom_message (solver, V2_VERB_SWEEP, "# << Stealer: Got %i variables", stolen_amount);
   if (stolen_amount==0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "# Sweep end signal received", stolen_amount);
+    kissat_custom_message (solver, V2_VERB_SWEEP, "# Sweep: end signal received", stolen_amount);
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   // const int end = sweeper->work_end;
@@ -2856,6 +2859,8 @@ int kissat_mallob_shweep(kissat *solver) {
   }
   assert (!solver->level);
   assert (!solver->unflushed);
+  assert( !solver->probing);
+  solver->probing=true;
   START (sweep);
   INC (sweep);
   statistics *statistics = &solver->statistics;

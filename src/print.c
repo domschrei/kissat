@@ -132,7 +132,7 @@ void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...)
 
   // Prepend [rank][local_id] to the format string
   char prefix[64];
-  snprintf(prefix, sizeof(prefix), "[%" PRIu64 ",%" PRIu64  "] ", mallob_rank, mallob_local_id);
+  snprintf(prefix, sizeof(prefix), "[%" PRIu64 "](%" PRIu64  ") ", mallob_rank, mallob_local_id);
 
   strncat(new_fmt, prefix, sizeof(new_fmt) - strlen(new_fmt) - 1);
   strncat(new_fmt, fmt, sizeof(new_fmt) - strlen(new_fmt) - 1);
