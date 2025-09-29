@@ -101,6 +101,7 @@ struct sweeper {
   bool debug_singlethread_created_work;
 
   unsigned skipped_bc_done;
+  unsigned stumbled_units;
 };
 
 typedef struct sweeper sweeper;
@@ -245,6 +246,7 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->work_head=0;
     sweeper->work_end=0;
     sweeper->skipped_bc_done=0;
+    sweeper->stumbled_units=0;
     sweeper->just_imported_eqs=false;
     sweeper->shweep_terminated=false;
     sweeper->debug_singlethread_created_work=false;
@@ -406,6 +408,28 @@ static void sweep_clause (sweeper *sweeper, unsigned depth) {
 
 
 
+static bool stumbled_unit_in_binary(kissat *solver, unsigned lit, unsigned other) {
+  value *values = solver->values;
+  if (values[lit]) {
+    if (values[lit]==1) //already satisfied
+      return true;
+    if (values[lit]==-1) {
+      //NEW: directly assign this detected unit here in place
+      kissat_assign_unit (solver, other, "stumbled while kitten-copying");
+      /* Catch for Mallob Sharing */
+      if (GET_OPTION (mallob_is_shweeper)) {
+        kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%i)/lit(%i)", IDX(other),other);
+        shweep_export_unit(solver, other);
+      }
+      INC (sweep_units);
+      solver->sweeper->stumbled_units++;
+      return true;
+    }
+  }
+  return false;
+}
+
+
 
 /**
  * Sweep a binary clause, but only if it is really necessary
@@ -422,6 +446,15 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
   kissat *solver = sweeper->solver;
   LOGBINARY (lit, other, "sweeping[%u]", depth);
   value *values = solver->values;
+
+  //Mallob Addition: It can happen that we stumble only here upon a unit clause that has not been detected yet,
+  //due to some interactions with unit/equivalence imports that dont trigger such full unit propagations..
+  //Current solution: Assign the unit right now on the spot
+  if (stumbled_unit_in_binary (solver, lit, other))
+    return;
+
+
+
   assert (!values[lit]);
   const value other_value = values[other];
   //Dont continue if other is already true, which directly satisfies the clause (?)
@@ -438,6 +471,12 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
     LOGBINARY (lit, other, "skipping depth %u copied", other_depth);
     return;
   }
+
+
+  if (stumbled_unit_in_binary (solver, other, lit))
+    return;
+
+
   assert (!other_value);
   assert (EMPTY_STACK (sweeper->clause));
   //Ok only now continue, sweep the clause
@@ -445,6 +484,7 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
   PUSH_STACK (sweeper->clause, other);
   sweep_clause (sweeper, depth);
 }
+
 
 
 
@@ -493,13 +533,32 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
   PUSH_STACK (sweeper->refs, ref); //remember that we swept this clause
   c->swept = true;
 
-  //Debugging
-  if (SIZE_STACK(sweeper->clause)<=1) {
-    kissat_custom_message (solver, V1_INFO_SWEEP, "Error: Clause size %i, clause ref %i ", SIZE_STACK(sweeper->clause), ref);
+  //Mallob Special: It can happen that we stumble here upon a unit-clause, that has up-to-now been undetected
+  //In sequential kissat operation this can not happen (even caught by an assertion SIZE>1), but apparently with imported units/equivalences it can happen
+  //Current solution is to then just assign the unit literal now on the spot the moment we detect it
+  //Alternatively, maybe it would be more elegant to immediately fully propagate all assigned units, instead of waiting until they randomly shop up here...
+  if (SIZE_STACK(sweeper->clause)==1) {
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Warning: Detected Clause size %i, clause ref %i ", SIZE_STACK(sweeper->clause), ref);
+    unsigned detected_unit = 0;
     for (all_literals_in_clause (lit, c)) {
       const value value = values[lit];
+      if (value==0) {
+        assert(detected_unit==0);
+        detected_unit = lit;
+      }
       kissat_custom_message (solver, V1_INFO_SWEEP, "idx(%i)/lit(%i)=val %i, repr_lit(%i)", IDX(lit), lit, value, sweep_repr (sweeper, lit));
     }
+    //NEW: directly assign this detected unit here in place
+    kissat_assign_unit (solver, detected_unit, "stumbled while kitten-copying");
+     /* Catch for Mallob Sharing */
+    if (GET_OPTION (mallob_is_shweeper)) {
+      kissat_custom_message(solver,V3_VVERB_SWEEP, " stumble-U idx(%i)/lit(%i)", IDX(detected_unit),detected_unit);
+      shweep_export_unit(solver, detected_unit);
+    }
+    INC (sweep_units);
+    CLEAR_STACK (sweeper->clause); //usually done by sweep_clause, but we skip that here
+    sweeper->stumbled_units++;
+    return; //clause vanished, no need to pipe to kitten anymore
   }
 
   sweep_clause (sweeper, depth);
@@ -2458,6 +2517,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
     int already_fixed = 0;
     for (int i=0; i<2; i++) {
       const unsigned ilit = imported_eq[2*eq+i];
+      // kissat_custom_message(solver, V3_VVERB_SWEEP,"importing lit(%i)", ilit);
       const unsigned repr_ilit = sweep_repr(sweeper, ilit);
       // kissat_custom_message(solver, V2_VERB_SWEEP, "eq %i: ilit %i repr %i", eq, ilit, repr_ilit);
 
@@ -2547,7 +2607,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
 
     // kissat_custom_message(solver, V2_VERB_SWEEP, "importing equality %i==%i", lit, other);
 
-    kissat_custom_message(solver, V3_VVERB_SWEEP," importing idx(%i)==idx(%i), lit(%i)==lit(%i)", IDX(lit), IDX(other), lit, other);
+    kissat_custom_message(solver, V3_VVERB_SWEEP," imported idx(%i)==idx(%i), lit(%i)==lit(%i)", IDX(lit), IDX(other), lit, other);
 
     //maybe need also to add these two binary clauses? are added by original sweep_equivalence_candidates, for the cores...
     // add_binary (solver, lit,     not_other);
@@ -2632,14 +2692,6 @@ int shweep_get_max_steal_amount(kissat *solver) {
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count) {
   sweeper *sweeper = solver->sweeper;
 
-  //assumes that compactification has just been done (via work_head==0),
-  //this was done in a previous method such that C++ could allocate the correct size for stolen_work to pass here
-  // todo: work_head can be incremented in the meantime by the normal search!
-  // assert(sweeper->work_head==0 || kissat_custom_assert_message(solver, V2_VERB_SWEEP, "work_head != 0 while someone steals from me"));
-  // int keep_amount = sweeper->work_end - max_steal_amount;
-  // memcpy(stolen_work, sweeper->work + keep_amount, max_steal_amount * sizeof(unsigned));
-  // sweeper->work_end = keep_amount; //local work got now reduced
-
   //steal every second open variable
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming steal begins, could give up to %i", max_steal_count);
   int stolen_count=0;
@@ -2656,7 +2708,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
       continue;
     }
     //variable is still open for sweeping. We steal every second
-    if (steal_flipflop) {
+    if (steal_flipflop && stolen_count < max_steal_count) { //it could maybe happen that in the split second after determining it's max_steal_count this solver receives new work, and has now more work to provide than C++ expects
       stolen_work[stolen_count]=idx; //steal
       stolen_count++;
       work[i] = INVALID_IDX; //deactivate in original array
@@ -2671,8 +2723,8 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   if (stolen_count > max_steal_count) {
-    kissat_custom_assert_message (solver, V1_INFO_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
-    assert(false);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
+    assert(kissat_custom_assert_message (solver, V1_INFO_SWEEP, "stolen count > max_steal_count"));
   }
   sweeper->max_work_left = locally_left;
   return stolen_count;
@@ -2840,6 +2892,7 @@ void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "Fixed      %i", solver->shweep_fixed_imported_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "Eliminated %i", solver->shweep_eliminated_imported_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "Transitive %i", solver->shweep_transitive_imported_units);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "Stumbled   %i", solver->sweeper->stumbled_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
 }
 
