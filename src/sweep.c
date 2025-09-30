@@ -2226,40 +2226,6 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   return size;
 }
 
-// static unsigned shweep_initialize_work(sweeper *sweeper) {
-//   kissat *solver = sweeper->solver;
-//   unsigneds work_stack;
-//   INIT_STACK (work_stack);
-//   flags *const flags = solver->flags;
-//   const bool incomplete = solver->sweep_incomplete;
-//   const size_t LOG_CUTOFF = 30;
-//   for (all_variables (idx)) {
-//     struct flags *const f = flags + idx;
-//     if (!f->active) {
-//       if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !active",idx);
-//       continue;
-//     }
-//     if (incomplete && !f->sweep) {
-//       if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !sweep",idx);
-//       continue;
-//     }
-//     if (scheduled_variable (sweeper, idx)) {
-//       if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: already scheduled",idx);
-//       continue;
-//     }
-//     size_t occ;
-//     if (!scheduable_variable (sweeper, idx, &occ)) {
-//       FLAGS (idx)->sweep = false;
-//       if (idx<LOG_CUTOFF) kissat_custom_message(solver,V3_VVERB_SWEEP, "skip %i: !scheduable",idx);
-//       continue;
-//     }
-//     PUSH_STACK (work_stack, idx);
-//   }
-//   sweeper->work = BEGIN_STACK (work_stack);
-//   sweeper->work_end = SIZE_STACK (work_stack);
-//   sweeper->work_head = 0;
-//
-// }
 
 /*
  * Empties the remaining-stack and puts selected variables back to the end of the schedule queue
@@ -2586,7 +2552,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
     }
 
 
-    if (already_fixed==1)
+    if (already_fixed==1) //one of the two variables is already fixed, meaning this equivalence becomes a unit clause
       solver->shweep_unitprop_imported_eq++;
 
 
@@ -2637,32 +2603,6 @@ void shweep_import_equivalences(sweeper *sweeper) {
 }
 
 
- /*
-  * Copy all the still active variables from work into its beginning
-void shweep_compact_work(sweeper *sweeper) {
-  if (sweeper->work_head==0) {
-    //work has just been compacted and no change since then
-    return;
-  }
-  int j=0;
-  unsigned *work = sweeper->work;
-  const int work_end = sweeper->work_end;
-  for (int i = sweeper->work_head; i < work_end; i++) {
-    unsigned idx = work[i];
-    if (!shweep_var_still_open(sweeper, idx))
-      continue;
-    work[j] = idx;
-    j++;
-  }
-
-  kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "compacted from head=%i,end=%i (spanning %i) to end=%i (skipping %i)",
-    sweeper->work_head, sweeper->work_end, sweeper->work_end - sweeper->work_head, j, sweeper->work_end - sweeper->work_head - j);
-  sweeper->work_head = 0;
-  sweeper->work_end = j;
-}
-
-  */
-
 unsigned shweep_get_num_vars(kissat *solver) {
   return solver->vars;
 }
@@ -2691,8 +2631,7 @@ int shweep_get_max_steal_amount(kissat *solver) {
 //Mallob provides arrays "stolen_work" that we only fill
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count) {
   sweeper *sweeper = solver->sweeper;
-
-  //steal every second open variable
+  //steal every second local variable that is still open for sweeping
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming steal begins, could give up to %i", max_steal_count);
   int stolen_count=0;
   int locally_left = 0;
@@ -2718,9 +2657,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     steal_flipflop = !steal_flipflop;
   }
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
-  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
-  kissat_custom_message(solver,V2_VERB_SWEEP, "# >> Steal: providing %i variables (locally left %i)", stolen_count, locally_left);
-  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+  kissat_custom_message(solver,V2_VERB_SWEEP, "# >> Providing %i (left %i)", stolen_count, locally_left);
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   if (stolen_count > max_steal_count) {
     kissat_custom_message (solver, V1_INFO_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
@@ -2761,12 +2698,10 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   }
 
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
-  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   if (stolen_amount>0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "# << Stealer: Got %i variables", stolen_amount);
+    kissat_custom_message (solver, V2_VERB_SWEEP, "# << Got %i", stolen_amount);
   if (stolen_amount==0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "# Sweep: end signal received", stolen_amount);
-  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+    kissat_custom_message (solver, V2_VERB_SWEEP, "# Sweep: received termination signal");
   kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   // const int end = sweeper->work_end;
   const unsigned *work = sweeper->work;
@@ -2826,41 +2761,11 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
     kissat_custom_message(solver,V3_VVERB_SWEEP, "re-shweep idx %i [%i SIZE_STACK]", resweep_idx, SIZE_STACK (sweeper->RESWEEP));
     shweep_sweep_variable_with_prop (sweeper, resweep_idx);
   }
-
 }
 
 unsigned shweep_next_scheduled(sweeper *sweeper) {
   unsigned *work = sweeper->work;
 
-
-  // int head = sweeper->work_head;
-  // int end  = sweeper->work_end;
-  // while (head < end) {
-    // unsigned idx = work[head++];
-    // if (shweep_var_still_open(sweeper, idx)) {
-      // sweeper->work_head = head;
-      // return idx;
-    // }
-    // kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "    skip work[%i]=%u", head-1, work[head-1]);
-    // sweeper->skipped_bc_done++;
-  // }
-  // sweeper->work_head = head;
-
-
-  //to do: maybe we want to work in the live work_head and work_end values?
-  //  such that we immediately detect when they have been changed by compactification...
-
-  // while (sweeper->work_head < sweeper->work_end) {
-    // unsigned idx = work[sweeper->work_head++];
-    // if (shweep_var_still_open(sweeper, idx)) {
-      // return idx;
-    // }
-    // kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "    skip work[%i]=%u", sweeper->work_head-1, work[sweeper->work_head-1]);
-    // sweeper->skipped_bc_done++;
-  // }
-  // return INVALID_IDX;
-
-  //todo: now rely on non-compactified work-array which instead has INVALID_IDX holes
   const int end  = sweeper->work_end;
   while (sweeper->work_head < end) {
     unsigned idx = work[sweeper->work_head++];
@@ -2875,6 +2780,8 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
   }
   return INVALID_IDX;
 }
+
+
 
 void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
@@ -2913,7 +2820,7 @@ int kissat_mallob_shweep(kissat *solver) {
   assert (!solver->level);
   assert (!solver->unflushed);
   assert( !solver->probing);
-  solver->probing=true;
+  solver->probing=true; //is also set to true for normal probing, of which sweep is part of, so probably good to have this here
   START (sweep);
   INC (sweep);
   statistics *statistics = &solver->statistics;
@@ -2975,9 +2882,9 @@ int kissat_mallob_shweep(kissat *solver) {
   // kissat_custom_message(solver,V1_INFO_SWEEP, " Finished sweeping. Found %" PRIu64 " equivalences, %" PRIu64 " units, with %"PRIu64 " swept" , equivalences,units,swept);
   // unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "end shweep loop");
+  // kissat_custom_message(solver,V1_INFO_SWEEP, "end shweep loop");
 
-  kissat_custom_message(solver,V1_INFO_SWEEP, "skipping probing_propagate");
+  // kissat_custom_message(solver,V1_INFO_SWEEP, "skipping probing_propagate");
 
 
   // kissat_custom_message(solver,V1_INFO_SWEEP, "final probing");
