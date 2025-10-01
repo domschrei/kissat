@@ -26,12 +26,12 @@ void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
   //so we can directly work with internal literals, no need to convert to external representation
   solver->shweep_export_eq_buffer[0] = lit;
   solver->shweep_export_eq_buffer[1] = other;
-  solver->shweep_export_eq_callback (solver->shweep_mallob_kissat_state);
+  solver->shweep_export_eq_callback (solver->shweep_mallob_KissatState);
 
 }
 
 void shweep_export_unit(kissat *solver, unsigned lit) {
   if (!solver->shweep_export_unit_callback) return;
-  solver->shweep_export_unit_callback (solver->shweep_mallob_kissat_state, lit);
+  solver->shweep_export_unit_callback (solver->shweep_mallob_KissatState, lit);
 
 }

@@ -78,9 +78,10 @@ kissat *kissat_init (void) {
   solver->shweep_import_units_callback = 0;
 
   //Workstealing
-  solver->shweep_mallob_kissat_state = 0;
+  solver->shweep_mallob_KissatState = 0;
   solver->shweep_search_work_callback = 0;
 
+  solver->start_sweep_app_callback = 0;
 
   //-----------------------------------------------------------------
 
@@ -609,30 +610,46 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
 
 
 void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state)) {
-  solver->shweep_mallob_kissat_state = state;
+  solver->shweep_mallob_KissatState = state;
   solver->shweep_export_eq_buffer = buffer;
   solver->shweep_export_eq_callback = export_callback;
 }
 
 void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalences, int *eqs_size)) {
-  solver->shweep_mallob_kissat_state = state;
+  solver->shweep_mallob_KissatState = state;
   solver->shweep_import_eq_callback = import_callback;
 }
 
 void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit)) {
-  solver->shweep_mallob_kissat_state = state;
+  solver->shweep_mallob_KissatState = state;
   solver->shweep_export_unit_callback = export_callback;
 }
 
 void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count)) {
-  solver->shweep_mallob_kissat_state = state;
+  solver->shweep_mallob_KissatState = state;
   solver->shweep_import_units_callback = import_callback;
 }
 
-void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id)) {
-  solver->shweep_mallob_SweepJob_state = SweepJob_state;
+void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id)) {
+  solver->shweep_mallob_SweepJobState = SweepJobState;
   solver->shweep_search_work_callback = search_callback;
 }
+
+// void shweep_set_start_sweep_app_callback(kissat *solver, void *KissatState, void (*sweep_app_callback) (void *KissatState)) {
+  // solver->shweep_mallob_KissatState = KissatState;
+  // solver->start_sweep_app_callback = sweep_app_callback;
+// }
+
+
+
+// void shweep_set_sweep_app_formula_report_callback (kissat * solver, void *state,
+  // bool (*begin_report) (void *state, int vars, int cls),
+  // void (*report_lit) (void *state, int lit))
+// {
+  // solver->report_preprocess_state = state;
+  // solver->begin_report = begin_report;
+  // solver->report_preprocessed_lit = report_lit;
+// }
 
 
 

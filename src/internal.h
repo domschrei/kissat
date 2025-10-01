@@ -260,7 +260,7 @@ struct kissat {
   unsigned long num_conflicts_at_last_import;
 
 
-  // Shweep
+  //Run SWEEP App
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state);
   void (*shweep_import_eq_callback) (void *state, int **equivalences, int *eqs_size);
@@ -269,19 +269,17 @@ struct kissat {
   void (*shweep_export_unit_callback) (void *state, int lit);
   void (*shweep_import_units_callback) (void *state, int **units, int *unit_count);
 
-  // Mallob Updated Shared Sweeping
-  void *shweep_mallob_kissat_state;
-  void *shweep_mallob_SweepJob_state;
-  // void (*get_stolen_work_callback) (void *state, unsigned **work, unsigned *size);
-  // void (*get_stolen_done_callback) (void *state, char **done, unsigned *size);
+  void *shweep_mallob_KissatState;
+  void *shweep_mallob_SweepJobState;
   void (*shweep_search_work_callback) (void *state, unsigned **work, int *work_size, int local_id);
-  // void (*work_import_callback) (void *state, unsigned **stolen_work, unsigned **stolen_done);
+
+  //Call SWEEP App
+  void (*start_sweep_app_callback) (void *state);
 
 
-  // Additional distributed sweeping statistics
-  // unsigned long num_discarded_external_equivalences;
-  // unsigned long num_imported_external_equivalences;
-  // unsigned long s_invalid_external;
+
+  // Shared Sweeping statistics
+  //Equivalences
   unsigned long shweep_useful_imported_eq;
   unsigned long shweep_skipped_imported_eq;
   unsigned long shweep_invalid_imported_eq;
@@ -291,15 +289,15 @@ struct kissat {
   unsigned long shweep_tautological_imported_eq;
   unsigned long shweep_transitive_imported_eq;
   unsigned long shweep_total_eq;
-
+  //Units
   unsigned long shweep_useful_imported_units;
   unsigned long shweep_invalid_imported_units;
   unsigned long shweep_fixed_imported_units;
   unsigned long shweep_eliminated_imported_units;
   unsigned long shweep_transitive_imported_units;
   unsigned long shweep_total_units;
-
   unsigned long shweep_skipped_bc_done;
+
 
   // Initial variable phases
   signed char *initial_variable_phases;

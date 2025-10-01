@@ -58,17 +58,23 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
 void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue));
 
 
-//Shweep
+//Calling Shweep
+void shweep_set_start_sweep_app_callback(kissat *solver, void *KissatState, void (*sweep_app_callback) (void *KissatState));
+
+// void shweep_set_sweep_app_formula_report_callback (kissat * solver, void *state,
+    // bool (*begin_report) (void *state, int vars, int cls),
+    // void (*report_lit) (void *state, int lit));
+
+//Doing Shweep
 void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state));
 void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence, int *eq_count));
 
 void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit));
 void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count));
 
-//Updated API for shared sweeping
 int shweep_get_max_steal_amount(kissat *solver);
 unsigned shweep_get_num_vars (kissat *solver);
-void shweep_set_search_work_callback(kissat *solver, void *SweepJob_state, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
+void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count);
 void shweep_terminate(kissat *solver);
 

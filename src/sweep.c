@@ -2389,7 +2389,7 @@ void shweep_import_units(sweeper *sweeper) {
   int *imported_units = 0;
   int unit_count = 0;
 
-  solver->shweep_import_units_callback(solver->shweep_mallob_kissat_state, &imported_units, &unit_count);
+  solver->shweep_import_units_callback(solver->shweep_mallob_KissatState, &imported_units, &unit_count);
 
   if (unit_count==0)
     return;
@@ -2456,7 +2456,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
 
   int *imported_eq = 0;
   int eqs_size = 0;
-  solver->shweep_import_eq_callback(solver->shweep_mallob_kissat_state, &imported_eq, &eqs_size);
+  solver->shweep_import_eq_callback(solver->shweep_mallob_KissatState, &imported_eq, &eqs_size);
   assert(eqs_size%2==0);
   int eq_count = eqs_size/2;
 
@@ -2685,7 +2685,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
 
   //The new work will be allocated by Mallob/C++, and we will only read from it, by pointing our *work array on the provided data
   if (solver->shweep_search_work_callback) {
-    solver->shweep_search_work_callback(solver->shweep_mallob_SweepJob_state, &sweeper->work, &stolen_amount, local_id);
+    solver->shweep_search_work_callback(solver->shweep_mallob_SweepJobState, &sweeper->work, &stolen_amount, local_id);
   } else if (!sweeper->debug_singlethread_created_work){
     //for debugging: running a single instance of kissat without Mallob/MPI overhead. Create work on my own.
     //Obviously, must deallocate this array here in the single threaded case, which is allocated by C++ in the full distributed run
@@ -2803,6 +2803,8 @@ void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
 }
 
+
+
 int kissat_mallob_shweep(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "--jumped directly into kissat_mallob_shweep--");
   if (!GET_OPTION (mallob_is_shweeper))
@@ -2858,34 +2860,22 @@ int kissat_mallob_shweep(kissat *solver) {
       }
       continue;
     }
-
-    // kissat_custom_message(solver, V3_VVERB_SWEEP, "Sw %i (e%i)", idx, kissat_export_literal (solver, LIT (idx)));
-
-
-    // kissat_custom_message(solver,V1_INFO_SWEEP, "trying to shweep idx %i", idx);
     shweep_sweep_variable_with_prop (&sweeper, idx);
 
   }
 
   sweeper.shweep_terminated = true;
   shweep_print_import_statistics(solver);
-
   /*
     * Finished sweeping. Some cleanup and statistics.
     */
-
   equivalences = statistics->sweep_equivalences - equivalences,
   units = solver->statistics.sweep_units - units;
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
-  // kissat_custom_message(solver,V1_INFO_SWEEP, " Finished sweeping. Found %" PRIu64 " equivalences, %" PRIu64 " units, with %"PRIu64 " swept" , equivalences,units,swept);
   // unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "end shweep loop");
-
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "skipping probing_propagate");
-
 
   // kissat_custom_message(solver,V1_INFO_SWEEP, "final probing");
   // START (probe);
@@ -2898,8 +2888,6 @@ int kissat_mallob_shweep(kissat *solver) {
   // assert (solver->probing);
   // solver->probing = false;
   // STOP (probe);
-
-
 
   uint64_t eliminated = equivalences + units;
 #ifndef QUIET
@@ -2916,21 +2904,31 @@ int kissat_mallob_shweep(kissat *solver) {
     // REDUCE_DELAY (sweep);
   STOP (sweep);
   kissat_custom_message(solver,V1_INFO_SWEEP, "exit shweep function. Inconsistent? %i ", solver->inconsistent);
-  return 10; //dummy signal to end whole shweep solver.
+
+  //Shared Sweeping is finished. Since this was the only job of this solver, terminate completely.
+  //The results will still be reported via kissat_report_dimacs before the thread wraps up.
+  kissat_terminate(solver); //
+  return 0;
 }
 
 
-bool initiate_shweeping_call(kissat *solver) {
+int call_sweep_app(kissat *solver) {
+  if ( ! solver->start_sweep_app_callback)
+    return 0;
+  // bool finished_flag = false;
+  solver->start_sweep_app_callback (solver->shweep_mallob_KissatState);
   //todo: as the main solver, talk with Mallob and start a distributed sweeping job
   //receive units and equivalences from this job (either at the end, or maybe already live)
   //replaces the single-threaded sweeping that this solver would have done otherwise
-  return false;
+  return 0;
 }
 
 
 bool kissat_sweep (kissat *solver) {
-  if (GET_OPTION(mallob_initiate_shweeping))
-    return initiate_shweeping_call (solver);
+  // if (GET_OPTION(mallob_use_sweep_app)) {
+    // int eliminated = call_sweep_app (solver);
+    // return eliminated;
+  // }
   if (GET_OPTION (mallob_is_shweeper)) {
     assert(kissat_custom_assert_message (solver, V1_INFO_SWEEP, "error: Shweeper accidentally got into original sweeping code"));
     return false;

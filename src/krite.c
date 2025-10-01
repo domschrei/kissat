@@ -1,10 +1,11 @@
 #include "krite.h"
+#include "error.h"
 #include "inline.h"
 #include "internal.h"
+#include "print.h"
+#include "require.h"
 #include "statistics.h"
 #include "watch.h"
-#include "error.h"
-#include "require.h"
 
 #include <inttypes.h>
 
@@ -73,6 +74,12 @@ unsigned gather_units (kissat * solver, bool report) {
 }
 
 void kissat_report_dimacs (kissat * solver) {
+  //in the SWEEP App its enough that one solver reports the final formula
+  //For now its hardcoded to be the rank=0 local_id=0 solver. For even more robustness it should just be the very first solver that arrives here
+  if (GET_OPTION (mallob_is_shweeper) && GET_OPTION (mallob_rank)!=0 && GET_OPTION (mallob_local_id)!=0)
+    return;
+  if (GET_OPTION (mallob_is_shweeper))
+    kissat_custom_message (solver, 1, "Shweep [0](0) reporting final formula via kissat_report_dimacs");
   size_t imported = SIZE_STACK (solver->import);
   if (imported) imported--;
   unsigned num_units = gather_units(solver, false);
