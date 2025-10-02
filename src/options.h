@@ -6,8 +6,6 @@
 
 // clang-format off
 
-  //OPTION (mallob_use_sweep_app, 0, 0, 1, "this solver calls the Mallob shared SWEEP app when it enters the sweep heuristic") \
-
 #define OPTIONS \
   OPTION (ands, 1, 0, 1, "extract and eliminate and gates") \
   OPTION (backbone, 1, 0, 2, "binary clause backbone (2=eager)") \
@@ -79,11 +77,10 @@
   OPTION (lucky, 1, 0, 1, "try some lucky assignments") \
   OPTION (luckyearly, 1, 0, 1, "lucky assignments before preprocessing") \
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
-  OPTION (mallob_custom_sweep_verbosity, 1, 0, 3, "the verbosity of the kissat_custom_message messages") \
+  OPTION (mallob_custom_sweep_verbosity, 0, 0, 3, "the verbosity of the kissat_custom_message messages") \
   OPTION (mallob_is_shweeper, 0, 0, 1, "this solver implements the Mallob SWEEP app and does exclusively shared sweeping on the provided formula") \
-  OPTION (mallob_local_id, 0, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
-  OPTION (mallob_rank, 0, 0, 1e6, "the rank of the hosting MPI process") \
-  OPTION (mallob_solver_count, 1, 1, 1e6, "the total number of solvers currently employed by mallob") \
+  OPTION (mallob_local_id, 9999, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
+  OPTION (mallob_rank, 9999, 0, 1e6, "the rank of the hosting MPI process") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \
   OPTION (minimize, 1, 0, 1, "learned clause minimization") \
   OPTION (minimizedepth, 1e3, 1, 1e6, "minimization depth") \
