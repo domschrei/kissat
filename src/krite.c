@@ -74,18 +74,14 @@ unsigned gather_units (kissat * solver, bool report) {
 }
 
 void kissat_report_dimacs (kissat * solver) {
-  if (GET_OPTION (mallob_is_shweeper) && (GET_OPTION (mallob_rank)!=0 || GET_OPTION (mallob_local_id)!=0)) {
-    //in the SWEEP App, its enough that one solver reports the final formula
-    //For now its hardcoded to be the rank=0 local_id=0 solver. For even more robustness it should be for example the very first solver that arrives here
-    return;
-  }
-  if (GET_OPTION (mallob_is_shweeper))
-    kissat_custom_message (solver, 1, "Shweep [0](0) reporting final formula in kissat_report_dimacs");
   size_t imported = SIZE_STACK (solver->import);
   if (imported) imported--;
   unsigned num_units = gather_units(solver, false);
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) return;
+  if (GET_OPTION (mallob_is_shweeper)) {
+    kissat_custom_message (solver, 1, "Shweep [%i](%i) reports final formula in kissat_report_dimacs", GET_OPTION (mallob_rank), GET_OPTION (mallob_local_id));
+  }
   assert (solver->watching);
   if (solver->watching) {
     for (all_literals (ilit))
