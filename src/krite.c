@@ -77,8 +77,11 @@ void kissat_report_dimacs (kissat * solver) {
   size_t imported = SIZE_STACK (solver->import);
   if (imported) imported--;
   unsigned num_units = gather_units(solver, false);
+  if (! solver->begin_report)
+    return;
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
-  if (!do_report) return;
+  if (!do_report)
+    return;
   if (GET_OPTION (mallob_is_shweeper)) {
     kissat_custom_message (solver, 1, "Shweep [%i](%i) reports final formula in kissat_report_dimacs", GET_OPTION (mallob_rank), GET_OPTION (mallob_local_id));
   }

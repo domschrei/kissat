@@ -2911,10 +2911,12 @@ int kissat_mallob_shweep(kissat *solver) {
   if (solver->inconsistent)
     kissat_custom_message (solver, V1_INFO_SWEEP, "INCONSISTENT after shweep !");
 
-  //Shared Sweeping is finished. Since this was the only job of this solver, terminate completely.
-  //The results will still be reported via kissat_report_dimacs before the thread wraps up.
+  //Shared Sweeping is finished.
+  //We send the termination signal now, since this was the only job of this solver
+  //Actually, before the check for termination the function "kissat_report_dimacs(...)" is still called,
+  //so eventhough this solver is already set to terminate, the final formula reporting still takes place
   kissat_terminate(solver); //
-  return 0;
+  return 0; //allows search.c to continue with cascade until "kissat_report_dimacs(...)"
 }
 
 
