@@ -2549,6 +2549,8 @@ void shweep_import_equivalences(sweeper *sweeper) {
     if (already_fixed==1) //one of the two variables is already fixed, meaning this equivalence becomes a unit clause
       solver->shweep_unitprop_imported_eq++;
 
+    //todo: rather import this as a unit then?
+
 
     if (other < lit) {
       unsigned tmp = lit;
@@ -2798,7 +2800,37 @@ void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
 }
 
+void shweep_print_var_stats(kissat *solver) {
+  int found = 0;
+  int active = 0;
+  int fixed = 0;
+  int eliminated = 0;
 
+  size_t imported = SIZE_STACK (solver->import);
+  if (imported) imported--;
+  for (int elit = 1; elit <= imported; elit++) {
+    const unsigned eidx = ABS (elit);
+    if (eidx >= SIZE_STACK (solver->import)) continue;
+    const import *const import = &PEEK_STACK (solver->import, eidx);
+    if (!import->imported) continue;
+    found++;
+    value tmp = 0;
+    if (!import->eliminated) {
+      const unsigned ilit = import->lit;
+      tmp = VALUE (ilit);
+      tmp!=0 ? fixed++ : active++;
+    } else {
+      eliminated++;
+    }
+
+  }
+
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## found  %i , %i active + fixed + eliminated", found, active + fixed + eliminated);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## active %i ", active);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## fixed  %i ", fixed);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## eliminated %i ", eliminated);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## substituted %i ", solver->statistics.substituted);
+}
 
 int kissat_mallob_shweep(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "--Jumped into kissat_mallob_shweep--");
@@ -2829,6 +2861,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--unassigned=%d--", solver->unassigned);
+  shweep_print_var_stats (solver);
   kissat_custom_message(solver,V1_INFO_SWEEP, "--starting shweep loop--");
   // shweep_import_equivalences(&sweeper);
   // shweep_search_work_from_others(&sweeper);
@@ -2864,6 +2897,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   sweeper.shweep_terminated = true;
   shweep_print_import_statistics(solver);
+  shweep_print_var_stats (solver);
   /*
     * Finished sweeping. Some cleanup and statistics.
     */
@@ -2892,6 +2926,7 @@ int kissat_mallob_shweep(kissat *solver) {
   STOP (probe);
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
+  shweep_print_var_stats (solver);
 
   STOP (sweep);
   if (solver->inconsistent)
@@ -2913,6 +2948,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
   kissat_custom_message(solver,V1_INFO_SWEEP, "--Substitute: %d --> %d active variables--", active_before, solver->active);
+  shweep_print_var_stats (solver);
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "--exit shweep--");
   //Shared Sweeping is finished.
