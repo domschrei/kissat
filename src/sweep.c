@@ -12,12 +12,13 @@
 #include "report.h"
 #include "terminate.h"
 
-#include "import.h" //Needed for equivalence import
+#include "import.h" //currently not needed for shweeping as we directly share internal variables
 
 #include <inttypes.h>
 #include <string.h>
 
-#include "clauseexport.h"
+#include "clauseexport.h" //export stuff during shweeping
+#include "substitute.h" //at the end of shweeping
 
 /**
  * Overview of all methods
@@ -280,19 +281,9 @@ static unsigned release_sweeper (sweeper *sweeper) {
   RELEASE_STACK (sweeper->core[1]);
   kitten_release (solver->kitten);
   solver->kitten = 0;
+  kissat_resume_sparse_mode (solver, false, 0);
 
-
-  //Normal sweeping goes back to sparse mode now, but we don't need such "clean-up" we exit now anyways
-  //Running this code often gives us the following error:
-  //  kissat: fatal error: internally leaking 512 bytes
-  //  mallob: ../src/inlinevector.h:121: kissat_dec_usable: Assertion `solver->vectors.usable > 0' failed.
-  //it seems that this code frees slightly too much memory. Though not really clear yet why and what.
-  //also, we
-  // if (!GET_OPTION (mallob_is_shweeper)) {
-    kissat_resume_sparse_mode (solver, false, 0);
-  // }
-
-  //Mallob
+  //When doing Mallob Shared Sweeping
   if (GET_OPTION (mallob_is_shweeper)) {
     RELEASE_STACK (sweeper->RESWEEP);
     solver->sweeper = 0;
@@ -2440,6 +2431,7 @@ void shweep_import_units(sweeper *sweeper) {
     kissat_custom_message(solver, V3_VVERB_SWEEP," importing idx(%i),lit(%i),repr_lit(%i)", IDX(repr_unit), unit, repr_unit);
     kissat_assign_unit (solver, repr_unit, "shweep imported unit");
     solver->shweep_useful_imported_units++;
+    INC (sweep_units);
   }
   // kissat_custom_message (solver, V1_INFO_SWEEP, "Unit import statistics:");
   kissat_custom_message(solver, V2_VERB_SWEEP,"Imported Units:", unit_count);
@@ -2589,6 +2581,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
     substitute_connected_clauses (sweeper, other, lit);
     substitute_connected_clauses (sweeper, not_other, not_lit);
     solver->shweep_useful_imported_eq++;
+    INC (sweep_equivalences);
   }
 
   kissat_custom_message(solver, V2_VERB_SWEEP,"Imported Eqs:");
@@ -2699,12 +2692,12 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
     sweeper->debug_singlethread_created_work=true;
   }
 
-  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+  kissat_custom_message(solver,V2_VERB_SWEEP, "*");
   if (stolen_amount>0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "# << Got %i", stolen_amount);
+    kissat_custom_message (solver, V2_VERB_SWEEP, "* << Got %i", stolen_amount);
   if (stolen_amount==0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "# Sweep: received termination signal");
-  kissat_custom_message(solver,V2_VERB_SWEEP, "#");
+    kissat_custom_message (solver, V2_VERB_SWEEP, "* Sweep: received termination signal");
+  kissat_custom_message(solver,V2_VERB_SWEEP, "*");
   // const int end = sweeper->work_end;
   const unsigned *work = sweeper->work;
   flags *flags = solver->flags;
@@ -2808,7 +2801,7 @@ void shweep_print_import_statistics(kissat *solver) {
 
 
 int kissat_mallob_shweep(kissat *solver) {
-  kissat_custom_message(solver,V1_INFO_SWEEP, "--jumped directly into kissat_mallob_shweep--");
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--Jumped into kissat_mallob_shweep--");
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent) {
@@ -2831,19 +2824,22 @@ int kissat_mallob_shweep(kissat *solver) {
   uint64_t equivalences = statistics->sweep_equivalences;
   uint64_t units = statistics->sweep_units;
   sweeper sweeper;
-  kissat_custom_message(solver,V1_INFO_SWEEP, "--starting kissat_mallob_shweep--");
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--init_sweeper--");
   init_sweeper (solver, &sweeper);
 
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
+  // kissat_custom_message(solver,V1_INFO_SWEEP, "--unassigned=%d--", solver->unassigned);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--starting shweep loop--");
   // shweep_import_equivalences(&sweeper);
   // shweep_search_work_from_others(&sweeper);
 
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "--during shweep-loop: Inconsistent! \n");
-      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid eq       %i", solver->shweep_invalid_imported_eq);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid units    %i", solver->shweep_invalid_imported_units);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "unitprop         %i", solver->shweep_unitprop_imported_eq);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->shweep_eliminated_imported_eq);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SHWEEP INCONSISTENT during loop!! \n");
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "invalid eq       %i", solver->shweep_invalid_imported_eq);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "invalid units    %i", solver->shweep_invalid_imported_units);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "unitprop         %i", solver->shweep_unitprop_imported_eq);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->shweep_eliminated_imported_eq);
       break;
     }
     if (TERMINATED (sweep_terminated_8))
@@ -2876,41 +2872,49 @@ int kissat_mallob_shweep(kissat *solver) {
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "Shweep: Found %i equivalences and %i units", equivalences, units);
   // unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
 
-  kissat_custom_message(solver,V1_INFO_SWEEP, "final probing");
+
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
+  // kissat_custom_message(solver,V1_INFO_SWEEP, "--unassigned=%d--", solver->unassigned);
 
   START (probe);
   assert (!solver->probing);
   solver->probing = true;
   if (!solver->inconsistent) {
     solver->propagate = solver->trail.begin;
+    kissat_custom_message(solver,V1_INFO_SWEEP, "final probing");
     kissat_probing_propagate (solver, 0, true);
   }
   assert (solver->probing);
-  solver->probing = false;
   STOP (probe);
 
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
 
-  uint64_t eliminated = equivalences + units;
-#ifndef QUIET
-  assert (solver->active >= inactive);
-  solver->active -= inactive;
-  REPORT (!eliminated, '=');
-  solver->active += inactive;
-#else
-  (void) inactive;
-#endif
-  // if (kissat_average (eliminated, swept) < 0.001)
-    // BUMP_DELAY (sweep);
-  // else
-    // REDUCE_DELAY (sweep);
   STOP (sweep);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "exit shweep function");
   if (solver->inconsistent)
-    kissat_custom_message (solver, V1_INFO_SWEEP, "INCONSISTENT after shweep !");
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SHWEEP INCONSISTENT after loop !!");
 
+
+  unsigned active_before = solver->active;
+  //Equivalent Literal Subsitution.
+  //Applies the equivalences we found to actually reduce the database.
+  //Is Scheduled always directly after sweeping also in normal kissat.
+  if (GET_OPTION (substitute)) {
+    kissat_custom_message(solver,V1_INFO_SWEEP, "running substitute.c for equivalent substitutions");
+    kissat_substitute (solver, true);
+  } else {
+    kissat_custom_message(solver,V1_INFO_SWEEP, "skipping substitute.c, OPTION substitute==0 !");
+  }
+
+  solver->probing = false;
+
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--Substitute: %d --> %d active variables--", active_before, solver->active);
+
+  kissat_custom_message(solver,V1_INFO_SWEEP, "--exit shweep--");
   //Shared Sweeping is finished.
   //We send the termination signal now, since this was the only job of this solver
   //Actually, before the check for termination the function "kissat_report_dimacs(...)" is still called,
@@ -2918,6 +2922,16 @@ int kissat_mallob_shweep(kissat *solver) {
   kissat_terminate(solver); //
   return 0; //allows search.c to continue with cascade until "kissat_report_dimacs(...)"
 }
+
+
+
+
+
+
+
+
+
+
 
 
 // int call_sweep_app(kissat *solver) {
@@ -3011,17 +3025,14 @@ bool kissat_sweep (kissat *solver) {
     * Finished sweeping. Some cleanup and statistics.
     */
   kissat_very_verbose (solver, "swept %" PRIu64 " variables", swept);
-  // kissat_custom_message(solver, "finished sweeping. Swept %" PRIu64 " variables", swept);
 
   equivalences = statistics->sweep_equivalences - equivalences,
   units = solver->statistics.sweep_units - units;
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
-  // kissat_custom_message(solver,V1_INFO_SWEEP, " Finished sweeping. Found %" PRIu64 " equivalences, %" PRIu64 " units, with %"PRIu64 " swept" , equivalences,units,swept);
   unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "end sweep loop. Inconsistent?-Inc%i", solver->inconsistent);
 
   if (!solver->inconsistent) {
     solver->propagate = solver->trail.begin;

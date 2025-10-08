@@ -77,6 +77,7 @@ void kissat_report_dimacs (kissat * solver) {
   size_t imported = SIZE_STACK (solver->import);
   if (imported) imported--;
   unsigned num_units = gather_units(solver, false);
+  kissat_custom_message (solver, 1, "Shweep [%i](%i) gathered %i units", GET_OPTION (mallob_rank), GET_OPTION (mallob_local_id));
   if (! solver->begin_report)
     return;
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);

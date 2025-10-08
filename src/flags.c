@@ -103,7 +103,7 @@ void kissat_mark_eliminated_variable (kissat *solver, unsigned idx) {
   assert (pos < (1u << 30));
   import->lit = pos;
   import->eliminated = true;
-  kissat_custom_message (solver, 1, "elit %i, ilit %u: setting  import->eliminiated=true", elit, lit);
+  kissat_custom_message (solver, 3, "Substitute: elit %i, ilit %u: setting import->eliminiated=true", elit, lit);
   PUSH_STACK (solver->eliminated, (value) 0);
   LOG ("marked external variable %u as eliminated", eidx);
   assert (solver->unassigned > 0);
