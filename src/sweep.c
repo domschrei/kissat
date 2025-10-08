@@ -2872,7 +2872,7 @@ int kissat_mallob_shweep(kissat *solver) {
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "Shweep: Found %i equivalences and %i units", equivalences, units);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "Shweep: Total %i sweep_equivalences and %i sweep_units", equivalences, units);
   // unschedule_sweeping (&sweeper, swept, scheduled);
   unsigned inactive = release_sweeper (&sweeper);
 

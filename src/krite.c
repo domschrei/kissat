@@ -69,6 +69,7 @@ unsigned gather_units (kissat * solver, bool report) {
     if (elit < 0) tmp = -tmp;
     solver->report_preprocessed_lit (solver->report_preprocess_state, tmp < 0 ? -elit : elit);
     solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
+    kissat_custom_message (solver, 2, "Shweep reporting eidx %u", eidx);
   }
   return num_units;
 }
@@ -76,16 +77,13 @@ unsigned gather_units (kissat * solver, bool report) {
 void kissat_report_dimacs (kissat * solver) {
   size_t imported = SIZE_STACK (solver->import);
   if (imported) imported--;
+  kissat_custom_message (solver, 1, "Shweeper gathers units, only counting, not reporting yet");
   unsigned num_units = gather_units(solver, false);
-  kissat_custom_message (solver, 1, "Shweep [%i](%i) gathered %i units", GET_OPTION (mallob_rank), GET_OPTION (mallob_local_id));
-  if (! solver->begin_report)
-    return;
+  kissat_custom_message (solver, 1, "Shweeper gathered %i units",  num_units);
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report)
     return;
-  if (GET_OPTION (mallob_is_shweeper)) {
-    kissat_custom_message (solver, 1, "Shweep [%i](%i) reports final formula in kissat_report_dimacs", GET_OPTION (mallob_rank), GET_OPTION (mallob_local_id));
-  }
+  kissat_custom_message (solver, 1, "Shweeper reports final formula in kissat_report_dimacs");
   assert (solver->watching);
   if (solver->watching) {
     for (all_literals (ilit))
@@ -123,7 +121,9 @@ void kissat_report_dimacs (kissat * solver) {
       solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
     }
   if (num_units == 0) return;
+  kissat_custom_message (solver, 1, "Shweeper second unit gather, now with reporting");
   unsigned now_num_units = gather_units(solver, true);
+  kissat_custom_message (solver, 1, "Shweeper second, gathered %i units",  now_num_units);
   assert(now_num_units == num_units);
 }
 
