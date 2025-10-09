@@ -2609,7 +2609,7 @@ unsigned shweep_get_num_vars(kissat *solver) {
 int shweep_get_max_steal_amount(kissat *solver) {
   if (!solver || !solver->sweeper || !solver->sweeper->initialized) {
     //guard against very early stealing attempts where this solver is not even initialized yet. happens quite often.
-    kissat_custom_message(solver,V3_VVERB_SWEEP, "somebody tried to rob me, but I am not fully initialized yet");
+    kissat_custom_message(solver,V2_VERB_SWEEP, "Skipped steal from me, I am not fully initialized yet");
     return 0;
   }
   sweeper *sweeper = solver->sweeper;
@@ -2830,6 +2830,13 @@ void shweep_print_var_stats(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "## fixed  %i ", fixed);
   kissat_custom_message(solver,V1_INFO_SWEEP, "## eliminated %i ", eliminated);
   kissat_custom_message(solver,V1_INFO_SWEEP, "## substituted %i ", solver->statistics.substituted);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- ");
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses irredundant %i ", solver->statistics.clauses_irredundant);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses binary      %i ", solver->statistics.clauses_binary);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses irr+binary  %i ", solver->statistics.clauses_irredundant + solver->statistics.clauses_binary);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses added       %i ", solver->statistics.clauses_added);
+  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses learned     %i ", solver->statistics.clauses_learned);
+
 }
 
 int kissat_mallob_shweep(kissat *solver) {

@@ -70,7 +70,7 @@ unsigned gather_units (kissat * solver, bool report) {
     if (elit < 0) tmp = -tmp;
     solver->report_preprocessed_lit (solver->report_preprocess_state, tmp < 0 ? -elit : elit);
     solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
-    kissat_custom_message (solver, 2, "Shweep reporting elit unit %d", tmp < 0 ? -elit : elit);
+    kissat_custom_message (solver, 3, "Shweep reporting elit unit %d", tmp < 0 ? -elit : elit);
   }
   return num_units;
 }
