@@ -2425,7 +2425,6 @@ void shweep_import_units(sweeper *sweeper) {
     if (is_transitive) {
       // kissat_custom_message(solver, V2_VERB_SWEEP, "transitive useful unit. repr_idx=%u, imported as unit=%u", repr_idx, unit);
       solver->shweep_transitive_imported_units++;
-      //no continue, just tracking
     }
 
     kissat_custom_message(solver, V3_VVERB_SWEEP," importing idx(%i),lit(%i),repr_lit(%i)", IDX(repr_unit), unit, repr_unit);
@@ -2602,6 +2601,13 @@ void shweep_import_equivalences(sweeper *sweeper) {
 
 unsigned shweep_get_num_vars(kissat *solver) {
   return solver->vars;
+}
+
+
+void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *total_units) {
+  *eqs = solver->statistics.sweep_equivalences;
+  *sweep_units = solver->statistics.sweep_units;
+  *total_units = solver->statistics.units;
 }
 
 //Want to allocate memory in C++ for the steal, but don't know yet how much memory, so we ask first here

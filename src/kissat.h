@@ -72,11 +72,13 @@ void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*
 void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit));
 void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count));
 
-int shweep_get_max_steal_amount(kissat *solver);
-unsigned shweep_get_num_vars (kissat *solver);
 void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
+
+int shweep_get_max_steal_amount(kissat *solver);
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count);
-void shweep_terminate(kissat *solver);
+unsigned shweep_get_num_vars (kissat *solver);
+void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *total_units);
+// void shweep_terminate(kissat *solver);
 
 
 // Basic "external" statistics struct with some interesting properties of kissat's search.
