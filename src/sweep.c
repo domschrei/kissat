@@ -2874,8 +2874,15 @@ bool kissat_sweep (kissat *solver) {
   uint64_t equivalences = statistics->sweep_equivalences;
   uint64_t units = statistics->sweep_units;
   sweeper sweeper;
+
+  if (solver->report_preprocess_state) {
+    //only print this when preprocessing, not in later search-only run
+    printf(" sweep-start-time: %f \n", kissat_time(solver));
+  }
+
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--starting kissat_sweep--");
   init_sweeper (solver, &sweeper);
+
 
   /*
     * Set up the variables to sweep over and their order
@@ -2960,8 +2967,12 @@ bool kissat_sweep (kissat *solver) {
   else
     REDUCE_DELAY (sweep);
   STOP (sweep);
-  if (solver->report_preprocess_state) //only print this in preprocessing, not in normal search-only run
+  if (solver->report_preprocess_state) {
+    //only print this when preprocessing, not in later search-only run
     printf(" Kissat Sequential sweep: %lu Eqs, %lu sweep-units\n", equivalences, units);
+    printf(" sweep-end-time: %f \n", kissat_time(solver));
+    // kissat_profiles_print(solver);
+  }
   return eliminated;
 }
 
