@@ -2960,7 +2960,8 @@ bool kissat_sweep (kissat *solver) {
   else
     REDUCE_DELAY (sweep);
   STOP (sweep);
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "exit sweep function. Inconsistent?-Inc%i ", solver->inconsistent);
+  if (solver->report_preprocess_state) //only print this in preprocessing, not in normal search-only run
+    printf(" Kissat Sequential sweep: %lu Eqs, %lu sweep-units\n", equivalences, units);
   return eliminated;
 }
 
@@ -3058,7 +3059,7 @@ int kissat_mallob_shweep(kissat *solver) {
   solver->probing = true;
   if (!solver->inconsistent) {
     solver->propagate = solver->trail.begin;
-    kissat_custom_message(solver,V1_INFO_SWEEP, "final probing");
+    kissat_custom_message(solver,V1_INFO_SWEEP, "--final probing--");
     kissat_probing_propagate (solver, 0, true);
   }
   assert (solver->probing);
@@ -3084,8 +3085,8 @@ int kissat_mallob_shweep(kissat *solver) {
 
   solver->probing = false;
 
-  kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "--Substitute: %d --> %d active variables--", active_before, solver->active);
+  // kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
+  // kissat_custom_message(solver,V1_INFO_SWEEP, "--Substitute: %d --> %d active variables--", active_before, solver->active);
   shweep_print_var_stats (solver, V1_INFO_SWEEP);
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "--exit shweep--");
