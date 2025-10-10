@@ -2812,7 +2812,7 @@ void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
 }
 
-void shweep_print_var_stats(kissat *solver) {
+void shweep_print_var_stats(kissat *solver, int verb) {
   /*
   int found = 0;
   int active = 0;
@@ -2838,16 +2838,15 @@ void shweep_print_var_stats(kissat *solver) {
 
   }
   */
-  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- active %i ", solver->active);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- units  %i ", SIZE_STACK(solver->units));
-  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- eliminated %i ", SIZE_STACK(solver->eliminated));
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "## eliminated %i ", solver->marks);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- ");
-  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses irredundant %i ", solver->statistics.clauses_irredundant);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses binary      %i ", solver->statistics.clauses_binary);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses irr+binary  %i ", solver->statistics.clauses_irredundant + solver->statistics.clauses_binary);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses added       %i ", solver->statistics.clauses_added);
-  kissat_custom_message(solver,V1_INFO_SWEEP, "## -- clauses learned     %i ", solver->statistics.clauses_learned);
+  kissat_custom_message(solver, verb, "## -- active %i ", solver->active);
+  kissat_custom_message(solver, verb, "## -- units  %i ", SIZE_STACK(solver->units));
+  kissat_custom_message(solver, verb, "## -- eliminated %i ", SIZE_STACK(solver->eliminated));
+  kissat_custom_message(solver, verb, "## -- ");
+  kissat_custom_message(solver, verb, "## -- clauses irredundant %i ", solver->statistics.clauses_irredundant);
+  kissat_custom_message(solver, verb, "## -- clauses binary      %i ", solver->statistics.clauses_binary);
+  kissat_custom_message(solver, verb, "## -- clauses irr+binary  %i ", solver->statistics.clauses_irredundant + solver->statistics.clauses_binary);
+  kissat_custom_message(solver, verb, "## -- clauses added       %i ", solver->statistics.clauses_added);
+  kissat_custom_message(solver, verb, "## -- clauses learned     %i ", solver->statistics.clauses_learned);
 
 }
 
@@ -3008,7 +3007,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--unassigned=%d--", solver->unassigned);
-  shweep_print_var_stats (solver);
+  shweep_print_var_stats (solver, V1_INFO_SWEEP);
   kissat_custom_message(solver,V1_INFO_SWEEP, "--starting shweep loop--");
   // shweep_import_equivalences(&sweeper);
   // shweep_search_work_from_others(&sweeper);
@@ -3042,7 +3041,7 @@ int kissat_mallob_shweep(kissat *solver) {
     * Finished sweeping. Some cleanup and statistics.
     */
   shweep_print_import_statistics(solver);
-  shweep_print_var_stats (solver);
+  shweep_print_var_stats (solver, V2_VERB_SWEEP);
 
   equivalences = statistics->sweep_equivalences - equivalences,
   units = solver->statistics.sweep_units - units;
@@ -3065,7 +3064,7 @@ int kissat_mallob_shweep(kissat *solver) {
   assert (solver->probing);
   STOP (probe);
 
-  shweep_print_var_stats (solver);
+  shweep_print_var_stats (solver, V2_VERB_SWEEP);
 
   STOP (sweep);
   if (solver->inconsistent)
@@ -3087,7 +3086,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
   kissat_custom_message(solver,V1_INFO_SWEEP, "--Substitute: %d --> %d active variables--", active_before, solver->active);
-  shweep_print_var_stats (solver);
+  shweep_print_var_stats (solver, V1_INFO_SWEEP);
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "--exit shweep--");
   //Shared Sweeping is finished.
