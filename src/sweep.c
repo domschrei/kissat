@@ -2969,7 +2969,7 @@ bool kissat_sweep (kissat *solver) {
   STOP (sweep);
   if (solver->report_preprocess_state) {
     //only print this when preprocessing, not in later search-only run
-    printf(" Kissat Sequential sweep: %lu Eqs, %lu sweep-units\n", equivalences, units);
+    printf(" Kissat Sequential sweep (not distributed!): %lu Eqs, %lu sweep-units\n", equivalences, units);
     printf(" sweep-end-time: %f \n", kissat_time(solver));
     // kissat_profiles_print(solver);
   }

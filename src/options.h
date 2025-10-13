@@ -78,7 +78,7 @@
   OPTION (luckyearly, 1, 0, 1, "lucky assignments before preprocessing") \
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
   OPTION (mallob_custom_sweep_verbosity, 0, 0, 3, "the verbosity of the kissat_custom_message messages") \
-  OPTION (mallob_is_shweeper, 0, 0, 1, "this solver implements the Mallob SWEEP app and does exclusively shared sweeping on the provided formula") \
+  OPTION (mallob_is_shweeper, 0, 0, 1, "this solver is used exclusively in the Mallob SWEEP app for shared sweeping") \
   OPTION (mallob_local_id, 9999, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
   OPTION (mallob_rank, 9999, 0, 1e6, "the rank of the hosting MPI process") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \
