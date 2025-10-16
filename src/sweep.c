@@ -95,7 +95,7 @@ struct sweeper {
   unsigneds RESWEEP;  //Local Equivalences found, for quick re-sweeping on them
   int work_end;    //size of the allocated work array.
   int work_head;   //index of the currently next scheduled variable in work
-  int max_work_left; //a second approximation of how much work is left, updated when getting stolen
+  int max_work_after_steal; //a second approximation of how much work is left, updated when getting stolen
   // bool just_imported_eqs;
   // bool shweep_terminated;
 
@@ -251,7 +251,7 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     // sweeper->just_imported_eqs=false;
     // sweeper->shweep_terminated=false;
     sweeper->debug_singlethread_received_work=false;
-    sweeper->max_work_left=0;
+    sweeper->max_work_after_steal=0;
     sweeper->initialized=true;
     solver->shweep_initial_units = SIZE_STACK(solver->units);
     // kissat_custom_message(solver,V1_INFO_SWEEP, "initial units: %i", solver->shweep_initial_units);
@@ -2607,17 +2607,20 @@ void shweep_import_equivalences(sweeper *sweeper) {
 //To know how much there is work left, needs to be compacted first
 int shweep_get_max_steal_amount(kissat *solver) {
   if (!solver || !solver->sweeper || !solver->sweeper->initialized) {
-    //guard against very early stealing attempts where this solver is not even initialized yet. happens quite often.
-    kissat_custom_message(solver,V2_VERB_SWEEP, "Skipped steal from me, I am not fully initialized yet");
+    //guard against very early stealing attempts where this solver is not even initialized yet.
+    kissat_custom_message(solver,V2_VERB_SWEEP, "Skipped steal from me, I am not fully initialized yet.");
     return 0;
   }
   sweeper *sweeper = solver->sweeper;
-  int range_left = sweeper->work_end - sweeper->work_head;
-  int count_left = sweeper->max_work_left;
-  int min_left = MIN(count_left, range_left);
-  int half = min_left/2;
+  //we have to different ways to estimate the amount of remaining work, one via the remaining range and one via the count during the last steal
+  int range_estimate = sweeper->work_end - sweeper->work_head;
+  int last_estimate = sweeper->max_work_after_steal;
+  int max_work_left = MIN(last_estimate, range_estimate);
+  int half = max_work_left/2;
   // if (half!=0)
-    // kissat_custom_message(solver,V2_VERB_SWEEP, "found %i max_steal_amount (work_head=%i, work_end=%i, count_left=%i)", half, sweeper->work_head, sweeper->work_end, sweeper->max_work_left);
+  // kissat_custom_message(solver,V2_VERB_SWEEP, "Max steal answer: %i to found %i max_steal_amount (work_head=%i, work_end=%i, count_left=%i)", half, sweeper->work_head, sweeper->work_end, sweeper->max_work_left);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP (%i) Max steal answer %i  (work_head %i, work_end %i, range_estimate %i, last_estimate %i, max_work_left %i)",
+    GET_OPTION (mallob_local_id), half, sweeper->work_head, sweeper->work_end, range_estimate, last_estimate, max_work_left);
   return half;
 }
 
@@ -2659,7 +2662,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     kissat_custom_message (solver, V1_INFO_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
     assert(kissat_custom_assert_message (solver, V1_INFO_SWEEP, "stolen count > max_steal_count"));
   }
-  sweeper->max_work_left = locally_left;
+  sweeper->max_work_after_steal = locally_left;
   return stolen_count;
 }
 
@@ -2671,7 +2674,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   //reset own counters, to signal to other stealers that we currently have nothing to offer
   sweeper->work_head = 0;
   sweeper->work_end = 0;
-  sweeper->max_work_left = 0;
+  sweeper->max_work_after_steal = 0;
 
   kissat_custom_message (solver, V2_VERB_SWEEP, "searching for work");
 
@@ -2710,7 +2713,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   }
   sweeper->work_head = 0;
   sweeper->work_end = stolen_amount;
-  sweeper->max_work_left = stolen_amount;
+  sweeper->max_work_after_steal = stolen_amount;
   return sweeper->work_end;
 }
 
@@ -2743,7 +2746,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
 
   kissat *solver = sweeper->solver;
 
-  kissat_custom_message(solver,V3_VVERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_left);
+  kissat_custom_message(solver,V3_VVERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
 
   FLAGS (idx)->sweep = false; //remember that we sweept this variable now. //still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
   sweep_variable(sweeper, idx);
@@ -2765,7 +2768,7 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
   const int end  = sweeper->work_end;
   while (sweeper->work_head < end) {
     unsigned idx = work[sweeper->work_head++];
-    sweeper->max_work_left = MIN(sweeper->max_work_left, end - sweeper->work_head);
+    sweeper->max_work_after_steal = MIN(sweeper->max_work_after_steal, end - sweeper->work_head);
     if (idx==INVALID_IDX) //skip hole
       continue;
     if (shweep_var_still_open(sweeper, idx)) {
