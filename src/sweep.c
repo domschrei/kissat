@@ -2619,8 +2619,10 @@ int shweep_get_max_steal_amount(kissat *solver) {
   int half = max_work_left/2;
   // if (half!=0)
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Max steal answer: %i to found %i max_steal_amount (work_head=%i, work_end=%i, count_left=%i)", half, sweeper->work_head, sweeper->work_end, sweeper->max_work_left);
-  kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP (%i) Max steal answer %i  (work_head %i, work_end %i, range_estimate %i, last_estimate %i, max_work_left %i)",
-    GET_OPTION (mallob_local_id), half, sweeper->work_head, sweeper->work_end, range_estimate, last_estimate, max_work_left);
+  if (half != 0) {
+    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP (%i) Max steal answer %i  (work_head %i, work_end %i, range_estimate %i, last_estimate %i, max_work_left %i)",
+      GET_OPTION (mallob_local_id), half, sweeper->work_head, sweeper->work_end, range_estimate, last_estimate, max_work_left);
+  }
   return half;
 }
 
