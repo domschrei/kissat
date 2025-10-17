@@ -90,7 +90,7 @@ struct sweeper {
   } limit;
 
   //Mallob Shared Sweeping
-  bool initialized;  //a guard against very early stealing attempts, where this solver is not even fully initialized yet
+  // bool initialized;  //a guard against very early stealing attempts, where this solver is not even fully initialized yet
   unsigned *work;     //Variables scheduled for sweeping on this solver
   unsigneds RESWEEP;  //Local Equivalences found, for quick re-sweeping on them
   int work_end;    //size of the allocated work array.
@@ -252,8 +252,9 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     // sweeper->shweep_terminated=false;
     sweeper->debug_singlethread_received_work=false;
     sweeper->max_work_after_steal=0;
-    sweeper->initialized=true;
+    // sweeper->initialized=true;
     solver->shweep_initial_units = SIZE_STACK(solver->units);
+    solver->shweeper_initialized = true;
     // kissat_custom_message(solver,V1_INFO_SWEEP, "initial units: %i", solver->shweep_initial_units);
 
     //we don't allocate the work[] array, that will be allocated by Mallob/C++ and we only operate on it
@@ -2606,9 +2607,9 @@ void shweep_import_equivalences(sweeper *sweeper) {
 //Want to allocate memory in C++ for the steal, but don't know yet how much memory, so we ask first here
 //To know how much there is work left, needs to be compacted first
 int shweep_get_max_steal_amount(kissat *solver) {
-  if (!solver || !solver->sweeper || !solver->sweeper->initialized) {
+  if (!solver || !solver->shweeper_initialized || !solver->sweeper) {
     //guard against very early stealing attempts where this solver is not even initialized yet.
-    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL Guard active, I am not fully initialized yet.");
+    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL Guard: I am not fully initialized yet.");
     return 0;
   }
   sweeper *sweeper = solver->sweeper;

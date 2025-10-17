@@ -60,8 +60,8 @@ kissat *kissat_init (void) {
   solver->produce_clause = 0;
   solver->num_conflicts_at_last_import = 0;
 
-
-  //Shweep -------------------------------------------------------
+  //Shared Sweeping  -------------------------------------------------------
+  solver->shweeper_initialized = false;
 
   //Equivalence Export
   solver->shweep_export_eq_buffer = 0;
@@ -81,7 +81,7 @@ kissat *kissat_init (void) {
   solver->shweep_mallob_KissatState = 0;
   solver->shweep_search_work_callback = 0;
 
-  solver->start_sweep_app_callback = 0;
+  // solver->start_sweep_app_callback = 0;
 
   //-----------------------------------------------------------------
 

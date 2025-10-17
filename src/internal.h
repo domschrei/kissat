@@ -260,7 +260,8 @@ struct kissat {
   unsigned long num_conflicts_at_last_import;
 
 
-  //Run SWEEP App
+  //Shared Sweeping
+  bool shweeper_initialized;
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state);
   void (*shweep_import_eq_callback) (void *state, int **equivalences, int *eqs_size);
@@ -274,7 +275,7 @@ struct kissat {
   void (*shweep_search_work_callback) (void *state, unsigned **work, int *work_size, int local_id);
 
   //Call SWEEP App
-  void (*start_sweep_app_callback) (void *state);
+  // void (*start_sweep_app_callback) (void *state);
 
 
 
