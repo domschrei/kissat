@@ -2608,7 +2608,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
 int shweep_get_max_steal_amount(kissat *solver) {
   if (!solver || !solver->sweeper || !solver->sweeper->initialized) {
     //guard against very early stealing attempts where this solver is not even initialized yet.
-    kissat_custom_message(solver,V2_VERB_SWEEP, "Skipped steal from me, I am not fully initialized yet.");
+    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL Guard active, I am not fully initialized yet.");
     return 0;
   }
   sweeper *sweeper = solver->sweeper;
@@ -2620,7 +2620,7 @@ int shweep_get_max_steal_amount(kissat *solver) {
   // if (half!=0)
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Max steal answer: %i to found %i max_steal_amount (work_head=%i, work_end=%i, count_left=%i)", half, sweeper->work_head, sweeper->work_end, sweeper->max_work_left);
   if (half != 0) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP (%i) Max steal answer %i  (work_head %i, work_end %i, range_estimate %i, last_estimate %i, max_work_left %i)",
+    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL (%i) I return max steal %i  (work_head %i, work_end %i, range_estimate %i, last_estimate %i, max_work_left %i)",
       GET_OPTION (mallob_local_id), half, sweeper->work_head, sweeper->work_end, range_estimate, last_estimate, max_work_left);
   }
   return half;
