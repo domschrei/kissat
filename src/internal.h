@@ -279,8 +279,9 @@ struct kissat {
 
 
 
-  // Shared Sweeping statistics
+  //Shared Sweeping statistics
   unsigned long shweep_initial_units;
+  unsigned long shweep_orig_active;
   //Equivalences
   unsigned long shweep_useful_imported_eq;
   unsigned long shweep_skipped_imported_eq;

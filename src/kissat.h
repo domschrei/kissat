@@ -77,7 +77,7 @@ void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (
 int shweep_get_max_steal_amount(kissat *solver);
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count);
 unsigned shweep_get_num_vars (kissat *solver);
-void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated);
+void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active);
 // void shweep_terminate(kissat *solver);
 
 

@@ -63,25 +63,23 @@ kissat *kissat_init (void) {
   //Shared Sweeping  -------------------------------------------------------
   solver->shweeper_initialized = false;
 
-  //Equivalence Export
+  //Sweep Equivalence Export
   solver->shweep_export_eq_buffer = 0;
   solver->shweep_export_eq_callback = 0;
 
-  //Equivalence Import
+  //Sweep Equivalence Import
   solver->shweep_import_eq_callback = 0;
   solver->num_conflicts_at_last_equivalence_import = 0;
 
-  //Unit export
+  //Sweep Unit export
   solver->shweep_export_unit_callback = 0;
 
-  //Unit import
+  //Sweep Unit import
   solver->shweep_import_units_callback = 0;
 
-  //Workstealing
+  //Sweep Workstealing
   solver->shweep_mallob_KissatState = 0;
   solver->shweep_search_work_callback = 0;
-
-  // solver->start_sweep_app_callback = 0;
 
   //-----------------------------------------------------------------
 

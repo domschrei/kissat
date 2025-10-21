@@ -90,19 +90,18 @@ struct sweeper {
   } limit;
 
   //Mallob Shared Sweeping
-  // bool initialized;  //a guard against very early stealing attempts, where this solver is not even fully initialized yet
   unsigned *work;     //Variables scheduled for sweeping on this solver
   unsigneds RESWEEP;  //Local Equivalences found, for quick re-sweeping on them
   int work_end;    //size of the allocated work array.
   int work_head;   //index of the currently next scheduled variable in work
   int max_work_after_steal; //a second approximation of how much work is left, updated when getting stolen
-  // bool just_imported_eqs;
-  // bool shweep_terminated;
 
-  bool debug_singlethread_received_work;
-
+  //some statistics
   unsigned skipped_bc_done;
   unsigned stumbled_units;
+  // unsigned orig_active;
+
+  bool singlethread_debugging_provided_work; //for single-threaded debugging runs only
 };
 
 typedef struct sweeper sweeper;
@@ -248,16 +247,13 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->work_end=0;
     sweeper->skipped_bc_done=0;
     sweeper->stumbled_units=0;
-    // sweeper->just_imported_eqs=false;
-    // sweeper->shweep_terminated=false;
-    sweeper->debug_singlethread_received_work=false;
+    // sweeper->orig_active=0;
+    sweeper->singlethread_debugging_provided_work=false;
     sweeper->max_work_after_steal=0;
-    // sweeper->initialized=true;
     solver->shweep_initial_units = SIZE_STACK(solver->units);
     solver->shweeper_initialized = true;
-    // kissat_custom_message(solver,V1_INFO_SWEEP, "initial units: %i", solver->shweep_initial_units);
-
-    //we don't allocate the work[] array, that will be allocated by Mallob/C++ and we only operate on it
+    solver->shweep_orig_active  = solver->active;
+    //we don't allocate the work[] array, that will be allocated by Mallob/C++ and we only operate on the provided memory range
   }
 }
 
@@ -2688,7 +2684,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   //The new work will be allocated by Mallob/C++, and we will only read from it, by pointing our *work array on the provided data
   if (solver->shweep_search_work_callback) {
     solver->shweep_search_work_callback(solver->shweep_mallob_SweepJobState, &sweeper->work, &stolen_amount, local_id);
-  } else if (!sweeper->debug_singlethread_received_work){
+  } else if (!sweeper->singlethread_debugging_provided_work){
     //for debugging: running a single instance of kissat without Mallob/MPI overhead. Create work on my own.
     //Obviously, must deallocate this array here in the single threaded case, which is allocated by C++ in the full distributed run
     NALLOC (sweeper->work, VARS);
@@ -2696,7 +2692,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
       sweeper->work[idx] = idx;
     }
     stolen_amount = VARS;
-    sweeper->debug_singlethread_received_work=true;
+    sweeper->singlethread_debugging_provided_work=true;
   }
 
   kissat_custom_message(solver,V2_VERB_SWEEP, "*");
@@ -2788,13 +2784,14 @@ unsigned shweep_get_num_vars(kissat *solver) {
   return solver->vars;
 }
 
-void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated) {
+void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active) {
   *eqs = solver->statistics.sweep_equivalences;
   *sweep_units = solver->statistics.sweep_units;
   *total_units = SIZE_STACK(solver->units);
   *new_units = SIZE_STACK(solver->units) - solver->shweep_initial_units;
   *eliminated = SIZE_STACK(solver->eliminated);
-
+  *orig_active = solver->shweep_orig_active;
+  *end_active = solver->active;
   assert(solver->statistics.units == SIZE_STACK(solver->units));
 }
 
@@ -3089,7 +3086,7 @@ int kissat_mallob_shweep(kissat *solver) {
     kissat_custom_message (solver, V1_INFO_SWEEP, "SHWEEP INCONSISTENT after loop !!");
 
 
-  unsigned active_before = solver->active;
+  // unsigned active_before = solver->active;
   //Equivalent Literal Subsitution.
   //Applies the equivalences we found to actually reduce the database.
   //Is Scheduled always directly after sweeping also in normal kissat.
