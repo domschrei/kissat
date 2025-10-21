@@ -2853,7 +2853,41 @@ void shweep_print_var_stats(kissat *solver, int verb) {
 
 }
 
+void shweep_print_all_reprs(sweeper *sweeper) {
+  int num_own = 0;
+  int num_other = 0;
+  kissat *solver = sweeper->solver;
+  for (all_variables (idx)) {
+    unsigned lit = LIT(idx);
+    unsigned repr_lit = sweep_repr(sweeper, lit);
+    if (repr_lit==lit) {
+      num_own++;
+      kissat_custom_message(solver, V2_VERB_SWEEP, "OWN_REPR %i: idx(%i)", num_own, idx);
+    } else {
+      num_other++;
+      unsigned repr_idx = IDX(repr_lit);
+      kissat_custom_message(solver, V2_VERB_SWEEP, "OTHER_REPR %i: idx(%i) repr-idx(%i)", num_other, idx, repr_idx);
+    }
+  }
+  kissat_custom_message(solver, V2_VERB_SWEEP, "NUM_OWN %i ", num_other);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "NUM_OTHER %i ", num_other);
+}
 
+void shweep_print_all_variable_status(kissat *solver) {
+  int active = 0;
+  int elimininated = 0;
+  int fixed = 0;
+  for (all_variables (idx)) {
+    flags *f = FLAGS (idx);
+    if (f->active) active++;
+    if (f->eliminated) elimininated++;
+    if (f->fixed) fixed++;
+    kissat_custom_message(solver, V2_VERB_SWEEP, "STATUS idx(%i): act,elim,fixed: %i %i %i", idx, f->active, f->eliminated, f->fixed);
+  }
+  kissat_custom_message(solver, V2_VERB_SWEEP, "NUM_ACTIVE %i ", active);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "NUM_ELIMINATED %i ", elimininated);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "NUM_FIXED %i ", fixed);
+}
 
 
 bool kissat_sweep (kissat *solver) {
@@ -3065,6 +3099,14 @@ int kissat_mallob_shweep(kissat *solver) {
                 equivalences, units);
   kissat_custom_message (solver, V1_INFO_SWEEP, "Shweep: Total %i sweep_equivalences and %i sweep_units", equivalences, units);
   // unschedule_sweeping (&sweeper, swept, scheduled);
+
+
+  kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeeper GET_OPTION(mallob_local_id)==%i", GET_OPTION (mallob_local_id));
+  kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeeper GET_OPTION(mallob_is_root)==%i", GET_OPTION (mallob_is_root));
+  if (GET_OPTION (mallob_local_id)==0 && GET_OPTION (mallob_is_root)) {
+   shweep_print_all_reprs(&sweeper);
+  }
+
   unsigned inactive = release_sweeper (&sweeper);
 
 
@@ -3101,6 +3143,10 @@ int kissat_mallob_shweep(kissat *solver) {
 
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--Substitute: %d --> %d active variables--", active_before, solver->active);
+
+  if (GET_OPTION (mallob_local_id)==0 && GET_OPTION (mallob_is_root)) {
+   shweep_print_all_variable_status(solver);
+  }
   shweep_print_var_stats (solver, V1_INFO_SWEEP);
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "--exit shweep--");
