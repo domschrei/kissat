@@ -562,6 +562,7 @@ static bool substitute_round (kissat *solver, unsigned round) {
 #ifdef QUIET
   (void) round;
 #endif
+  kissat_custom_message (solver, 1, "Substitute round %i: removed %i \n", round, removed);
   return !solver->inconsistent && removed;
 }
 

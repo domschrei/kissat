@@ -2854,23 +2854,24 @@ void shweep_print_var_stats(kissat *solver, int verb) {
 }
 
 void shweep_print_all_reprs(sweeper *sweeper) {
-  int num_own = 0;
+  int num_self = 0;
   int num_other = 0;
   kissat *solver = sweeper->solver;
   for (all_variables (idx)) {
     unsigned lit = LIT(idx);
     unsigned repr_lit = sweep_repr(sweeper, lit);
     if (repr_lit==lit) {
-      num_own++;
-      kissat_custom_message(solver, V2_VERB_SWEEP, "OWN_REPR %i: idx(%i)", num_own, idx);
+      num_self++;
+      kissat_custom_message(solver, V2_VERB_SWEEP, "SELF_REPR %i: idx(%i)", num_self, idx);
     } else {
       num_other++;
       unsigned repr_idx = IDX(repr_lit);
       kissat_custom_message(solver, V2_VERB_SWEEP, "OTHER_REPR %i: idx(%i) repr-idx(%i)", num_other, idx, repr_idx);
     }
   }
-  kissat_custom_message(solver, V2_VERB_SWEEP, "NUM_OWN %i ", num_other);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "NUM_SELF %i ", num_self);
   kissat_custom_message(solver, V2_VERB_SWEEP, "NUM_OTHER %i ", num_other);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "NUM_BOTH %i ", num_self + num_other);
 }
 
 void shweep_print_all_variable_status(kissat *solver) {
