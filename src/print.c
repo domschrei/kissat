@@ -125,7 +125,11 @@ void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...)
   uint64_t mallob_rank     = GET_OPTION(mallob_rank);
   uint64_t num_spaces = 30 * mallob_rank + 10 * mallob_local_id;
 
-  // Add some spaces to the message to spacially distinguish the specific solver
+  if (GET_OPTION (mallob_custom_sweep_verbosity)<=1) {
+    num_spaces=0;
+  }
+
+  // Add some spaces to the message to distinguish the specific solver visually (when verbosity >= 2)
   char new_fmt[1024];
   memset(new_fmt, ' ', num_spaces);
   new_fmt[num_spaces] = '\0';
