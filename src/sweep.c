@@ -18,6 +18,7 @@
 #include <string.h>
 
 #include "clauseexport.h" //export stuff during shweeping
+#include "resources.h"
 #include "substitute.h" //at the end of shweeping
 
 /**
@@ -2917,9 +2918,10 @@ bool kissat_sweep (kissat *solver) {
   uint64_t units = statistics->sweep_units;
   sweeper sweeper;
 
-  if (solver->report_preprocess_state) {
+  double sweep_start_time = kissat_wall_clock_time ();
+  if (solver->report_preprocess_state || GET_OPTION (mallob_local_id)==3333) {
     //only print this when preprocessing, not in later search-only run
-    printf(" sweep-start-time: %f \n", kissat_time(solver));
+    printf(" sweep-start-time: %f \n", sweep_start_time);
   }
 
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--starting kissat_sweep--");
@@ -3009,10 +3011,12 @@ bool kissat_sweep (kissat *solver) {
   else
     REDUCE_DELAY (sweep);
   STOP (sweep);
-  if (solver->report_preprocess_state) {
+  if (solver->report_preprocess_state || GET_OPTION (mallob_local_id)==3333) {
     //only print this when preprocessing, not in later search-only run
     printf(" Kissat Sequential sweep (not distributed!): %lu Eqs, %lu sweep-units\n", equivalences, units);
-    printf(" sweep-end-time: %f \n", kissat_time(solver));
+    double sweep_end_time = kissat_wall_clock_time ();
+    printf(" sweep-end-time: %f \n", sweep_end_time);
+    printf(" sweep-duration: %f \n", sweep_end_time - sweep_start_time);
     // kissat_profiles_print(solver);
   }
   return eliminated;
