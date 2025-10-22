@@ -2403,7 +2403,7 @@ void shweep_import_units(sweeper *sweeper) {
     const bool is_transitive = (unit != repr_unit);
 
     if (!VALID_INTERNAL_LITERAL (repr_unit)) {
-      kissat_custom_message(solver, V1_INFO_SWEEP, "invalid unit repr_unit=%u, imported as unit=%u", repr_unit, unit);
+      kissat_custom_message(solver, V1_INFO_SWEEP, "Error: invalid unit repr_unit=%u, imported as unit=%u", repr_unit, unit);
       solver->shweep_invalid_imported_units++;
       continue;
     }
@@ -2428,17 +2428,18 @@ void shweep_import_units(sweeper *sweeper) {
     }
 
     kissat_custom_message(solver, V4_UVERB_SWEEP," importing idx(%i),lit(%i),repr_lit(%i)", IDX(repr_unit), unit, repr_unit);
+
     kissat_assign_unit (solver, repr_unit, "shweep imported unit");
     solver->shweep_useful_imported_units++;
     INC (sweep_units);
   }
   // kissat_custom_message (solver, V1_INFO_SWEEP, "Unit import statistics:");
-  kissat_custom_message(solver, V2_VERB_SWEEP,"Imported Units:", unit_count);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Useful     %i / %i", solver->shweep_useful_imported_units - prev_useful, unit_count);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Invalid    %i", solver->shweep_invalid_imported_units - prev_invalid);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Fixed      %i", solver->shweep_fixed_imported_units - prev_fixed);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Eliminated %i", solver->shweep_eliminated_imported_units - prev_eliminated);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Transitive %i", solver->shweep_transitive_imported_units - prev_transitive);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Imported Units:", unit_count);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Useful     %i / %i", solver->shweep_useful_imported_units - prev_useful, unit_count);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Invalid    %i", solver->shweep_invalid_imported_units - prev_invalid);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Fixed      %i", solver->shweep_fixed_imported_units - prev_fixed);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Eliminated %i", solver->shweep_eliminated_imported_units - prev_eliminated);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Transitive %i", solver->shweep_transitive_imported_units - prev_transitive);
   // kissat_custom_message(solver, V2_VERB_SWEEP, "Inconsistent? %i", solver->inconsistent);
 }
 
@@ -2456,7 +2457,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
   if (eq_count==0)
     return;
 
-  assert(eq_count < 10000); //hotfix for debug, I once saw eq_count = 680.000.000 ish, catch these cases
+  // assert(eq_count < 10000); //hotfix for debug, I once saw eq_count = 680.000.000 ish, catch these cases
 
   kissat_custom_message(solver, V2_VERB_SWEEP, "about to import %u equivalences", eq_count);
 
@@ -2481,11 +2482,11 @@ void shweep_import_equivalences(sweeper *sweeper) {
       // kissat_custom_message(solver, V2_VERB_SWEEP, "eq %i: ilit %i repr %i", eq, ilit, repr_ilit);
 
       if (!VALID_INTERNAL_LITERAL (ilit)) {
-        kissat_custom_message(solver, V1_INFO_SWEEP, "ilit %i failed assertion", ilit);
+        kissat_custom_message(solver, V1_INFO_SWEEP, "Error ilit %i failed assertion", ilit);
         assert (VALID_INTERNAL_LITERAL (ilit));
       }
       if (!VALID_INTERNAL_LITERAL (repr_ilit)) {
-        kissat_custom_message(solver, V1_INFO_SWEEP, "repr_ilit %i failed assertion", repr_ilit);
+        kissat_custom_message(solver, V1_INFO_SWEEP, "Error repr_ilit %i failed assertion", repr_ilit);
         assert (VALID_INTERNAL_LITERAL (repr_ilit));
       }
 
@@ -2494,7 +2495,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
         is_transitive = true;
 
       if (!VALID_INTERNAL_LITERAL (repr_ilit)) {
-        kissat_custom_message(solver, V1_INFO_SWEEP, "invalid internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
+        kissat_custom_message(solver, V1_INFO_SWEEP, "Error invalid internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
 	solver->shweep_invalid_imported_eq++;
         okToImport = false;
         break;
@@ -2695,13 +2696,11 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
     sweeper->singlethread_debugging_provided_work=true;
   }
 
-  // kissat_custom_message(solver,V2_VERB_SWEEP, "*");
   if (stolen_amount>0)
     kissat_custom_message (solver, V2_VERB_SWEEP, "* << Got %i", stolen_amount);
   if (stolen_amount==0)
     kissat_custom_message (solver, V2_VERB_SWEEP, "* Sweep: received termination signal");
-  // kissat_custom_message(solver,V2_VERB_SWEEP, "*");
-  // const int end = sweeper->work_end;
+
   const unsigned *work = sweeper->work;
   flags *flags = solver->flags;
   //We mark all stolen upcoming variables as to-sweep.
@@ -3081,16 +3080,27 @@ int kissat_mallob_shweep(kissat *solver) {
 
     unsigned idx = shweep_next_scheduled (&sweeper);
 
+    //we might have ran out of work
     if (idx == INVALID_IDX) {
-      //we ran out of work. try to steal from somebody
+      //try to steal from somebody
       if (!shweep_search_work_from_others (&sweeper)) {
+        //Termination. The steal came back with length 0, which is the signal from Mallob that the Sweep Job is terminated.
         break;
       }
+      //steal was successfull, continue sweeping on the new work
       continue;
     }
     shweep_sweep_variable_with_prop (&sweeper, idx);
 
   }
+
+  //We don't want to miss out on the last sharing data, together with the ALL_IDLE termination signal were also eqs and units broadcasted
+  int useful_units = solver->shweep_useful_imported_units;
+  int useful_eqs   = solver->shweep_useful_imported_eq;
+  shweep_import_units(&sweeper);
+  shweep_import_equivalences (&sweeper);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER last termination sharing round: Equivalences %i, sweep_units %i",
+    solver->shweep_useful_imported_eq - useful_eqs, solver->shweep_useful_imported_units - useful_units);
 
   /*
     * Finished sweeping. Some cleanup and statistics.
