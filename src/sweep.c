@@ -531,7 +531,7 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
       // assert(kissat_custom_assert_message (solver, V1_INFO_SWEEP, "found SIZE==1 clause but not in Mallob Shweep"));
     // }
 
-    kissat_custom_message (solver, V1_INFO_SWEEP, "Warning: Detected Clause size %i, clause ref %i ", SIZE_STACK(sweeper->clause), ref);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "WARN : Detected Clause size %i, clause ref %i ", SIZE_STACK(sweeper->clause), ref);
     unsigned detected_unit = 0;
     for (all_literals_in_clause (lit, c)) {
       const value value = values[lit];
@@ -539,13 +539,13 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
         assert(detected_unit==0);
         detected_unit = lit;
       }
-      kissat_custom_message (solver, V1_INFO_SWEEP, "idx(%i)/lit(%i)=val %i, repr_lit(%i)", IDX(lit), lit, value, sweep_repr (sweeper, lit));
+      kissat_custom_message (solver, V1_INFO_SWEEP, " WARN clause size 1: idx(%i)/lit(%i)=val %i, repr_lit(%i)", IDX(lit), lit, value, sweep_repr (sweeper, lit));
     }
     //NEW: directly assign this detected unit here in place
     kissat_assign_unit (solver, detected_unit, "stumbled while kitten-copying");
      /* Catch for Mallob Sharing */
     if (GET_OPTION (mallob_is_shweeper)) {
-      kissat_custom_message(solver,V3_VVERB_SWEEP, " stumble-U idx(%i)/lit(%i)", IDX(detected_unit),detected_unit);
+      kissat_custom_message(solver,V1_INFO_SWEEP, " stumble-U idx(%i)/lit(%i)", IDX(detected_unit),detected_unit);
       shweep_export_unit(solver, detected_unit);
     }
     INC (sweep_units);
@@ -3031,7 +3031,7 @@ bool kissat_sweep (kissat *solver) {
 
 
 int kissat_mallob_shweep(kissat *solver) {
-  kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER --Jumped into kissat_mallob_shweep--");
+  kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER START");
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent) {
@@ -3062,7 +3062,7 @@ int kissat_mallob_shweep(kissat *solver) {
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--unassigned=%d--", solver->unassigned);
   shweep_print_var_stats (solver, V1_INFO_SWEEP);
-  kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER START");
+  // kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER START");
   // shweep_import_equivalences(&sweeper);
   // shweep_search_work_from_others(&sweeper);
 
