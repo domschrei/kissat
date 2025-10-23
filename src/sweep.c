@@ -2388,6 +2388,7 @@ void shweep_import_units(sweeper *sweeper) {
   if (unit_count==0)
     return;
 
+  START(mallob_sweep_import_units);
   kissat_custom_message(solver, V2_VERB_SWEEP, "about to import %i units", unit_count);
   solver->shweep_total_seen_units += unit_count;
 
@@ -2434,6 +2435,7 @@ void shweep_import_units(sweeper *sweeper) {
     solver->shweep_useful_imported_units++;
     INC (sweep_units);
   }
+  STOP (mallob_sweep_import_units);
   // kissat_custom_message (solver, V1_INFO_SWEEP, "Unit import statistics:");
   kissat_custom_message(solver, V3_VVERB_SWEEP, "Imported Units:", unit_count);
   kissat_custom_message(solver, V3_VVERB_SWEEP, "Useful     %i / %i", solver->shweep_useful_imported_units - prev_useful, unit_count);
@@ -2461,6 +2463,8 @@ void shweep_import_equivalences(sweeper *sweeper) {
   // assert(eq_count < 10000); //hotfix for debug, I once saw eq_count = 680.000.000 ish, catch these cases
 
   kissat_custom_message(solver, V2_VERB_SWEEP, "about to import %u equivalences", eq_count);
+
+  START(mallob_sweep_import_eqs);
 
   unsigned long prev_useful = solver->shweep_useful_imported_eq;
   unsigned long prev_invalid = solver->shweep_invalid_imported_eq;
@@ -2586,6 +2590,8 @@ void shweep_import_equivalences(sweeper *sweeper) {
     solver->shweep_useful_imported_eq++;
     INC (sweep_equivalences);
   }
+
+  STOP (mallob_sweep_import_eqs);
 
   // kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Imported Eqs:");
   kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Useful     %i / %i", solver->shweep_useful_imported_eq - prev_useful, eq_count);
@@ -2740,10 +2746,9 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
   if (!shweep_sweepable_variable(sweeper, idx))
     return;
 
+  kissat *solver = sweeper->solver;
   shweep_import_units(sweeper);
   shweep_import_equivalences (sweeper);
-
-  kissat *solver = sweeper->solver;
 
   kissat_custom_message(solver,V4_UVERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
 
@@ -3098,11 +3103,13 @@ int kissat_mallob_shweep(kissat *solver) {
 
   }
 
-  //We don't want to miss out on the last sharing data, together with the ALL_IDLE termination signal were also eqs and units broadcasted
+  //Very end: We don't want to miss out on the last sharing data, together with the ALL_IDLE termination signal were also eqs and units broadcasted
   int useful_units = solver->shweep_useful_imported_units;
   int useful_eqs   = solver->shweep_useful_imported_eq;
+
   shweep_import_units(&sweeper);
   shweep_import_equivalences (&sweeper);
+
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER last termination sharing round: Equivalences %i, sweep_units %i",
     solver->shweep_useful_imported_eq - useful_eqs, solver->shweep_useful_imported_units - useful_units);
 
