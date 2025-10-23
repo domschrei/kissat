@@ -100,6 +100,8 @@ struct sweeper {
   //some statistics
   unsigned skipped_bc_done;
   unsigned stumbled_units;
+  unsigned worksweeps; //sweep on next work variable
+  unsigned resweeps;   //sweep on just found equivalence
   // unsigned orig_active;
 
   bool singlethread_debugging_provided_work; //for single-threaded debugging runs only
@@ -248,6 +250,8 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->work_end=0;
     sweeper->skipped_bc_done=0;
     sweeper->stumbled_units=0;
+    sweeper->worksweeps=0;
+    sweeper->resweeps=0;
     // sweeper->orig_active=0;
     sweeper->singlethread_debugging_provided_work=false;
     sweeper->max_work_after_steal=0;
@@ -2741,7 +2745,7 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
   return true;
 }
 
-void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
+void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWorkVar) {
 
   if (!shweep_sweepable_variable(sweeper, idx))
     return;
@@ -2752,7 +2756,13 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
 
   kissat_custom_message(solver,V4_UVERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
 
-  FLAGS (idx)->sweep = false; //remember that we sweept this variable now. //still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
+  FLAGS (idx)->sweep = false; //remember that we swept this variable now. //still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
+
+  if (isWorkVar)
+    sweeper->worksweeps++;
+  else
+    sweeper->resweeps++;
+
   sweep_variable(sweeper, idx);
 
   // sweeper->just_imported_eqs=false;
@@ -2762,7 +2772,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx) {
   while (!EMPTY_STACK (sweeper->RESWEEP)) {
     unsigned resweep_idx = POP_STACK (sweeper->RESWEEP);
     kissat_custom_message(solver,V4_UVERB_SWEEP, "re-shweep idx %i [%i SIZE_STACK]", resweep_idx, SIZE_STACK (sweeper->RESWEEP));
-    shweep_sweep_variable_with_prop (sweeper, resweep_idx);
+    shweep_sweep_variable_with_prop (sweeper, resweep_idx, false);
   }
 }
 
@@ -3099,7 +3109,8 @@ int kissat_mallob_shweep(kissat *solver) {
       //steal was successfull, continue sweeping on the new work
       continue;
     }
-    shweep_sweep_variable_with_prop (&sweeper, idx);
+
+    shweep_sweep_variable_with_prop (&sweeper, idx, true);
 
   }
 
@@ -3124,7 +3135,8 @@ int kissat_mallob_shweep(kissat *solver) {
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT: Equivalences %i, sweep_units %i", equivalences, units);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT: %i Equivalences, %i sweep_units ", equivalences, units);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER %i worksweeps %i resweeps", sweeper.worksweeps, sweeper.resweeps);
   // unschedule_sweeping (&sweeper, swept, scheduled);
 
 
