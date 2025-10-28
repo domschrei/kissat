@@ -1850,7 +1850,13 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   if (!GET_OPTION (mallob_is_shweeper)) {
     schedule_inner (sweeper, repr_idx);
   } else {
-    PUSH_STACK(sweeper->RESWEEP, repr_idx);
+    //if we resweep EVERY found equivalence in a distributed setting, we might resweep the same ones very often.
+    //so given that multiple solvers will probably find the same equivalence, have only some of them continue resweeping on it, that should suffice
+    generator random = solver->random;
+    unsigned rnd_per_mille = kissat_pick_random(&random, 0,1000); //[0..999], 1000 is exclusive
+    if (rnd_per_mille < GET_OPTION (mallob_resweep_chance)) {
+      PUSH_STACK(sweeper->RESWEEP, repr_idx);
+    }
   }
   return true;
 
@@ -2933,11 +2939,12 @@ bool kissat_sweep (kissat *solver) {
   uint64_t units = statistics->sweep_units;
   sweeper sweeper;
 
-  double sweep_start_time = kissat_wall_clock_time ();
-  if (solver->report_preprocess_state || GET_OPTION (mallob_local_id)==3333) {
+  // double sweep_start_time = kissat_wall_clock_time ();
+
+  // if (solver->report_preprocess_state || GET_OPTION (mallob_local_id)==3333) {
     //only print this when preprocessing, not in later search-only run
-    printf(" sweep-start-time: %f \n", sweep_start_time);
-  }
+    // printf(" sweep-start-time: %f \n", sweep_start_time);
+  // }
 
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--starting kissat_sweep--");
   init_sweeper (solver, &sweeper);
@@ -3026,14 +3033,10 @@ bool kissat_sweep (kissat *solver) {
   else
     REDUCE_DELAY (sweep);
   STOP (sweep);
-  if (solver->report_preprocess_state || GET_OPTION (mallob_local_id)==3333) {
-    //only print this when preprocessing, not in later search-only run
-    printf(" Kissat Sequential sweep (not distributed!): %lu Eqs, %lu sweep-units\n", equivalences, units);
-    double sweep_end_time = kissat_wall_clock_time ();
-    printf(" sweep-end-time: %f \n", sweep_end_time);
-    printf(" sweep-duration: %f \n", sweep_end_time - sweep_start_time);
-    // kissat_profiles_print(solver);
-  }
+  // if (GET_OPTION (mallob_sequential_stats)) {
+    // double sweep_end_time = kissat_wall_clock_time ();
+    // printf("Kissat sequential sweep round %lu (sweepcompletes %lu): %lu Eqs, %lu sweep-units, time %f sec\n", statistics->sweep, statistics->sweep_completed, equivalences, units, sweep_end_time - sweep_start_time);
+  // }
   return eliminated;
 }
 
@@ -3114,10 +3117,10 @@ int kissat_mallob_shweep(kissat *solver) {
 
   }
 
-  //Very end: We don't want to miss out on the last sharing data, together with the ALL_IDLE termination signal were also eqs and units broadcasted
   int useful_units = solver->shweep_useful_imported_units;
   int useful_eqs   = solver->shweep_useful_imported_eq;
 
+  //Very end: Get the latest shared units and equivalences that came with the termination signal! we dont want to miss them
   shweep_import_units(&sweeper);
   shweep_import_equivalences (&sweeper);
 
@@ -3135,9 +3138,7 @@ int kissat_mallob_shweep(kissat *solver) {
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT: %i Equivalences, %i sweep_units ", equivalences, units);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER %i worksweeps %i resweeps", sweeper.worksweeps, sweeper.resweeps);
-  // unschedule_sweeping (&sweeper, swept, scheduled);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units, %i worksweeps, %i resweeps ", equivalences, units, sweeper.worksweeps, sweeper.resweeps);
 
 
   shweep_print_all_reprs(&sweeper);

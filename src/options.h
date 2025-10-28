@@ -82,6 +82,8 @@
   OPTION (mallob_is_shweeper, 0, 0, 1, "this solver is used exclusively in the Mallob SWEEP app for shared sweeping") \
   OPTION (mallob_local_id, 9999, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
   OPTION (mallob_rank, 9999, 0, 1e6, "the rank of the hosting MPI process") \
+  OPTION (mallob_resweep_chance, 1e4, 0, 1e4, "chance to resweep on a variable in an equivalence (per mille)") \
+  OPTION (mallob_sequential_stats, 0, 0, 1, "report sequential kissat stats on sweeping. Nothign to do with mallob, but keep here to show that its one of our options") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \
   OPTION (minimize, 1, 0, 1, "learned clause minimization") \
   OPTION (minimizedepth, 1e3, 1, 1e6, "minimization depth") \
