@@ -2817,7 +2817,7 @@ void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new
 }
 
 void shweep_print_import_statistics(kissat *solver) {
-  if (GET_OPTION (mallob_custom_sweep_verbosity)<=1 && GET_OPTION (mallob_local_id)!=0)
+  if (GET_OPTION (mallob_local_id)!=0)
     return;
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
   // kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT Final stats: Equivalences:");
@@ -3057,13 +3057,13 @@ int kissat_mallob_shweep(kissat *solver) {
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent) {
-    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER --exiting because solver is inconsistent--");
+    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER ERROR Error --exiting because solver is inconsistent--");
     return false;
   }
   if (TERMINATED (sweep_terminated_7))
     return false;
   if (DELAYING (sweep)) {
-    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER --exiting because DELAYING(sweep)--");
+    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER ERROR Error --exiting because DELAYING(sweep)--");
     return false;
   }
   assert (!solver->level);
@@ -3090,7 +3090,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SHWEEP INCONSISTENT during loop!! \n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SHWEEP ERROR Error INCONSISTENT during loop!! \n");
       break;
     }
     if (TERMINATED (sweep_terminated_8))
@@ -3124,8 +3124,8 @@ int kissat_mallob_shweep(kissat *solver) {
   shweep_import_units(&sweeper);
   shweep_import_equivalences (&sweeper);
 
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER last termination sharing round: Equivalences %i, sweep_units %i",
-    solver->shweep_useful_imported_eq - useful_eqs, solver->shweep_useful_imported_units - useful_units);
+  // kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER last termination sharing round: Equivalences %i, sweep_units %i",
+    // solver->shweep_useful_imported_eq - useful_eqs, solver->shweep_useful_imported_units - useful_units);
 
   /*
     * Finished sweeping. Some cleanup and statistics.
@@ -3161,7 +3161,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   STOP (sweep);
   if (solver->inconsistent)
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SHWEEP INCONSISTENT after loop !!");
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SHWEEP ERROR Error INCONSISTENT after loop !!");
 
 
   // unsigned active_before = solver->active;
