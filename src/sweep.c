@@ -2604,13 +2604,13 @@ void shweep_import_equivalences(sweeper *sweeper) {
   STOP (mallob_sweep_import_eqs);
 
   // kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Imported Eqs:");
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Useful     %i / %i", solver->shweep_useful_imported_eq - prev_useful, eq_count);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Invalid    %i", solver->shweep_invalid_imported_eq - prev_invalid);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Unitprop   %i", solver->shweep_unitprop_imported_eq - prev_unitprop);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Doublefixd %i", solver->shweep_doublefixed_imported_eq - prev_doublefixed);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Eliminated %i", solver->shweep_eliminated_imported_eq - prev_eliminated);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Tautology  %i", solver->shweep_tautological_imported_eq - prev_tautology);
-  kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Transitive %i", solver->shweep_transitive_imported_eq - prev_transitive);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Useful     %i / %i", solver->shweep_useful_imported_eq - prev_useful, eq_count);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Invalid    %i", solver->shweep_invalid_imported_eq - prev_invalid);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Unitprop   %i", solver->shweep_unitprop_imported_eq - prev_unitprop);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Doublefixd %i", solver->shweep_doublefixed_imported_eq - prev_doublefixed);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Eliminated %i", solver->shweep_eliminated_imported_eq - prev_eliminated);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Tautology  %i", solver->shweep_tautological_imported_eq - prev_tautology);
+  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Transitive %i", solver->shweep_transitive_imported_eq - prev_transitive);
   // kissat_custom_message(solver, V2_VERB_SWEEP, "Inconsistent? %i", solver->inconsistent);
   // sweeper->just_imported_eqs=true;
 
@@ -2819,8 +2819,18 @@ void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new
   assert(solver->statistics.units == SIZE_STACK(solver->units));
 }
 
+
+bool is_nonroot_nonzero(kissat *solver) {
+  //Skip if we are sufficiently Only show some full information list/dump for one solver if very verbose
+  return (! GET_OPTION (mallob_is_root) || ! GET_OPTION (mallob_local_id)==0);
+}
+
+bool is_nonzero(kissat *solver) {
+  return GET_OPTION (mallob_local_id) != 0;
+}
+
 void shweep_print_import_statistics(kissat *solver) {
-  if (GET_OPTION (mallob_local_id)!=0)
+  if (is_nonzero (solver))
     return;
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
   // kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT Final stats: Equivalences:");
@@ -2842,6 +2852,9 @@ void shweep_print_import_statistics(kissat *solver) {
 }
 
 void shweep_print_var_stats(kissat *solver, int verb) {
+  if (is_nonzero (solver))
+    return;
+
   kissat_custom_message(solver, verb, "SWEEPER VARS active %i, units %i, eliminated %i , CLAUSES irr+binary %i",
     solver->active, SIZE_STACK(solver->units), SIZE_STACK(solver->eliminated),solver->statistics.clauses_irredundant + solver->statistics.clauses_binary);
   // kissat_custom_message(solver, verb, "SWEEPER RESULT VARS units  %i ", );
@@ -2855,14 +2868,10 @@ void shweep_print_var_stats(kissat *solver, int verb) {
 
 }
 
-bool skip_vverbose_nonroot(kissat *solver) {
-  //Only show some full information list/dump for one solver if very verbose
-  return GET_OPTION (mallob_custom_sweep_verbosity) >= V3_VVERB_SWEEP && (GET_OPTION (mallob_local_id)!=0 || ! GET_OPTION (mallob_is_root));
-}
 
 void shweep_print_all_reprs(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
-  if (skip_vverbose_nonroot (solver))
+  if (is_nonroot_nonzero (solver))
     return;
   //Dont compute anything if not at all verbose
   if (GET_OPTION(mallob_custom_sweep_verbosity) < 1)
@@ -2902,7 +2911,7 @@ void shweep_print_all_reprs(sweeper *sweeper) {
 
 
 void shweep_print_all_variable_status(kissat *solver) {
-  if (skip_vverbose_nonroot (solver))
+  if (is_nonzero (solver))
     return;
   if (GET_OPTION(mallob_custom_sweep_verbosity) < V3_VVERB_SWEEP)
     return;
@@ -3143,7 +3152,9 @@ int kissat_mallob_shweep(kissat *solver) {
   kissat_phase (solver, "sweep", GET (sweep),
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units, %i worksweeps, %i resweeps ", equivalences, units, sweeper.worksweeps, sweeper.resweeps);
+
+  if (is_nonzero (solver))
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units, %i worksweeps, %i resweeps ", equivalences, units, sweeper.worksweeps, sweeper.resweeps);
 
 
   shweep_print_all_reprs(&sweeper);
