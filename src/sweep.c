@@ -2752,11 +2752,14 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
 }
 
 void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWorkVar) {
+  kissat *solver = sweeper->solver;
+
+  if (solver->termination.flagged)
+    return;
 
   if (!shweep_sweepable_variable(sweeper, idx))
     return;
 
-  kissat *solver = sweeper->solver;
   shweep_import_units(sweeper);
   shweep_import_equivalences (sweeper);
 
@@ -3057,13 +3060,13 @@ int kissat_mallob_shweep(kissat *solver) {
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent) {
-    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER ERROR Error --exiting because solver is inconsistent--");
+    kissat_custom_message(solver,V1_INFO_SWEEP, "ERROR Error: SWEEPER --exiting because solver is inconsistent--");
     return false;
   }
   if (TERMINATED (sweep_terminated_7))
     return false;
   if (DELAYING (sweep)) {
-    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER ERROR Error --exiting because DELAYING(sweep)--");
+    kissat_custom_message(solver,V1_INFO_SWEEP, "ERROR Error: SWEEPER --exiting because DELAYING(sweep)--");
     return false;
   }
   assert (!solver->level);
@@ -3090,13 +3093,15 @@ int kissat_mallob_shweep(kissat *solver) {
 
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SHWEEP ERROR Error INCONSISTENT during loop!! \n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "ERROR Error: SWEEPER got INCONSISTENT during loop!! \n");
       break;
     }
-    if (TERMINATED (sweep_terminated_8))
+    if (TERMINATED (sweep_terminated_8)) {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER got TERMINATE during loop \n");
       break;
+    }
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "# \n # \n # Kitten Tick limit timeout # \n # \n #");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "# \n # \n # WARN: Kitten Tick limit timeout # \n # \n #");
       break;
     }
 
@@ -3120,7 +3125,7 @@ int kissat_mallob_shweep(kissat *solver) {
   int useful_units = solver->shweep_useful_imported_units;
   int useful_eqs   = solver->shweep_useful_imported_eq;
 
-  //Very end: Get the latest shared units and equivalences that came with the termination signal! we dont want to miss them
+  //In the very end: Get the units and equivalences that came with the ver last sharing event that brought the termination signal! this is still valuable information for the one reporting solver
   shweep_import_units(&sweeper);
   shweep_import_equivalences (&sweeper);
 
@@ -3161,7 +3166,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   STOP (sweep);
   if (solver->inconsistent)
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SHWEEP ERROR Error INCONSISTENT after loop !!");
+    kissat_custom_message (solver, V1_INFO_SWEEP, "ERROR Error: SWEEPER INCONSISTENT after loop !!");
 
 
   // unsigned active_before = solver->active;
@@ -3169,10 +3174,14 @@ int kissat_mallob_shweep(kissat *solver) {
   //Applies the equivalences we found to actually reduce the database.
   //Is Scheduled always directly after sweeping also in normal kissat.
   if (GET_OPTION (substitute)) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "running substitute.c for equivalent substitutions");
-    kissat_substitute (solver, true);
+    if (solver->termination.flagged) {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER skipping substitute.c, not necessary due to external termination");
+    } else {
+      kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER running substitute.c for equivalent substitutions");
+      kissat_substitute (solver, true);
+    }
   } else {
-    kissat_custom_message(solver,V1_INFO_SWEEP, "skipping substitute.c, OPTION substitute==0 !");
+    kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER skipping substitute.c due to OPTION substitute==0 !");
   }
 
   solver->probing = false;
