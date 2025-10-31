@@ -3066,6 +3066,7 @@ bool kissat_sweep (kissat *solver) {
 
 int kissat_mallob_shweep(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER START");
+  printf("SWEEPER START PRINTF\n");
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent) {
@@ -3153,7 +3154,7 @@ int kissat_mallob_shweep(kissat *solver) {
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
 
-  if (is_nonzero (solver))
+  if (!is_nonzero (solver))
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units, %i worksweeps, %i resweeps ", equivalences, units, sweeper.worksweeps, sweeper.resweeps);
 
 

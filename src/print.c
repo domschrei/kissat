@@ -118,17 +118,19 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
 
 
 void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...) {
+  printf("kissat custom message option verbosity %i \n", GET_OPTION (mallob_custom_sweep_verbosity));
   if (GET_OPTION(mallob_custom_sweep_verbosity)<verb) {
     return;
   }
   uint64_t mallob_local_id = GET_OPTION(mallob_local_id);
   uint64_t mallob_rank     = GET_OPTION(mallob_rank);
-  uint64_t num_spaces = 30 * mallob_rank + 10 * mallob_local_id;
+  uint64_t num_spaces = 20 * mallob_rank + 5 * mallob_local_id;
 
-  if (GET_OPTION (mallob_custom_sweep_verbosity)<=1) {
+  if (!GET_OPTION(mallob_staggered_logs) || mallob_rank >3 || mallob_local_id > 3) { //Separate logs spacially only for very small scales
     num_spaces=0;
   }
 
+  printf("kissat custom message\n");
   // Add some spaces to the message to distinguish the specific solver visually (when verbosity >= 2)
   char new_fmt[1024];
   memset(new_fmt, ' ', num_spaces);
