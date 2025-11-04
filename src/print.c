@@ -118,7 +118,6 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
 
 
 void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...) {
-  printf("kissat custom message option verbosity %i \n", GET_OPTION (mallob_custom_sweep_verbosity));
   if (GET_OPTION(mallob_custom_sweep_verbosity)<verb) {
     return;
   }
@@ -130,7 +129,6 @@ void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...)
     num_spaces=0;
   }
 
-  printf("kissat custom message\n");
   // Add some spaces to the message to distinguish the specific solver visually (when verbosity >= 2)
   char new_fmt[1024];
   memset(new_fmt, ' ', num_spaces);

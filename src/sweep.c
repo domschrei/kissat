@@ -3066,7 +3066,8 @@ bool kissat_sweep (kissat *solver) {
 
 int kissat_mallob_shweep(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER START");
-  printf("SWEEPER START PRINTF\n");
+  printf("SWEEPER START PRINT, CUSTOM VERBOSITY %i \n", GET_OPTION (mallob_custom_sweep_verbosity));
+  kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER START, CUSTOM VERBOSITY %i \n", GET_OPTION (mallob_custom_sweep_verbosity));
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent) {
