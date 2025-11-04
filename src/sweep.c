@@ -3132,6 +3132,7 @@ int kissat_mallob_shweep(kissat *solver) {
     shweep_sweep_variable_with_prop (&sweeper, idx, true);
 
   }
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER END LOOP");
 
   int useful_units = solver->shweep_useful_imported_units;
   int useful_eqs   = solver->shweep_useful_imported_eq;

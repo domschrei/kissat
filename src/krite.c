@@ -129,27 +129,27 @@ void kissat_report_dimacs (kissat * solver) {
     if (!c->garbage && !c->redundant) {
 
       // Temporary string buffer for this clause
-      if (shweep_verb >= DUMP_DATABASE_VERBOSITY) {
-        buf_size = 1024;
-        buf = malloc(buf_size);
-        if (!buf) continue;
-        buf[0] = '\0'; // start empty
-      }
+      // if (shweep_verb >= DUMP_DATABASE_VERBOSITY) {
+        // buf_size = 1024;
+        // buf = malloc(buf_size);
+        // if (!buf) continue;
+        // buf[0] = '\0'; // start empty
+      // }
       //
 
       for (all_literals_in_clause (ilit, c)) {
 
         //
 
-        if (shweep_verb >= DUMP_DATABASE_VERBOSITY) {
-          char tmp[32];
-          snprintf(tmp, sizeof(tmp), "<%d> ", ilit);
-          if (strlen(buf) + strlen(tmp) + 1 > buf_size) {
+        // if (shweep_verb >= DUMP_DATABASE_VERBOSITY) {
+          // char tmp[32];
+          // snprintf(tmp, sizeof(tmp), "<%d> ", ilit);
+          // if (strlen(buf) + strlen(tmp) + 1 > buf_size) {
             // skip
-          } else {
-            strcat(buf, tmp);
-          }
-        }
+          // } else {
+            // strcat(buf, tmp);
+          // }
+        // }
         //
 
         const int elit = kissat_export_literal (solver, ilit);
@@ -157,13 +157,12 @@ void kissat_report_dimacs (kissat * solver) {
       }
       solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
 
-      if (shweep_verb >= DUMP_DATABASE_VERBOSITY)
-        kissat_custom_message (solver, 3, "DATABASE ilit %s \n", buf);
+      // if (shweep_verb >= DUMP_DATABASE_VERBOSITY)
+        // kissat_custom_message (solver, 3, "DATABASE ilit %s \n", buf);
     }
   if (num_units == 0) return;
-  kissat_custom_message (solver, 2, "Shweeper second unit gather, now with reporting");
   unsigned now_num_units = gather_units(solver, true);
-  kissat_custom_message (solver, 2, "Shweeper second, gathered %i units",  now_num_units);
   assert(now_num_units == num_units);
+  kissat_custom_message (solver, 1, "SWEEPER DIMACS REPORT FINISHED");
 }
 
