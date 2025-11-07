@@ -85,7 +85,7 @@ void kissat_report_dimacs (kissat * solver) {
   kissat_custom_message (solver, 2, "SWEEPER gathered %i units",  num_units);
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) {
-    kissat_custom_message (solver, 1, "SWEEPER (%i) does not report dimacs, got told no", GET_OPTION (mallob_local_id));
+    kissat_custom_message (solver, 1, "SWEEPER does not report dimacs");
     return;
   }
   kissat_custom_message (solver, 1, "SWEEPER reports final formula via kissat_report_dimacs");
