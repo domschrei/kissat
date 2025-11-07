@@ -80,9 +80,9 @@ unsigned gather_units (kissat * solver, bool report) {
 void kissat_report_dimacs (kissat * solver) {
   size_t imported = SIZE_STACK (solver->import);
   if (imported) imported--;
-  kissat_custom_message (solver, 3, "SWEEPER gathers units, only counting, not reporting yet");
+  // kissat_custom_message (solver, 3, "SWEEPER gathers units, only counting, not reporting yet");
   unsigned num_units = gather_units(solver, false);
-  kissat_custom_message (solver, 2, "SWEEPER gathered %i units",  num_units);
+  // kissat_custom_message (solver, 2, "SWEEPER gathered %i units",  num_units);
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) {
     kissat_custom_message (solver, 1, "SWEEPER does not report dimacs");
@@ -102,7 +102,7 @@ void kissat_report_dimacs (kissat * solver) {
           solver->report_preprocessed_lit (solver->report_preprocess_state, elit);
           solver->report_preprocessed_lit (solver->report_preprocess_state, eother);
           solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
-          kissat_custom_message (solver, 3, "DATABASE ilit <%i> <%i> \n", ilit, iother);
+          // kissat_custom_message (solver, 3, "DATABASE ilit <%i> <%i> \n", ilit, iother);
         }
   } else {
     for (all_literals (ilit))
@@ -116,7 +116,7 @@ void kissat_report_dimacs (kissat * solver) {
           solver->report_preprocessed_lit (solver->report_preprocess_state, elit);
           solver->report_preprocessed_lit (solver->report_preprocess_state, eother);
           solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
-          kissat_custom_message (solver, 3, "DATABASE ilit <%i> <%i> \n", ilit, iother);
+          // kissat_custom_message (solver, 3, "DATABASE ilit <%i> <%i> \n", ilit, iother);
         }
   }
 

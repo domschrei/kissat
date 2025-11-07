@@ -1995,7 +1995,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
      Then try hard to flip one literal in particular
      */
     while (!EMPTY_STACK (sweeper->backbone)) {
-      kissat_custom_message(solver, V4_UVERB_SWEEP, "    B(%i)", SIZE_STACK(sweeper->backbone));
+      // kissat_custom_message(solver, V4_UVERB_SWEEP, "    B(%i)", SIZE_STACK(sweeper->backbone));
       if (solver->inconsistent || TERMINATED (sweep_terminated_3) ||
           kitten_ticks_limit_hit (sweeper, "backbone refinement")) {
         limit_reached = true;
@@ -2448,13 +2448,12 @@ void shweep_import_units(sweeper *sweeper) {
   // kissat_custom_message (solver, V1_INFO_SWEEP, "Unit import statistics:");
   int new_useful = solver->shweep_useful_imported_units - prev_useful;
   kissat_custom_message(solver, V2_VERB_SWEEP,  "Imported %i / %i units", new_useful, unit_count);
-
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Imported Units:", unit_count);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Useful     %i / %i", solver->shweep_useful_imported_units - prev_useful, unit_count);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Invalid    %i", solver->shweep_invalid_imported_units - prev_invalid);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Fixed      %i", solver->shweep_fixed_imported_units - prev_fixed);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Eliminated %i", solver->shweep_eliminated_imported_units - prev_eliminated);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Transitive %i", solver->shweep_transitive_imported_units - prev_transitive);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Imported Units:", unit_count);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Useful     %i / %i", solver->shweep_useful_imported_units - prev_useful, unit_count);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Invalid    %i", solver->shweep_invalid_imported_units - prev_invalid);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Fixed      %i", solver->shweep_fixed_imported_units - prev_fixed);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Eliminated %i", solver->shweep_eliminated_imported_units - prev_eliminated);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Transitive %i", solver->shweep_transitive_imported_units - prev_transitive);
   // kissat_custom_message(solver, V2_VERB_SWEEP, "Inconsistent? %i", solver->inconsistent);
 }
 
@@ -2608,13 +2607,13 @@ void shweep_import_equivalences(sweeper *sweeper) {
   int new_useful = solver->shweep_useful_imported_eq - prev_useful;
   kissat_custom_message(solver, V2_VERB_SWEEP,  "Imported %i / %i eqs ", new_useful, eq_count);
   // kissat_custom_message(solver, V2_VERB_SWEEP, "Import Eq Imported Eqs:");
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Useful     %i / %i", solver->shweep_useful_imported_eq - prev_useful, eq_count);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Invalid    %i", solver->shweep_invalid_imported_eq - prev_invalid);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Unitprop   %i", solver->shweep_unitprop_imported_eq - prev_unitprop);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Doublefixd %i", solver->shweep_doublefixed_imported_eq - prev_doublefixed);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Eliminated %i", solver->shweep_eliminated_imported_eq - prev_eliminated);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Tautology  %i", solver->shweep_tautological_imported_eq - prev_tautology);
-  kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Transitive %i", solver->shweep_transitive_imported_eq - prev_transitive);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Useful     %i / %i", solver->shweep_useful_imported_eq - prev_useful, eq_count);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Invalid    %i", solver->shweep_invalid_imported_eq - prev_invalid);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Unitprop   %i", solver->shweep_unitprop_imported_eq - prev_unitprop);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Doublefixd %i", solver->shweep_doublefixed_imported_eq - prev_doublefixed);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Eliminated %i", solver->shweep_eliminated_imported_eq - prev_eliminated);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Tautology  %i", solver->shweep_tautological_imported_eq - prev_tautology);
+  // kissat_custom_message(solver, V3_VVERB_SWEEP, "Import Eq Transitive %i", solver->shweep_transitive_imported_eq - prev_transitive);
   // kissat_custom_message(solver, V2_VERB_SWEEP, "Inconsistent? %i", solver->inconsistent);
   // sweeper->just_imported_eqs=true;
 
@@ -2639,8 +2638,7 @@ int shweep_get_max_steal_amount(kissat *solver) {
   // if (half!=0)
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Max steal answer: %i to found %i max_steal_amount (work_head=%i, work_end=%i, count_left=%i)", half, sweeper->work_head, sweeper->work_end, sweeper->max_work_left);
   if (half != 0) {
-    kissat_custom_message(solver,V3_VVERB_SWEEP, "SWEEP STEAL (%i) I return max steal %i  (work_head %i, work_end %i, range_estimate %i, last_estimate %i, max_work_left %i)",
-      GET_OPTION (mallob_local_id), half, sweeper->work_head, sweeper->work_end, range_estimate, last_estimate, max_work_left);
+    kissat_custom_message(solver,V3_VVERB_SWEEP, "SWEEP STEAL I can provide at most %i \n", half);
   }
   return half;
 }
@@ -2767,7 +2765,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   shweep_import_units(sweeper);
   shweep_import_equivalences (sweeper);
 
-  kissat_custom_message(solver,V4_UVERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
+  kissat_custom_message(solver,V3_VVERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
 
   FLAGS (idx)->sweep = false; //remember that we swept this variable now. //still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
 
@@ -2784,7 +2782,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   //This can become recursive, where we eagerly always re-sweep first on the last found equivalence
   while (!EMPTY_STACK (sweeper->RESWEEP)) {
     unsigned resweep_idx = POP_STACK (sweeper->RESWEEP);
-    kissat_custom_message(solver,V4_UVERB_SWEEP, "re-shweep idx %i [%i SIZE_STACK]", resweep_idx, SIZE_STACK (sweeper->RESWEEP));
+    kissat_custom_message(solver,V3_VVERB_SWEEP, "re-shweep idx %i [%i SIZE_STACK]", resweep_idx, SIZE_STACK (sweeper->RESWEEP));
     shweep_sweep_variable_with_prop (sweeper, resweep_idx, false);
   }
 }
@@ -2891,25 +2889,25 @@ void shweep_print_all_reprs(sweeper *sweeper) {
     if (repr_lit==lit) {
       if (f->active) {
         num_self_active++;
-        kissat_custom_message(solver, V3_VVERB_SWEEP, "SELF_REPR ACTIVE %i: idx(%i)/<%i>", num_self_active, idx, lit);
+        kissat_custom_message(solver, V4_UVERB_SWEEP, "SELF_REPR ACTIVE %i: idx(%i)/<%i>", num_self_active, idx, lit);
       } else {
         num_self_fixed++;
-        kissat_custom_message(solver, V3_VVERB_SWEEP, "SELF_REPR FIXED %i: idx(%i)/<%i>", num_self_fixed, idx, lit);
+        kissat_custom_message(solver, V4_UVERB_SWEEP, "SELF_REPR FIXED %i: idx(%i)/<%i>", num_self_fixed, idx, lit);
       }
     } else {
       unsigned repr_idx = IDX(repr_lit);
       if (f->active) {
         num_reprd_active++;
-        kissat_custom_message(solver, V3_VVERB_SWEEP, "REPRESENTED ACTIVE %i: idx(%i)/<%i> repr-idx(%i)", num_reprd_active, idx, lit, repr_idx);
+        kissat_custom_message(solver, V4_UVERB_SWEEP, "REPRESENTED ACTIVE %i: idx(%i)/<%i> repr-idx(%i)", num_reprd_active, idx, lit, repr_idx);
       } else {
         num_reprd_nonactive++;
-        kissat_custom_message(solver, V3_VVERB_SWEEP, "REPRESENTED NON-ACTIVE %i: idx(%i)/<%i> repr-idx(%i)", num_reprd_nonactive, idx, lit, repr_idx);
+        kissat_custom_message(solver, V4_UVERB_SWEEP, "REPRESENTED NON-ACTIVE %i: idx(%i)/<%i> repr-idx(%i)", num_reprd_nonactive, idx, lit, repr_idx);
       }
     }
   }
   int self = num_self_active + num_self_fixed;
   int repr = num_reprd_active + num_reprd_nonactive;
-  kissat_custom_message(solver, V1_INFO_SWEEP, "SWEEPER ALL REPR STATS: self-representing %i (active %i, fixed %i), represented %i (active %i, nonactive %i) -- total %i ",
+  kissat_custom_message(solver, V1_INFO_SWEEP, "SWEEPER REPRESENTATIONS: self-representing %i (active %i, fixed %i), represented %i (active %i, nonactive %i) -- total %i ",
     self, num_self_active, num_self_fixed, repr, num_reprd_active, num_reprd_nonactive, self + repr);
 }
 
@@ -2927,7 +2925,7 @@ void shweep_print_all_variable_status(kissat *solver) {
     if (f->active) active++;
     if (f->eliminated) elimininated++;
     if (f->fixed) fixed++;
-    kissat_custom_message(solver, V3_VVERB_SWEEP, "STATUS idx(%i): act,elim,fixed: %i %i %i", idx, f->active, f->eliminated, f->fixed);
+    kissat_custom_message(solver, V4_UVERB_SWEEP, "STATUS idx(%i): act,elim,fixed: %i %i %i", idx, f->active, f->eliminated, f->fixed);
   }
   // kissat_custom_message(solver, V1_INFO_SWEEP, "SWEEPER ALL VAR STATS: active %i, eliminated %i, fixed %i", active, elimininated, fixed);
 }
