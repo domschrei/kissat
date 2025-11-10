@@ -464,6 +464,7 @@ static void substitute_clauses (kissat *solver, unsigned *repr) {
       const unsigned size = SIZE_STACK (solver->clause);
       if (!size) {
         LOG ("simplifies to empty clause");
+        kissat_custom_message (solver, 0, "Substitute becoming INCONSISTENT! simplifies to empty clause");
 
         CHECK_AND_ADD_EMPTY ();
         ADD_EMPTY_TO_PROOF ();

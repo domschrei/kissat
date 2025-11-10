@@ -219,9 +219,6 @@ struct kissat {
   bool sweep_incomplete;
   unsigneds sweep_schedule;
 
-  sweeper *sweeper; //for Mallob Shweep
-
-
 #if !defined(NDEBUG) || !defined(NPROOFS)
   unsigneds added;
   unsigneds removed;
@@ -248,6 +245,7 @@ struct kissat {
   proof *proof;
 #endif
 
+
   // Clause export
   void *consume_clause_state;
   int *consume_clause_buffer;
@@ -260,8 +258,11 @@ struct kissat {
   unsigned long num_conflicts_at_last_import;
 
 
-  //Shared Sweeping
+  //Shared Mallob Sweeping
+  sweeper *sweeper;
   bool shweeper_initialized;
+  volatile bool shweeper_terminate;
+
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state);
   void (*shweep_import_eq_callback) (void *state, int **equivalences, int *eqs_size);
@@ -274,12 +275,6 @@ struct kissat {
   void *shweep_mallob_SweepJobState;
   void (*shweep_search_work_callback) (void *state, unsigned **work, int *work_size, int local_id);
 
-  //Call SWEEP App
-  // void (*start_sweep_app_callback) (void *state);
-
-
-
-  //Shared Sweeping statistics
   unsigned long shweep_initial_units;
   unsigned long shweep_orig_active;
   //Equivalences

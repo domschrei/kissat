@@ -62,6 +62,7 @@ kissat *kissat_init (void) {
 
   //Shared Sweeping  -------------------------------------------------------
   solver->shweeper_initialized = false;
+  solver->shweeper_terminate = false;
 
   //Sweep Equivalence Export
   solver->shweep_export_eq_buffer = 0;
