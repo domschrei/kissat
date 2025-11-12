@@ -97,6 +97,7 @@ struct sweeper {
   int work_end;    //size of the allocated work array.
   int work_head;   //index of the currently next scheduled variable in work
   int max_work_after_steal; //a second approximation of how much work is left, updated when getting stolen
+  volatile bool allow_stealing; //prevent steal attempts once this solver is inconsistent
 
   //some statistics
   unsigned skipped_bc_done;
@@ -253,12 +254,15 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->stumbled_units=0;
     sweeper->worksweeps=0;
     sweeper->resweeps=0;
+    sweeper->allow_stealing=true;
+
     // sweeper->orig_active=0;
     sweeper->singlethread_debugging_provided_work=false;
     sweeper->max_work_after_steal=0;
     solver->shweep_initial_units = SIZE_STACK(solver->units);
-    solver->shweeper_initialized = true;
+    solver->shweeper_initialized = true; //important to have this flag already on the solver level, where we can reliably access it even when the sweeper doesnt exist yet
     solver->shweep_orig_active  = solver->active;
+
     //we don't allocate the work[] array, that will be allocated by Mallob/C++ and we only operate on the provided memory range
   }
 }
@@ -2636,6 +2640,7 @@ int shweep_get_max_steal_amount(kissat *solver) {
     return 0;
   }
   sweeper *sweeper = solver->sweeper;
+
   //we have to different ways to estimate the amount of remaining work, one via the remaining range and one via the count during the last steal
   int range_estimate = sweeper->work_end - sweeper->work_head;
   int last_estimate = sweeper->max_work_after_steal;
@@ -2645,6 +2650,11 @@ int shweep_get_max_steal_amount(kissat *solver) {
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Max steal answer: %i to found %i max_steal_amount (work_head=%i, work_end=%i, count_left=%i)", half, sweeper->work_head, sweeper->work_end, sweeper->max_work_left);
   if (half != 0) {
     kissat_custom_message(solver,V3_VVERB_SWEEP, "SWEEP STEAL I can provide at most %i \n", half);
+  }
+  assert(half>0);
+  if (!sweeper->allow_stealing) {
+    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL Guard: I am already shutting down, not allowing stealing anymore");
+    return 0;
   }
   return half;
 }
@@ -3157,6 +3167,10 @@ int kissat_mallob_shweep(kissat *solver) {
 
   }
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER END LOOP");
+  sweeper.allow_stealing=false; //if we landed here due to external termination or some error in the loop, and still have work>0, this flag prevents that other solvers try to steal from us while we (and our datastructures) are shutting down
+  // if (sweeper.work_head != sweeper.work_end)
+    // kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER WARN/ERROR/Error: Solver finished loop with %i work left\n", sweeper.work_end - sweeper.work_head);
+
 
   // int useful_units = solver->shweep_useful_imported_units;
   // int useful_eqs   = solver->shweep_useful_imported_eq;
