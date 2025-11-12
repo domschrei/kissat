@@ -128,10 +128,10 @@ void kissat_report_dimacs (kissat * solver) {
         }
   }
 
-  char *buf;
-  size_t buf_size;
-  const int DUMP_DATABASE_VERBOSITY = 3;
-  const int shweep_verb = GET_OPTION (mallob_custom_sweep_verbosity);
+  // char *buf;
+  // size_t buf_size;
+  // const int DUMP_DATABASE_VERBOSITY = 3;
+  // const int shweep_verb = GET_OPTION (mallob_custom_sweep_verbosity);
 
   for (all_clauses (c))
     if (!c->garbage && !c->redundant) {

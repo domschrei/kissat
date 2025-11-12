@@ -416,7 +416,10 @@ static bool stumbled_unit_in_binary(kissat *solver, unsigned lit, unsigned other
       kissat_assign_unit (solver, other, "stumbled while kitten-copying");
       /* Catch for Mallob Sharing */
       if (GET_OPTION (mallob_is_shweeper)) {
-        kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%i)/lit(%i)", IDX(other),other);
+        // remove elit after debugging!
+        // int elit = kissat_export_literal (solver, other);
+        // kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u) elit(%i)", IDX(other),other, elit);
+        kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u)", IDX(other),other);
         shweep_export_unit(solver, other);
       }
       INC (sweep_units);
@@ -531,17 +534,16 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
   PUSH_STACK (sweeper->refs, ref); //remember that we swept this clause
   c->swept = true;
 
-  //Special behaviour in Mallob SWEEP: It can happen that we stumble here upon a unit-clause that has been undetected up to now -- because there are (apparently?) no unit-propagations happening in sweep
-  //In sequential kissat this can not happen and is even forbidden via a SIZE>1 assertion, but apparently here with importing units/equivalences it can happen
-  //Current solution is to assign the unit literal now on the spot here
-  //Alternatively, maybe one could properly propagate all units, to find such other unit clauses directly (and maybe even others?)
+  //Special behaviour when doing shared sweeping via Mallob:
+  //It can happen that we stumble here upon a unit-clause that has been undetected up to now -- because there is (apparently?) no unit-propagation in sweep
+  //In sequential kissat a size 1 clause can not happen, as evidenced by the SIZE>1 assertion, that we changed here into an equivalent new assertion
+  //but apparently here with importing units/equivalences size 1 can occasionally happen
+  //So I just decide to treat size 1 clauses here as new found unit clauses, and call it a day
+  //Alternatively, maybe one could properly call a propagate function, which might spot this unit in a more canonical way...
   if (SIZE_STACK(sweeper->clause)==1) {
-    assert( GET_OPTION (mallob_is_shweeper));
-    // if ( ! GET_OPTION (mallob_is_shweeper)) {
-      // assert(kissat_custom_assert_message (solver, V1_INFO_SWEEP, "found SIZE==1 clause but not in Mallob Shweep"));
-    // }
+    assert(GET_OPTION(mallob_is_shweeper)); //make sure that sequential kissat still asserts a size==1 clause here
 
-    kissat_custom_message (solver, V1_INFO_SWEEP, "WARN : Detected Clause size %i, clause ref %i ", SIZE_STACK(sweeper->clause), ref);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "WARN: Sweeper detected a clause size 1, clause ref %i ", ref);
     unsigned detected_unit = 0;
     for (all_literals_in_clause (lit, c)) {
       const value value = values[lit];
@@ -549,19 +551,18 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
         assert(detected_unit==0);
         detected_unit = lit;
       }
-      kissat_custom_message (solver, V1_INFO_SWEEP, " WARN clause size 1: idx(%i)/lit(%i)=val %i, repr_lit(%i)", IDX(lit), lit, value, sweep_repr (sweeper, lit));
+      kissat_custom_message (solver, V1_INFO_SWEEP, "WARN: Sweeper detected clause size 1: idx(%i)/lit(%i)=val %i, repr_lit(%i)", IDX(lit), lit, value, sweep_repr (sweeper, lit));
     }
-    //NEW: directly assign this detected unit here in place
+    //directly assign this detected unit here in place
     kissat_assign_unit (solver, detected_unit, "stumbled while kitten-copying");
-     /* Catch for Mallob Sharing */
-    if (GET_OPTION (mallob_is_shweeper)) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, " stumble-U idx(%i)/lit(%i)", IDX(detected_unit),detected_unit);
-      shweep_export_unit(solver, detected_unit);
-    }
+     /* Catch for Mallob to share */
+    int elit = kissat_export_literal (solver, detected_unit);
+    kissat_custom_message(solver,V1_INFO_SWEEP, " stumble-U idx(%u)/lit(%u), elit(%i)", IDX(detected_unit),detected_unit, elit);
+    shweep_export_unit(solver, detected_unit);
     INC (sweep_units);
     CLEAR_STACK (sweeper->clause); //usually done by sweep_clause, but we skip that here
     sweeper->stumbled_units++;
-    return; //clause vanished, no need to pipe to kitten anymore
+    return; //clause doesnt exist anymore, nothing left to pipe to kitten, return immediately
   }
 
   sweep_clause (sweeper, depth);
@@ -593,6 +594,7 @@ static void save_core_clause (void *state, bool learned, size_t size,
    /*
     *Iterate over the literals of the given clause
     */
+  // kissat_custom_message (solver, V3_VVERB_SWEEP, ">> read new candidate clause size %u", size);
   for (const unsigned *p = lits; p != end; p++) {
     const unsigned lit = *p;
     const value value = values[lit];
@@ -600,6 +602,7 @@ static void save_core_clause (void *state, bool learned, size_t size,
        /*
         *clause is already satisfied. Abort, not part of the core
         */
+      // kissat_custom_message(solver, V3_VVERB_SWEEP, "<< clause is satisfied, skip\n");
       LOGLITS (size, lits, "extracted %s satisfied lemma", LOGLIT (lit));
       RESIZE_STACK (*core, saved);
       return;
@@ -607,12 +610,14 @@ static void save_core_clause (void *state, bool learned, size_t size,
      /*
       * clause up to now not satisfied, extend the clause in the core by this literal
       */
+    // kissat_custom_message(solver, V3_VVERB_SWEEP, "   tentative push lit(%u)=%i, elit(%i) \n", lit, value, kissat_export_literal (solver, lit));
     PUSH_STACK (*core, lit);
     if (value < 0)
       continue;
     if (!learned && ++non_false > 1) {
       LOGLITS (size, lits, "ignoring extracted original clause");
       RESIZE_STACK (*core, saved);
+      // kissat_custom_message(solver, V3_VVERB_SWEEP, "<< ignore original clause\n");
       return;
     }
   }
@@ -626,6 +631,7 @@ static void save_core_clause (void *state, bool learned, size_t size,
     *mark the end of the clause via an INVALID_LIT marker
     */
   PUSH_STACK (*core, INVALID_LIT);
+  // kissat_custom_message (solver, V3_VVERB_SWEEP, "<< pushed clause end");
 }
 
 
@@ -654,7 +660,7 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
   unsigned *q = BEGIN_STACK (*core);
   const unsigned *const end_core = END_STACK (*core), *p = q;
 
-  // kissat_custom_message (solver,V3_VVERB_SWEEP, "\n ------ADD CORE %u ------ \n", core_idx);
+  // kissat_custom_message (solver,V3_VVERB_SWEEP, "\n Start adding core %u by looping through clause stack, clauses are separated by invalid lit \n", core_idx);
    /*
     *Loop through the clauses of the core (separated by INVALID_LIT) markers)
     */
@@ -678,7 +684,7 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
      /*
       *loop through literals of this clause
       */
-    // kissat_custom_message (solver,V3_VVERB_SWEEP, "\n next core clause");
+    // kissat_custom_message (solver,V3_VVERB_SWEEP, "\n on next core clause, old size %u", p-c);
     for (const unsigned *l = c; !satisfied && l != p; l++) {
       const unsigned lit = *l;
       const value value = values[lit];
@@ -705,7 +711,7 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
 
     if (!new_size) {
       LOG ("sweeping produced empty clause");
-      kissat_custom_message (solver,V0_CRIT_SWEEP, "SWEEPER becoming INCONSISTENT! sweeping produced empty clause");
+      kissat_custom_message (solver,V1_INFO_SWEEP, "SWEEPER found UNSATISFIABLE solution! while reading kitten core found empty clause");
       CHECK_AND_ADD_EMPTY ();
       ADD_EMPTY_TO_PROOF ();
       solver->inconsistent = true;
@@ -727,7 +733,10 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
         * Catch for Mallob Sharing
         */
       if (GET_OPTION (mallob_is_shweeper)) {
-        kissat_custom_message(solver,V3_VVERB_SWEEP, " core-U idx(%i)/lit(%i)", IDX(unit), unit);
+        // remove elit after debugging!
+        // int elit = kissat_export_literal (solver, unit);
+        // kissat_custom_message(solver,V3_VVERB_SWEEP, " core-U idx(%u)/lit(%u) elit(%i)", IDX(unit), unit, elit);
+        kissat_custom_message(solver,V3_VVERB_SWEEP, " core-U idx(%u)/lit(%u)", IDX(unit), unit);
         shweep_export_unit(solver, unit);
         // sweeper->done[IDX(unit)]=true;
       }
@@ -1315,7 +1324,9 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
             * Catch for Mallob Sharing
             */
           if (GET_OPTION (mallob_is_shweeper)) {
-            kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-U idx(%i)/lit(%i)", IDX(lit),lit);
+            // int elit = kissat_export_literal (solver, lit);
+            // kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-U idx(%u)/lit(%u) elit(%i)", IDX(lit),lit, elit);
+            kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-U idx(%u)/lit(%u)", IDX(lit),lit);
             shweep_export_unit(solver, lit);
           }
 
@@ -1407,7 +1418,7 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
 
         if (new_size == 0) {
           LOGCLS (c, "substituted empty clause");
-          kissat_custom_message (solver,V0_CRIT_SWEEP, "SWEEPER becoming INCONSISTENT! substituted empty clause");
+          kissat_custom_message (solver,V0_CRIT_SWEEP, "SWEEPER found UNSATISFIABLE solution! found empty clause during clause substitution\n");
           assert (!solver->inconsistent);
           solver->inconsistent = true;
           CHECK_AND_ADD_EMPTY ();
@@ -1427,7 +1438,10 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
             */
           if (GET_OPTION (mallob_is_shweeper)) {
             //had bug, had "lit" here instead of "unit" !!
-            kissat_custom_message(solver,V3_VVERB_SWEEP, " size1-U idx(%i)/lit(%i)", IDX(unit),unit);
+            // remove elit after debugging!
+            // int elit = kissat_export_literal (solver, unit);
+            // kissat_custom_message(solver,V3_VVERB_SWEEP, " size1-U idx(%u)/lit(%u) elit(%i)", IDX(unit),unit, elit);
+            kissat_custom_message(solver,V3_VVERB_SWEEP, " size1-U idx(%u)/lit(%u) elit(%i)", IDX(unit),unit);
             shweep_export_unit(solver, unit);
           }
 
@@ -1811,12 +1825,17 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     unsigned idx_lit = IDX(lit);
     unsigned idx_other = IDX(other);
 
+    // int elit = kissat_export_literal (solver, lit);
+    // int eother = kissat_export_literal (solver, other);
+
     if (lit < other) {
       shweep_export_equivalence(solver, lit, other);
-      kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)]", idx_lit, idx_other, lit, other);
+      kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_lit, idx_other, lit, other);
+      // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)] (elit(%i)==elit(%i))", idx_lit, idx_other, lit, other, elit, eother);
     } else {
       shweep_export_equivalence(solver, other, lit);
-      kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)]", idx_other, idx_lit, other, lit);
+      kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_other, idx_lit, other, lit);
+      // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)] (elit(%i)==elit(%i))", idx_other, idx_lit, other, lit, eother, elit);
     }
   }
 
@@ -1863,8 +1882,8 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     //if we resweep EVERY found equivalence in a distributed setting, we might resweep the same ones very often.
     //so given that multiple solvers will probably find the same equivalence, have only some of them continue resweeping on it, that should suffice
     generator random = solver->random;
-    unsigned rnd_per_mille = kissat_pick_random(&random, 0,1000); //[0..999], 1000 is exclusive
-    if (rnd_per_mille < GET_OPTION (mallob_resweep_chance)) {
+    unsigned rnd_per_mille = kissat_pick_random(&random, 0,1000); //[0..999], 1000 is exclusive.
+    if (rnd_per_mille < GET_OPTION (mallob_resweep_chance)) { //default chance is 1000, i.e. always resweeping
       PUSH_STACK(sweeper->RESWEEP, repr_idx);
     }
   }
@@ -2225,10 +2244,10 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
    * Variables are now sorted ascending by their watchlist-count
    * Insert them in the scheduling queue such that the LOWEST watchlist counts are popped FIRST
    */
-  size_t enqueued_vars = 0;
+  // size_t enqueued_vars = 0;
   for (all_stack (sweep_candidate, cand, fresh)) {
     schedule_outer (sweeper, cand.idx);
-    enqueued_vars++;
+    // enqueued_vars++;
     // if (enqueued_vars < LOG_CUTOFF || enqueued_vars > size - LOG_CUTOFF) {
       // unsigned elit = kissat_export_literal (solver, LIT (cand.idx));
       // unsigned eidx = elit & 0x7FFFFFF;
@@ -2830,7 +2849,7 @@ void shweep_terminate(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "SWEEPER received dedicated volatile TERMINATE signal");
 }
 
-bool kissat_is_inconsistent (kissat *solver) { //Work-around to let Mallob bypass inconsistent solvers, until we find out why they become inconsistent...
+bool kissat_is_inconsistent (kissat *solver) {
   return solver->inconsistent;
 }
 
@@ -2958,6 +2977,51 @@ void shweep_print_all_variable_status(kissat *solver) {
   // kissat_custom_message(solver, V1_INFO_SWEEP, "SWEEPER ALL VAR STATS: active %i, eliminated %i, fixed %i", active, elimininated, fixed);
 }
 
+void shweep_print_all_clauses(kissat *solver) {
+  if (GET_OPTION (mallob_custom_sweep_verbosity)<V3_VVERB_SWEEP)
+    return;
+  if (is_nonroot_nonzero (solver))
+    return;
+  kissat_custom_message (solver, V3_VVERB_SWEEP, "Printing all non-unit clauses, using external indices \n");
+  int count = 0;
+  if (solver->watching) {
+    for (all_literals (ilit))
+      for (all_binary_blocking_watches (watch, WATCHES (ilit)))
+        if (watch.type.binary) {
+          const unsigned iother = watch.binary.lit;
+          if (iother < ilit)
+            continue;
+          const int elit = kissat_export_literal (solver, ilit);
+          const int eother = kissat_export_literal (solver, iother);
+          kissat_custom_message (solver, V3_VVERB_SWEEP, "#%i: %i %i", count, elit, eother);
+          count++;
+        }
+  } else {
+    for (all_literals (ilit))
+      for (all_binary_large_watches (watch, WATCHES (ilit)))
+        if (watch.type.binary) {
+          const unsigned iother = watch.binary.lit;
+          if (iother < ilit)
+            continue;
+          const int elit = kissat_export_literal (solver, ilit);
+          const int eother = kissat_export_literal (solver, iother);
+          kissat_custom_message (solver, V3_VVERB_SWEEP, "#%i: %i %i", count, elit, eother);
+          count++;
+        }
+  }
+
+  for (all_clauses (c))
+    if (!c->garbage && !c->redundant) {
+      printf("#%i: ", count);
+      for (all_literals_in_clause (ilit, c)) {
+        const int elit = kissat_export_literal (solver, ilit);
+        printf("%i, ", elit);
+      }
+      printf(" < \n ");
+      count++;
+    }
+}
+
 
 bool kissat_sweep (kissat *solver) {
   if (GET_OPTION (mallob_is_shweeper)) {
@@ -3004,11 +3068,11 @@ bool kissat_sweep (kissat *solver) {
      */
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop: Inconsistent 1\n");
-      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_external %i", solver->shweep_invalid_imported_eq);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_internal %i", solver->shweep_invalid_imported_eq);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "unitprop         %i", solver->shweep_unitprop_imported_eq);
-      kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->shweep_eliminated_imported_eq);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop: Inconsistent 1\n");
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_external %i", solver->shweep_invalid_imported_eq);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_internal %i", solver->shweep_invalid_imported_eq);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "unitprop         %i", solver->shweep_unitprop_imported_eq);
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->shweep_eliminated_imported_eq);
       break;
     }
     if (TERMINATED (sweep_terminated_8))
@@ -3101,13 +3165,13 @@ int kissat_mallob_shweep(kissat *solver) {
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent) {
-    kissat_custom_message(solver,V1_INFO_SWEEP, "ERROR Error: SWEEPER --exiting because solver is inconsistent--");
+    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSATISFIABLE solution! exiting sweep loop");
     return false;
   }
   if (TERMINATED (sweep_terminated_7))
     return false;
   if (DELAYING (sweep)) {
-    kissat_custom_message(solver,V1_INFO_SWEEP, "ERROR Error: SWEEPER --exiting because DELAYING(sweep)--");
+    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER WARN/ERROR: Exiting because DELAYING(sweep)");
     return false;
   }
   assert (!solver->level);
@@ -3128,25 +3192,27 @@ int kissat_mallob_shweep(kissat *solver) {
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--unassigned=%d--", solver->unassigned);
   shweep_print_var_stats (solver, V1_INFO_SWEEP);
+  shweep_print_all_variable_status(solver);
+  shweep_print_all_clauses (solver);
   // kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER START");
   // shweep_import_equivalences(&sweeper);
   // shweep_search_work_from_others(&sweeper);
 
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "ERROR Error: SWEEPER got INCONSISTENT during loop!! \n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSATISFIABLE solution!\n");
       break;
     }
     if (TERMINATED (sweep_terminated_8)) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER sees builtin TERMINATE during loop \n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER saw builtin TERMINATE during loop \n");
       break;
     }
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "# \n # \n # WARN: Kitten Tick limit timeout # \n # \n #");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER ran into Kitten Tick limit timeout \n");
       break;
     }
     if (solver->shweeper_terminate) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER sees dedicated volatile shweep TERMINATE flag during loop \n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER saw dedicated volatile shweep TERMINATE flag during loop \n");
       break;
     }
 
@@ -3175,7 +3241,7 @@ int kissat_mallob_shweep(kissat *solver) {
   // int useful_units = solver->shweep_useful_imported_units;
   // int useful_eqs   = solver->shweep_useful_imported_eq;
 
-  //In the very end: Get the units and equivalences that came with the ver last sharing event that brought the termination signal! this is still valuable information for the one reporting solver
+  //Get the units and equivalences that came with the very last sharing event! the one that also brought the termination signal - this is still valuable information that we dont want to throw away
   shweep_import_units(&sweeper);
   shweep_import_equivalences (&sweeper);
 
@@ -3211,7 +3277,7 @@ int kissat_mallob_shweep(kissat *solver) {
   solver->probing = true;
   if (!solver->inconsistent) {
     solver->propagate = solver->trail.begin;
-    kissat_custom_message(solver,V2_VERB_SWEEP, "--final probing--");
+    // kissat_custom_message(solver,V2_VERB_SWEEP, "--final probing--");
     kissat_probing_propagate (solver, 0, true);
   }
   assert (solver->probing);
@@ -3221,7 +3287,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   STOP (sweep);
   if (solver->inconsistent)
-    kissat_custom_message (solver, V1_INFO_SWEEP, "ERROR Error: SWEEPER INCONSISTENT after loop !!");
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER found UNSATISFIABLE solution!");
 
 
   // unsigned active_before = solver->active;
@@ -3230,9 +3296,9 @@ int kissat_mallob_shweep(kissat *solver) {
   //Is Scheduled always directly after sweeping also in normal kissat.
   if (GET_OPTION (substitute) && !solver->inconsistent) {
     if (solver->termination.flagged) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER skipping substitute.c, not necessary due to external termination");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER skipping substitute, not necessary due to external termination");
     } else {
-      kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER running substitute.c for equivalent substitutions");
+      kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER running substitute for equivalent substitutions");
       kissat_substitute (solver, true);
     }
   }
@@ -3251,5 +3317,5 @@ int kissat_mallob_shweep(kissat *solver) {
   //Actually, before the check for termination the function "kissat_report_dimacs(...)" is still called,
   //so eventhough this solver is already set to terminate, the final formula reporting still takes place
   kissat_terminate(solver); //
-  return 0; //allows search.c to continue with cascade until "kissat_report_dimacs(...)"
+  return (solver->inconsistent ? 20 : 0); //will jump in search.c cascade to kissat_report_dimacs(...)
 }
