@@ -2797,10 +2797,13 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
 void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWorkVar) {
   kissat *solver = sweeper->solver;
 
-  if (solver->termination.flagged) //Kissats standard termination flag
+  if (solver->termination.flagged) //Kissats own standard termination flag
     return;
 
-  if (solver->shweeper_terminate)  //Dedicated volatile flag triggered externally by Mallob
+  if (solver->shweeper_terminate)  //Dedicated volatile flag that can be triggered by Mallob externally
+    return;
+
+  if (solver->inconsistent) // If we found UNSAT, directly exit the remaining recursions of "sweep with prop"
     return;
 
   if (!shweep_sweepable_variable(sweeper, idx))
