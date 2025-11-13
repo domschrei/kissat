@@ -2449,7 +2449,7 @@ void shweep_import_units(sweeper *sweeper) {
     const bool is_transitive = (unit != repr_unit);
 
     if (!VALID_INTERNAL_LITERAL (repr_unit)) {
-      kissat_custom_message(solver, V1_INFO_SWEEP, "Error: invalid unit repr_unit=%u, imported as unit=%u", repr_unit, unit);
+      kissat_custom_message(solver, V0_CRIT_SWEEP, "Error: invalid unit repr_unit=%u, imported as unit=%u", repr_unit, unit);
       solver->shweep_invalid_imported_units++;
       continue;
     }
@@ -2533,11 +2533,11 @@ void shweep_import_equivalences(sweeper *sweeper) {
       // kissat_custom_message(solver, V2_VERB_SWEEP, "eq %i: ilit %i repr %i", eq, ilit, repr_ilit);
 
       if (!VALID_INTERNAL_LITERAL (ilit)) {
-        kissat_custom_message(solver, V1_INFO_SWEEP, "Error ilit %i failed assertion", ilit);
+        kissat_custom_message(solver, V0_CRIT_SWEEP, "Error ilit %i failed assertion", ilit);
         assert (VALID_INTERNAL_LITERAL (ilit));
       }
       if (!VALID_INTERNAL_LITERAL (repr_ilit)) {
-        kissat_custom_message(solver, V1_INFO_SWEEP, "Error repr_ilit %i failed assertion", repr_ilit);
+        kissat_custom_message(solver, V0_CRIT_SWEEP, "Error repr_ilit %i failed assertion", repr_ilit);
         assert (VALID_INTERNAL_LITERAL (repr_ilit));
       }
 
@@ -2546,7 +2546,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
         is_transitive = true;
 
       if (!VALID_INTERNAL_LITERAL (repr_ilit)) {
-        kissat_custom_message(solver, V1_INFO_SWEEP, "Error invalid internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
+        kissat_custom_message(solver, V0_CRIT_SWEEP, "Error invalid internal literal repr_ilit=%u, imported as lit=%u", repr_ilit, ilit);
 	solver->shweep_invalid_imported_eq++;
         okToImport = false;
         break;
@@ -2563,7 +2563,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
         // break;
       // }
       if (flags->eliminated) {
-        assert(kissat_custom_assert_message(solver, V1_INFO_SWEEP, "Error: imported eliminated eq-literal ilit(%i), elimination shouldn't exist", ilit));
+        assert(kissat_custom_assert_message(solver, V0_CRIT_SWEEP, "Error: imported eliminated eq-literal ilit(%i), elimination shouldn't exist", ilit));
         // solver->shweep_eliminated_imported_eq++;
         // okToImport = false;
         break;
@@ -2661,7 +2661,7 @@ void shweep_import_equivalences(sweeper *sweeper) {
 int shweep_get_max_steal_amount(kissat *solver) {
   if (!solver || !solver->shweeper_initialized || !solver->sweeper) {
     //guard against very early stealing attempts where this solver is not even initialized yet.
-    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL Guard: I am not fully initialized yet.");
+    kissat_custom_message(solver,V3_VVERB_SWEEP, "SWEEP STEAL Guard: I am not fully initialized yet.");
     return 0;
   }
   sweeper *sweeper = solver->sweeper;
@@ -2673,13 +2673,13 @@ int shweep_get_max_steal_amount(kissat *solver) {
   int half = max_work_left/2;
   // if (half!=0)
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Max steal answer: %i to found %i max_steal_amount (work_head=%i, work_end=%i, count_left=%i)", half, sweeper->work_head, sweeper->work_end, sweeper->max_work_left);
-  if (half != 0) {
-    kissat_custom_message(solver,V3_VVERB_SWEEP, "SWEEP STEAL I can provide at most %i \n", half);
-  }
-  assert(half>0 || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEPER ERROR in [%i](%i): can provide half=%i work\n", sweeper->rank, sweeper->localId, half));
   if (!sweeper->allow_stealing) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL Guard: I am already shutting down, not allowing stealing anymore");
+    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL Guard: I am already exiting from solving, not allowing stealing anymore");
     return 0;
+  }
+  assert( (half>=0 && half<=solver->vars) || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
+  if (half != 0) {
+    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL I can provide at most %i \n", half);
   }
   return half;
 }
