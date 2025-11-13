@@ -71,6 +71,7 @@ const int V1_INFO_SWEEP = 1;
 const int V2_VERB_SWEEP = 2;
 const int V3_VVERB_SWEEP = 3;
 const int V4_UVERB_SWEEP = 4;
+const int V5_XVERB_SWEEP = 5;
 
 struct sweeper {
   kissat *solver;
@@ -107,6 +108,8 @@ struct sweeper {
   // unsigned orig_active;
 
   bool singlethread_debugging_provided_work; //for single-threaded debugging runs only
+  int rank;
+  int localId;
 };
 
 typedef struct sweeper sweeper;
@@ -255,6 +258,9 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->worksweeps=0;
     sweeper->resweeps=0;
     sweeper->allow_stealing=true;
+
+    sweeper->rank = GET_OPTION (mallob_rank);
+    sweeper->localId = GET_OPTION (mallob_local_id);
 
     // sweeper->orig_active=0;
     sweeper->singlethread_debugging_provided_work=false;
@@ -711,7 +717,7 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
 
     if (!new_size) {
       LOG ("sweeping produced empty clause");
-      kissat_custom_message (solver,V1_INFO_SWEEP, "SWEEPER found UNSATISFIABLE solution! while reading kitten core found empty clause");
+      kissat_custom_message (solver,V1_INFO_SWEEP, "SWEEPER found result UNSATISFIABLE ! found empty clause in kitten core");
       CHECK_AND_ADD_EMPTY ();
       ADD_EMPTY_TO_PROOF ();
       solver->inconsistent = true;
@@ -2670,7 +2676,7 @@ int shweep_get_max_steal_amount(kissat *solver) {
   if (half != 0) {
     kissat_custom_message(solver,V3_VVERB_SWEEP, "SWEEP STEAL I can provide at most %i \n", half);
   }
-  assert(half>0);
+  assert(half>0 || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEPER ERROR in [%i](%i): can provide half=%i work\n", sweeper->rank, sweeper->localId, half));
   if (!sweeper->allow_stealing) {
     kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL Guard: I am already shutting down, not allowing stealing anymore");
     return 0;
@@ -2713,7 +2719,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
   kissat_custom_message(solver,V2_VERB_SWEEP, "# >> Providing %i (left %i)", stolen_count, locally_left);
   // kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   if (stolen_count > max_steal_count) {
-    kissat_custom_message (solver, V1_INFO_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
+    kissat_custom_message (solver, V0_CRIT_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
     assert(kissat_custom_assert_message (solver, V1_INFO_SWEEP, "stolen count > max_steal_count"));
   }
   sweeper->max_work_after_steal = locally_left;
@@ -2962,7 +2968,7 @@ void shweep_print_all_reprs(sweeper *sweeper) {
 void shweep_print_all_variable_status(kissat *solver) {
   if (is_nonzero (solver))
     return;
-  if (GET_OPTION(mallob_custom_sweep_verbosity) < V3_VVERB_SWEEP)
+  if (GET_OPTION(mallob_custom_sweep_verbosity) < V5_XVERB_SWEEP)
     return;
   int active = 0;
   int elimininated = 0;
@@ -2978,7 +2984,7 @@ void shweep_print_all_variable_status(kissat *solver) {
 }
 
 void shweep_print_all_clauses(kissat *solver) {
-  if (GET_OPTION (mallob_custom_sweep_verbosity)<V3_VVERB_SWEEP)
+  if (GET_OPTION (mallob_custom_sweep_verbosity)<V5_XVERB_SWEEP)
     return;
   if (is_nonroot_nonzero (solver))
     return;
@@ -3025,7 +3031,7 @@ void shweep_print_all_clauses(kissat *solver) {
 
 bool kissat_sweep (kissat *solver) {
   if (GET_OPTION (mallob_is_shweeper)) {
-    assert(kissat_custom_assert_message (solver, V1_INFO_SWEEP, "error: Shweeper accidentally got into original sweeping code"));
+    assert(kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "error: Shweeper accidentally got into original sweeping code"));
     return false;
   }
   if (!GET_OPTION (sweep))
@@ -3171,7 +3177,7 @@ int kissat_mallob_shweep(kissat *solver) {
   if (TERMINATED (sweep_terminated_7))
     return false;
   if (DELAYING (sweep)) {
-    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER WARN/ERROR: Exiting because DELAYING(sweep)");
+    kissat_custom_message(solver,V0_CRIT_SWEEP, "SWEEPER WARN/ERROR: Exiting because DELAYING(sweep)");
     return false;
   }
   assert (!solver->level);
@@ -3200,7 +3206,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSATISFIABLE solution!\n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found result UNSATISFIABLE !\n");
       break;
     }
     if (TERMINATED (sweep_terminated_8)) {
@@ -3287,7 +3293,7 @@ int kissat_mallob_shweep(kissat *solver) {
 
   STOP (sweep);
   if (solver->inconsistent)
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER found UNSATISFIABLE solution!");
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER found result UNSATISFIABLE !");
 
 
   // unsigned active_before = solver->active;
