@@ -234,5 +234,6 @@ int kissat_search (kissat *solver) {
     stop_search (solver);
   }
   report_search_result (solver, res);
+  kissat_custom_message (solver, 1, "kissat exit");
   return res;
 }
