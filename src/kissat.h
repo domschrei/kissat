@@ -64,9 +64,13 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
 //Doing Shweep
 void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state));
 void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence, int *eq_count));
+void shweep_set_SweepJob_eq_import_callback(kissat *solver, void *SweepJobState, void (*import_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId));
+
 
 void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit));
 void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count));
+void shweep_set_SweepJob_unit_import_callback(kissat *solver, void *SweepJobState, void (*import_unit_callback) (void *SweepJobState, int *lit, int localId));
+
 
 void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
 

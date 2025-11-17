@@ -266,10 +266,13 @@ struct kissat {
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state);
   void (*shweep_import_eq_callback) (void *state, int **equivalences, int *eqs_size);
+  void (*shweep_import_SweepJob_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId); //Import directly from SweepJob and bypass Kissat
+
   unsigned long num_conflicts_at_last_equivalence_import;
 
   void (*shweep_export_unit_callback) (void *state, int lit);
   void (*shweep_import_units_callback) (void *state, int **units, int *unit_count);
+  void (*shweep_import_SweepJob_unit_callback) (void *SweepJobState, int *lit, int localId); //Import directly from SweepJob and bypass Kissat
 
   void *shweep_mallob_KissatState;
   void *shweep_mallob_SweepJobState;
@@ -278,23 +281,23 @@ struct kissat {
   unsigned long shweep_initial_units;
   unsigned long shweep_orig_active;
   //Equivalences
-  unsigned long shweep_useful_imported_eq;
+  unsigned long shweep_eqs_seen;
+  unsigned long shweep_eqs_useful;
+  unsigned long shweep_eqs_skipped_known;
+  unsigned long shweep_eqs_transitive;
+  unsigned long shweep_eqs_unitprop;
   unsigned long shweep_skipped_imported_eq;
-  unsigned long shweep_invalid_imported_eq;
-  unsigned long shweep_unitprop_imported_eq;
-  unsigned long shweep_doublefixed_imported_eq;
-  unsigned long shweep_eliminated_imported_eq;
-  unsigned long shweep_tautological_imported_eq;
-  unsigned long shweep_transitive_imported_eq;
-  unsigned long shweep_total_seen_eq;
+  // unsigned long shweep_invalid_imported_eq;
+  unsigned long shweep_eqs_skipped_doublefixed;
+  // unsigned long shweep_eliminated_imported_eq;
   //Units
-  unsigned long shweep_useful_imported_units;
-  unsigned long shweep_invalid_imported_units;
-  unsigned long shweep_fixed_imported_units;
-  unsigned long shweep_eliminated_imported_units;
-  unsigned long shweep_transitive_imported_units;
-  unsigned long shweep_total_seen_units;
-  unsigned long shweep_skipped_bc_done;
+  unsigned long shweep_units_seen;
+  unsigned long shweep_units_useful;
+  // unsigned long shweep_invalid_imported_units;
+  unsigned long shweep_units_skipped_fixed;
+  // unsigned long shweep_units_skipped_eliminated;
+  unsigned long shweep_units_transitive;
+  // unsigned long shweep_skipped_bc_done;
 
 
   // Initial variable phases
