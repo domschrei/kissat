@@ -70,7 +70,7 @@ kissat *kissat_init (void) {
 
   //Sweep Equivalence Import
   solver->shweep_import_eq_callback = 0;
-  solver->num_conflicts_at_last_equivalence_import = 0;
+  // solver->num_conflicts_at_last_equivalence_import = 0;
 
   //Sweep Unit export
   solver->shweep_export_unit_callback = 0;

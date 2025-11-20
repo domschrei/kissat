@@ -103,8 +103,6 @@ struct sweeper {
   //some statistics
   unsigned skipped_bc_done;
   unsigned stumbled_units;
-  unsigned worksweeps; //sweep on next work variable
-  unsigned resweeps;   //sweep on just found equivalence
   // unsigned orig_active;
 
   bool singlethread_debugging_provided_work; //for single-threaded debugging runs only
@@ -255,8 +253,6 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->work_end=0;
     sweeper->skipped_bc_done=0;
     sweeper->stumbled_units=0;
-    sweeper->worksweeps=0;
-    sweeper->resweeps=0;
     sweeper->allow_stealing=true;
 
     sweeper->rank = GET_OPTION (mallob_rank);
@@ -2857,12 +2853,12 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming steal begins, could give up to %i", max_steal_count);
   int stolen_count=0;
   int locally_left = 0;
-  bool steal_flipflop=false;
+  bool steal_flipflop=false; //steal every second var
   unsigned *work = sweeper->work;
   const int work_end = sweeper->work_end;
   for (int i = sweeper->work_head; i < work_end; i++) {
     unsigned idx = work[i];
-    if (idx==INVALID_IDX) //the variable that had been written at this spot has already been stolen or deactivated
+    if (idx==INVALID_IDX) //the variable written at this spot had already been stolen or deactivated
       continue;
     if (!shweep_var_still_open(sweeper, idx)) { //this variable is no longer relevant for sweeping
       work[i] = INVALID_IDX;  //deactivate it, such that we don't have to check it again
@@ -2873,6 +2869,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
       stolen_work[stolen_count]=idx; //steal
       stolen_count++;
       work[i] = INVALID_IDX; //deactivate in original array
+      FLAGS(idx)->sweep=false; //mark that this variable is no longer in our work set, i.e. no longer to-sweep. Relevant because we might stumble upon it as a resweep-candidate
     } else {
       locally_left++;
     }
@@ -2942,7 +2939,7 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
   if (!ACTIVE (idx))
     return false;
-  // if (!FLAGS(idx)->sweep) //the sweep flag is our own indicator whether we WANT to sweep, but these other checks are hard necessary requierements
+  // if (!FLAGS(idx)->sweep) //the sweep flag is our own indicator whether we WANT to sweep, but these other checks are hard necessary requirements
     // return false;
   const unsigned lit = LIT (idx);
   if (sweeper->reprs[lit] != lit)
@@ -2978,16 +2975,23 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
 
   kissat_custom_message(solver,V3_VVERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
 
-  FLAGS (idx)->sweep = false; //remember that we swept this variable now. //still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
 
-  if (isWorkVar)
-    sweeper->worksweeps++;
-  else
-    sweeper->resweeps++;
+  //Variabls can be either swept because it is their turn in the work schedule (worksweep) or because they were part of a recent found equivalence and we want to make further progress around them(resweep)
+  //When resweeping, we can further differentiate whether the new variable happens to also be in our work schedule anyways (resweeps_in)
+  //or whether it brought us out of our assigned work and we are now sweeping a variable that also other solvers might sweep, potentially causing redundant work (resweeps_out)
+  if (isWorkVar) {
+    assert(FLAGS (idx)->sweep || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEPER ERROR: scheduled work-var whose but its flag is already sweep==false \n"));
+    solver->shweep_worksweeps++;
+  } else {
+    if (FLAGS (idx)->sweep)
+      solver->shweep_resweeps_in++;
+    else
+      solver->shweep_resweeps_out++;
+  }
+
+  FLAGS (idx)->sweep = false; //remember that we swept this variable now. still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
 
   sweep_variable(sweeper, idx);
-
-  // sweeper->just_imported_eqs=false;
 
   //Re-sweep all equivalences that have been found in the last sweep
   //This can become recursive, where we eagerly always re-sweep first on the last found equivalence
@@ -3030,7 +3034,7 @@ unsigned shweep_get_num_vars(kissat *solver) {
   return solver->vars;
 }
 
-void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active) {
+void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out) {
   *eqs = solver->statistics.sweep_equivalences;
   *sweep_units = solver->statistics.sweep_units;
   *total_units = SIZE_STACK(solver->units);
@@ -3038,6 +3042,9 @@ void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new
   *eliminated = SIZE_STACK(solver->eliminated);
   *orig_active = solver->shweep_orig_active;
   *end_active = solver->active;
+  *worksweeps = solver->shweep_worksweeps;
+  *resweeps_in = solver->shweep_resweeps_in;
+  *resweeps_out = solver->shweep_resweeps_out;
   assert(solver->statistics.units == SIZE_STACK(solver->units));
 }
 
@@ -3060,14 +3067,9 @@ void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Unitprop   %i", solver->shweep_eqs_unitprop);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Doublefixd %i", solver->shweep_eqs_skipped_doublefixed);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Known      %i", solver->shweep_eqs_skipped_known);
-  // kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Eliminated %i", solver->shweep_eliminated_imported_eq);
-  // kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Invalid    %i", solver->shweep_invalid_imported_eq);
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
-  // kissat_custom_message(solver, V1_INFO_SWEEP, "Final stats: Units:");
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Useful     %i / %i", solver->shweep_units_useful, solver->shweep_units_seen);
-  // kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Invalid    %i", solver->shweep_invalid_imported_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Fixed      %i", solver->shweep_units_skipped_fixed);
-  // kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Eliminated %i", solver->shweep_units_skipped_eliminated);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Transitive %i", solver->shweep_units_transitive);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Stumbled   %i", solver->sweeper->stumbled_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
@@ -3076,18 +3078,8 @@ void shweep_print_import_statistics(kissat *solver) {
 void shweep_print_var_stats(kissat *solver, int verb) {
   if (is_nonzero (solver))
     return;
-
   kissat_custom_message(solver, verb, "SWEEPER VARS total %i, active %i, units %i, eliminated %i , CLAUSES irr+binary %i", solver->vars,
     solver->active, SIZE_STACK(solver->units), SIZE_STACK(solver->eliminated),solver->statistics.clauses_irredundant + solver->statistics.clauses_binary);
-  // kissat_custom_message(solver, verb, "SWEEPER RESULT VARS units  %i ", );
-  // kissat_custom_message(solver, verb, "SWEEPER RESULT VARS eliminated %i ", SIZE_STACK(solver->eliminated));
-  // kissat_custom_message(solver, verb, "## -- ");
-  // kissat_custom_message(solver, verb+1, "## -- clauses irredundant %i ", solver->statistics.clauses_irredundant);
-  // kissat_custom_message(solver, verb+1, "## -- clauses binary      %i ", solver->statistics.clauses_binary);
-  // kissat_custom_message(solver, verb+1, "## -- clauses irr+binary  %i ", solver->statistics.clauses_irredundant + solver->statistics.clauses_binary);
-  // kissat_custom_message(solver, verb+1, "## -- clauses added       %i ", solver->statistics.clauses_added);
-  // kissat_custom_message(solver, verb+1, "## -- clauses learned     %i ", solver->statistics.clauses_learned);
-
 }
 
 
@@ -3147,7 +3139,6 @@ void shweep_print_all_variable_status(kissat *solver) {
     if (f->fixed) fixed++;
     kissat_custom_message(solver, V4_UVERB_SWEEP, "STATUS idx(%i): act,elim,fixed: %i %i %i", idx, f->active, f->eliminated, f->fixed);
   }
-  // kissat_custom_message(solver, V1_INFO_SWEEP, "SWEEPER ALL VAR STATS: active %i, eliminated %i, fixed %i", active, elimininated, fixed);
 }
 
 void shweep_print_all_clauses(kissat *solver) {
@@ -3241,11 +3232,7 @@ bool kissat_sweep (kissat *solver) {
      */
   for (;;) {
     if (solver->inconsistent) {
-      // kissat_custom_message(solver,V1_INFO_SWEEP, "--during sweep-loop: Inconsistent 1\n");
-      // kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_external %i", solver->shweep_invalid_imported_eq);
-      // kissat_custom_message(solver,V1_INFO_SWEEP, "invalid_internal %i", solver->shweep_invalid_imported_eq);
-      // kissat_custom_message(solver,V1_INFO_SWEEP, "unitprop         %i", solver->shweep_unitprop_imported_eq);
-      // kissat_custom_message(solver,V1_INFO_SWEEP, "eliminated       %i", solver->shweep_eliminated_imported_eq);
+      //means we found UNSAT
       break;
     }
     if (TERMINATED (sweep_terminated_8))
@@ -3344,32 +3331,24 @@ int kissat_mallob_shweep(kissat *solver) {
   if (TERMINATED (sweep_terminated_7))
     return false;
   if (DELAYING (sweep)) {
-    kissat_custom_message(solver,V0_CRIT_SWEEP, "SWEEPER WARN/ERROR: Exiting because DELAYING(sweep)");
+    kissat_custom_message(solver,V0_CRIT_SWEEP, "SWEEPER Warn: Exiting because DELAYING(sweep)");
     return false;
   }
   assert (!solver->level);
   assert (!solver->unflushed);
   assert( !solver->probing);
 
-  // solver->probing=true; //is also set to true for normal probing, of which sweep is part of, so probably good to have this here
-  //not needed here yet, only when we do probing later at the end
   START (sweep);
   INC (sweep);
   statistics *statistics = &solver->statistics;
   uint64_t equivalences = statistics->sweep_equivalences;
   uint64_t units = statistics->sweep_units;
   sweeper sweeper;
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER INIT ");
   init_sweeper (solver, &sweeper);
 
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "--unassigned=%d--", solver->unassigned);
   shweep_print_var_stats (solver, V1_INFO_SWEEP);
   shweep_print_all_variable_status(solver);
   shweep_print_all_clauses (solver);
-  // kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER START");
-  // shweep_import_equivalences(&sweeper);
-  // shweep_search_work_from_others(&sweeper);
 
   for (;;) {
     if (solver->inconsistent) {
@@ -3398,7 +3377,7 @@ int kissat_mallob_shweep(kissat *solver) {
         //Termination. The steal came back with length 0, which is the signal from Mallob that the Sweep Job is terminated.
         break;
       }
-      //steal was successfull, continue sweeping on the new work
+      //steal was successful, continue sweeping on the new work
       continue;
     }
 
@@ -3407,12 +3386,6 @@ int kissat_mallob_shweep(kissat *solver) {
   }
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER END LOOP");
   sweeper.allow_stealing=false; //if we landed here due to external termination or some error in the loop, and still have work>0, this flag prevents that other solvers try to steal from us while we (and our datastructures) are shutting down
-  // if (sweeper.work_head != sweeper.work_end)
-    // kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER WARN/ERROR/Error: Solver finished loop with %i work left\n", sweeper.work_end - sweeper.work_head);
-
-
-  // int useful_units = solver->shweep_useful_imported_units;
-  // int useful_eqs   = solver->shweep_useful_imported_eq;
 
   //Get the units and equivalences that came with the very last sharing event! the one that also brought the termination signal - this is still valuable information that we dont want to throw away
   // shweep_import_units(&sweeper);
@@ -3420,12 +3393,6 @@ int kissat_mallob_shweep(kissat *solver) {
   shweep_import_SweepJob_units (&sweeper);
   shweep_import_SweepJob_equivalences (&sweeper);
 
-  // kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER last termination sharing round: Equivalences %i, sweep_units %i",
-    // solver->shweep_useful_imported_eq - useful_eqs, solver->shweep_useful_imported_units - useful_units);
-
-  /*
-    * Finished sweeping. Some cleanup and statistics.
-    */
   shweep_print_import_statistics(solver);
   shweep_print_var_stats (solver, V3_VVERB_SWEEP);
 
@@ -3437,15 +3404,15 @@ int kissat_mallob_shweep(kissat *solver) {
 
   if (!is_nonzero (solver)) {
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units", equivalences, units);
-    int total_sweeps = sweeper.worksweeps + sweeper.resweeps;
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i total sweeps, %i worksweeps (%.2f %), %i resweeps (%.2f %)",
-      total_sweeps, sweeper.worksweeps, 100*sweeper.worksweeps /(float)total_sweeps, sweeper.resweeps, 100*sweeper.resweeps/(float)total_sweeps );
+    int total_sweeps = solver->shweep_worksweeps + solver->shweep_resweeps_in + solver->shweep_resweeps_out;
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i total sweeps, %i worksweeps (%.2f %), %i resweeps_in (%.2f %), %i resweeps_out (%.2f %)",
+      total_sweeps, solver->shweep_worksweeps, 100*solver->shweep_worksweeps /(float)total_sweeps,
+      solver->shweep_resweeps_in, 100*solver->shweep_resweeps_in/(float)total_sweeps,
+      solver->shweep_resweeps_out, 100*solver->shweep_resweeps_out/(float)total_sweeps
+      );
   }
 
-  // shweep_print_all_reprs(&sweeper);
-
   unsigned inactive = release_sweeper (&sweeper);
-
 
   START (probe);
   assert (!solver->probing);
@@ -3464,11 +3431,9 @@ int kissat_mallob_shweep(kissat *solver) {
   if (solver->inconsistent)
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER found result UNSATISFIABLE !");
 
-
-  // unsigned active_before = solver->active;
   //Equivalent Literal Subsitution.
   //Applies the equivalences we found to actually reduce the database.
-  //Is Scheduled always directly after sweeping also in normal kissat.
+  //Is scheduled always directly after sweeping also in the normal kissat run
   if (GET_OPTION (substitute) && !solver->inconsistent) {
     if (solver->termination.flagged) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER skipping substitute, not necessary due to external termination");
@@ -3480,17 +3445,14 @@ int kissat_mallob_shweep(kissat *solver) {
 
   solver->probing = false;
 
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "--active=%d--", solver->active);
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "--Substitute: %d --> %d active variables--", active_before, solver->active);
-
-  // shweep_print_all_variable_status(solver);
   shweep_print_var_stats (solver, V1_INFO_SWEEP);
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER EXIT");
+
   //Shared Sweeping is finished.
-  //We send the termination signal now, since this was the only job of this solver
-  //Actually, before the check for termination the function "kissat_report_dimacs(...)" is still called,
-  //so eventhough this solver is already set to terminate, the final formula reporting still takes place
+  //We trigger the termination signal now, since this was the only purpose of this solver
+  //Actually, before the check for termination the function "kissat_report_dimacs(...)" is still called to report the final formula to Mallob
   kissat_terminate(solver); //
-  return (solver->inconsistent ? 20 : 0); //will jump in search.c cascade to kissat_report_dimacs(...)
+  return (solver->inconsistent ? 20 : 0);
+  //will now directly continue into kissat_report_dimacs
 }

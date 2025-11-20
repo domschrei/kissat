@@ -258,6 +258,7 @@ struct kissat {
   unsigned long num_conflicts_at_last_import;
 
 
+  //--------------------------------------------------------------------------------
   //Shared Mallob Sweeping
   sweeper *sweeper;
   bool shweeper_initialized;
@@ -268,7 +269,7 @@ struct kissat {
   void (*shweep_import_eq_callback) (void *state, int **equivalences, int *eqs_size);
   void (*shweep_import_SweepJob_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId); //Import directly from SweepJob and bypass Kissat
 
-  unsigned long num_conflicts_at_last_equivalence_import;
+  // unsigned long num_conflicts_at_last_equivalence_import;
 
   void (*shweep_export_unit_callback) (void *state, int lit);
   void (*shweep_import_units_callback) (void *state, int **units, int *unit_count);
@@ -278,8 +279,8 @@ struct kissat {
   void *shweep_mallob_SweepJobState;
   void (*shweep_search_work_callback) (void *state, unsigned **work, int *work_size, int local_id);
 
-  unsigned long shweep_initial_units;
-  unsigned long shweep_orig_active;
+  unsigned shweep_initial_units;
+  unsigned shweep_orig_active;
   //Equivalences
   unsigned long shweep_eqs_seen;
   unsigned long shweep_eqs_useful;
@@ -297,7 +298,12 @@ struct kissat {
   unsigned long shweep_units_skipped_fixed;
   // unsigned long shweep_units_skipped_eliminated;
   unsigned long shweep_units_transitive;
+
+  unsigned long shweep_worksweeps; //sweep on next work variable
+  unsigned long shweep_resweeps_in; //resweep on variable that was in work anyways
+  unsigned long shweep_resweeps_out; //resweep on variable outside of assigned work
   // unsigned long shweep_skipped_bc_done;
+  //--------------------------------------------------------------------------------
 
 
   // Initial variable phases
