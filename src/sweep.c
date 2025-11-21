@@ -2534,7 +2534,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   unsigned long seen = solver->shweep_units_seen;
   unsigned long useful = solver->shweep_units_useful;
 
-  unsigned ilit = INVALID_LIT;
+  int ilit = INVALID_LIT;
   solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &ilit, sweeper->localId); //the semantic format is always unsigned, but the function signature is int to keep it simple for the outside
   while (ilit != INVALID_LIT) {
     shweep_import_single_unit (sweeper, ilit);
@@ -2634,7 +2634,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
       stolen_work[stolen_count]=idx; //steal
       stolen_count++;
       work[i] = INVALID_IDX; //deactivate in original array
-      FLAGS(idx)->sweep=false; //mark that this variable is no longer in our work set, i.e. no longer to-sweep. Relevant because we might stumble upon it as a resweep-candidate
+      // FLAGS(idx)->sweep=false; //mark that this variable is no longer in our work set, i.e. no longer to-sweep. Relevant because we might stumble upon it as a resweep-candidate
     } else {
       locally_left++;
     }
