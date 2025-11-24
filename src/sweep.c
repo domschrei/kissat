@@ -545,7 +545,9 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
   if (SIZE_STACK(sweeper->clause)==1) {
     assert(GET_OPTION(mallob_is_shweeper)); //make sure that sequential kissat still asserts a size==1 clause here
 
-    kissat_custom_message (solver, V1_INFO_SWEEP, "WARN: Sweeper detected a clause size 1, clause ref %i ", ref);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "WARN: Sweeper detected a clause size 1, clause ref %i. "
+                                                  "We just declare this a unit and carry on, but note that units do not occur in this spot in original sweeping. "
+                                                  "Maybe due to importing it can happen here now", ref);
     unsigned detected_unit = 0;
     for (all_literals_in_clause (lit, c)) {
       const value value = values[lit];
@@ -2534,13 +2536,14 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   unsigned long seen = solver->shweep_units_seen;
   unsigned long useful = solver->shweep_units_useful;
 
-  int ilit = INVALID_LIT;
-  solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &ilit, sweeper->localId); //the semantic format is always unsigned, but the function signature is int to keep it simple for the outside
-  while (ilit != INVALID_LIT) {
+  for (;;) {
+    int ilit = INVALID_LIT;
+    solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &ilit, sweeper->localId); //the semantic format is always unsigned, but the function signature is int to keep it simple for the outside
+    if (ilit==INVALID_LIT)
+      break;
+    // while (ilit != INVALID_LIT) {
     shweep_import_single_unit (sweeper, ilit);
-    solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &ilit, sweeper->localId);
   }
-
 
   unsigned long new_seen = solver->shweep_units_seen - seen;
   unsigned long new_useful = solver->shweep_units_useful - useful;
@@ -2561,13 +2564,15 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   //so we  skip the work of transforming every literal between internal and external representation during exports and imports
   //However, to keep this more transparent to the Mallob side and not mix unsigned and int too much in external signatures, we still pass the internal literals as int's instead of unsigned's
 
-  int ilit1 = 0;
-  int ilit2 = 0;
-  solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &ilit1, &ilit2, sweeper->localId);
-
-  while (ilit1 != 0 && ilit2 != 0) {
-    shweep_import_single_equivalence (sweeper, ilit1, ilit2);
+  for (;;) {
+    int ilit1 = INVALID_LIT; //Mallob will leave them untouched if there is no equivalence to provide
+    int ilit2 = INVALID_LIT;
+    // kissat_custom_message(solver, V2_VERB_SWEEP,  "calling eq callback ");
     solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &ilit1, &ilit2, sweeper->localId);
+    // kissat_custom_message(solver, V2_VERB_SWEEP,  "called eq callback and got %i, %i ", ilit1, ilit2);
+    if (ilit1 == INVALID_LIT && ilit2 == INVALID_LIT)
+      break;
+    shweep_import_single_equivalence (sweeper, ilit1, ilit2);
   }
 
   unsigned long new_seen = solver->shweep_eqs_seen - seen;
@@ -2603,7 +2608,7 @@ int shweep_get_max_steal_amount(kissat *solver) {
   }
   assert( (half>=0 && half<=solver->vars) || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
   if (half != 0) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL I can provide at most %i \n", half);
+    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL can provide at most %i \n", half);
   }
   return half;
 }
