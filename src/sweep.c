@@ -261,9 +261,9 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     // sweeper->orig_active=0;
     sweeper->singlethread_debugging_provided_work=false;
     sweeper->max_work_after_steal=0;
-    solver->shweep_initial_units = SIZE_STACK(solver->units);
+    solver->shweep.initial_units = SIZE_STACK(solver->units);
     solver->shweeper_initialized = true; //important to have this flag already on the solver level, where we can reliably access it even when the sweeper doesnt exist yet
-    solver->shweep_orig_active  = solver->active;
+    solver->shweep.orig_active  = solver->active;
 
     //we don't allocate the work[] array, that will be allocated by Mallob/C++ and we only operate on the provided memory range
   }
@@ -2429,7 +2429,7 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
     flags *flags = FLAGS (repr_idx);
 
     if (!flags->active) {
-      solver->shweep_units_skipped_fixed++;
+      solver->shweep.units_skipped_fixed++;
       return;
     }
 
@@ -2440,19 +2440,19 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
       // return;
     // }
     if (ilit != repr_ilit) {
-      solver->shweep_units_transitive++;
+      solver->shweep.units_transitive++;
     }
     kissat_custom_message(solver, V4_UVERB_SWEEP," importing idx(%i),lit(%i) as repr_lit(%i)", IDX(repr_ilit), ilit, repr_ilit);
 
     kissat_assign_unit (solver, repr_ilit, "shweep imported unit");
-    solver->shweep_units_useful++;
+    solver->shweep.units_useful++;
     INC (sweep_units);
 }
 
 
 void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned ilit2) {
   kissat *solver = sweeper->solver;
-  solver->shweep_eqs_seen++;
+  solver->shweep.eqs_seen++;
   unsigned imported_ilits[2] = {ilit1, ilit2};
   unsigned repr_ilits[2];
 
@@ -2481,23 +2481,23 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   unsigned other  = repr_ilits[1];
 
   if (IDX(lit) == IDX(other)) {
-    solver->shweep_eqs_skipped_known++;
+    solver->shweep.eqs_skipped_known++;
     return;
   }
 
   if (already_fixed==2) {
     //We learned about a new equivalence, but both values happen to be already locally fixed independently of each other. So for consistency they better also be set to the same value
     assert(solver->values[repr_ilits[0]] == solver->values[repr_ilits[1]]);
-    solver->shweep_eqs_skipped_doublefixed++;
+    solver->shweep.eqs_skipped_doublefixed++;
     return;
   }
 
 
   if (is_transitive)
-    solver->shweep_eqs_transitive++;
+    solver->shweep.eqs_transitive++;
 
   if (already_fixed==1) //Interesting edge case: One of the two eq variables is already fixed locally, but the other is not, meaning this imported equivalence just became a propagating unit clause
-    solver->shweep_eqs_unitprop++;
+    solver->shweep.eqs_unitprop++;
 
   //todo: if it is a unitprop equivalence, rather import it as a unit at this point?
 
@@ -2524,7 +2524,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     */
   substitute_connected_clauses (sweeper, other, lit);
   substitute_connected_clauses (sweeper, not_other, not_lit);
-  solver->shweep_eqs_useful++;
+  solver->shweep.eqs_useful++;
   INC (sweep_equivalences);
 }
 
@@ -2533,8 +2533,8 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   if (!solver->shweep_import_SweepJob_eq_callback)
     return;
 
-  unsigned long seen = solver->shweep_units_seen;
-  unsigned long useful = solver->shweep_units_useful;
+  unsigned long seen = solver->shweep.units_seen;
+  unsigned long useful = solver->shweep.units_useful;
 
   for (;;) {
     int ilit = INVALID_LIT;
@@ -2545,8 +2545,8 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
     shweep_import_single_unit (sweeper, ilit);
   }
 
-  unsigned long new_seen = solver->shweep_units_seen - seen;
-  unsigned long new_useful = solver->shweep_units_useful - useful;
+  unsigned long new_seen = solver->shweep.units_seen - seen;
+  unsigned long new_useful = solver->shweep.units_useful - useful;
   if (new_seen>0) {
     kissat_custom_message(solver, V2_VERB_SWEEP,  "Imported %i / %i units ", new_useful, new_seen);
   }
@@ -2558,8 +2558,8 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   if (!solver->shweep_import_SweepJob_eq_callback)
     return;
 
-  unsigned long seen = solver->shweep_eqs_seen;
-  unsigned long useful = solver->shweep_eqs_useful;
+  unsigned long seen = solver->shweep.eqs_seen;
+  unsigned long useful = solver->shweep.eqs_useful;
   //Note: We share literals globally already in *internal* representation (i.e. unsigned), since during Sweeping no deletions/additions/renamings of variables happens
   //so we  skip the work of transforming every literal between internal and external representation during exports and imports
   //However, to keep this more transparent to the Mallob side and not mix unsigned and int too much in external signatures, we still pass the internal literals as int's instead of unsigned's
@@ -2575,8 +2575,8 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
     shweep_import_single_equivalence (sweeper, ilit1, ilit2);
   }
 
-  unsigned long new_seen = solver->shweep_eqs_seen - seen;
-  unsigned long new_useful = solver->shweep_eqs_useful - useful;
+  unsigned long new_seen = solver->shweep.eqs_seen - seen;
+  unsigned long new_useful = solver->shweep.eqs_useful - useful;
   if (new_seen > 0) {
     kissat_custom_message(solver, V2_VERB_SWEEP,  "Imported %i / %i eqs ", new_useful, new_seen);
   }
@@ -2751,12 +2751,12 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   //or whether it brought us out of our assigned work and we are now sweeping a variable that also other solvers might sweep, potentially causing redundant work (resweeps_out)
   if (isWorkVar) {
     assert(FLAGS (idx)->sweep || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEPER ERROR: scheduled work-var whose but its flag is already sweep==false \n"));
-    solver->shweep_worksweeps++;
+    solver->shweep.worksweeps++;
   } else {
     if (FLAGS (idx)->sweep)
-      solver->shweep_resweeps_in++;
+      solver->shweep.resweeps_in++;
     else
-      solver->shweep_resweeps_out++;
+      solver->shweep.resweeps_out++;
   }
 
   FLAGS (idx)->sweep = false; //remember that we swept this variable now. still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
@@ -2808,13 +2808,13 @@ void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new
   *eqs = solver->statistics.sweep_equivalences;
   *sweep_units = solver->statistics.sweep_units;
   *total_units = SIZE_STACK(solver->units);
-  *new_units = SIZE_STACK(solver->units) - solver->shweep_initial_units;
+  *new_units = SIZE_STACK(solver->units) - solver->shweep.initial_units;
   *eliminated = SIZE_STACK(solver->eliminated);
-  *orig_active = solver->shweep_orig_active;
+  *orig_active = solver->shweep.orig_active;
   *end_active = solver->active;
-  *worksweeps = solver->shweep_worksweeps;
-  *resweeps_in = solver->shweep_resweeps_in;
-  *resweeps_out = solver->shweep_resweeps_out;
+  *worksweeps = solver->shweep.worksweeps;
+  *resweeps_in = solver->shweep.resweeps_in;
+  *resweeps_out = solver->shweep.resweeps_out;
   assert(solver->statistics.units == SIZE_STACK(solver->units));
 }
 
@@ -2833,14 +2833,14 @@ void shweep_print_import_statistics(kissat *solver) {
     return;
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
   // kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT Final stats: Equivalences:");
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Useful     %i / %i ", solver->shweep_eqs_useful, solver->shweep_eqs_seen);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Unitprop   %i", solver->shweep_eqs_unitprop);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Doublefixd %i", solver->shweep_eqs_skipped_doublefixed);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Known      %i", solver->shweep_eqs_skipped_known);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Useful     %i / %i ", solver->shweep.eqs_useful, solver->shweep.eqs_seen);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Unitprop   %i", solver->shweep.eqs_unitprop);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Doublefixd %i", solver->shweep.eqs_skipped_doublefixed);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Known      %i", solver->shweep.eqs_skipped_known);
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Useful     %i / %i", solver->shweep_units_useful, solver->shweep_units_seen);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Fixed      %i", solver->shweep_units_skipped_fixed);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Transitive %i", solver->shweep_units_transitive);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Useful     %i / %i", solver->shweep.units_useful, solver->shweep.units_seen);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Fixed      %i", solver->shweep.units_skipped_fixed);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Transitive %i", solver->shweep.units_transitive);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Stumbled   %i", solver->sweeper->stumbled_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
 }
@@ -3174,11 +3174,11 @@ int kissat_mallob_shweep(kissat *solver) {
 
   if (!is_nonzero (solver)) {
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units", equivalences, units);
-    int total_sweeps = solver->shweep_worksweeps + solver->shweep_resweeps_in + solver->shweep_resweeps_out;
+    int total_sweeps = solver->shweep.worksweeps + solver->shweep.resweeps_in + solver->shweep.resweeps_out;
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i total sweeps, %i worksweeps (%.2f %), %i resweeps_in (%.2f %), %i resweeps_out (%.2f %)",
-      total_sweeps, solver->shweep_worksweeps, 100*solver->shweep_worksweeps /(float)total_sweeps,
-      solver->shweep_resweeps_in, 100*solver->shweep_resweeps_in/(float)total_sweeps,
-      solver->shweep_resweeps_out, 100*solver->shweep_resweeps_out/(float)total_sweeps
+      total_sweeps, solver->shweep.worksweeps, 100*solver->shweep.worksweeps /(float)total_sweeps,
+      solver->shweep.resweeps_in, 100*solver->shweep.resweeps_in/(float)total_sweeps,
+      solver->shweep.resweeps_out, 100*solver->shweep.resweeps_out/(float)total_sweeps
       );
   }
 

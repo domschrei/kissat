@@ -58,19 +58,15 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
 void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue));
 
 
-//Calling Shweep
-// void shweep_set_start_sweep_app_callback(kissat *solver, void *KissatState, void (*sweep_app_callback) (void *KissatState));
-
-//Doing Shweep
+//--------------------------------------------------------------------------
+// Sub-API for SWEEP App
 void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state));
 void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence, int *eq_count));
 void shweep_set_SweepJob_eq_import_callback(kissat *solver, void *SweepJobState, void (*import_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId));
 
-
 void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit));
 void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count));
 void shweep_set_SweepJob_unit_import_callback(kissat *solver, void *SweepJobState, void (*import_unit_callback) (void *SweepJobState, int *lit, int localId));
-
 
 void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
 
@@ -80,6 +76,15 @@ unsigned shweep_get_num_vars (kissat *solver);
 void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out);
 void shweep_terminate(kissat *solver);
 bool kissat_is_inconsistent (kissat *solver);
+
+struct shweep_statistics {
+  unsigned long initial_units, orig_active;
+  unsigned long eqs_seen, eqs_useful, eqs_skipped_known, eqs_transitive, eqs_unitprop, eqs_skipped_doublefixed;
+  unsigned long units_seen, units_useful, units_skipped_fixed, units_transitive;
+  unsigned long worksweeps, resweeps_in, resweeps_out; //worksweep: sweep a variable because scheduled in work. resweep: sweep a variable because part of recent equivalence
+};
+struct shweep_statistics shweep_get_stats(kissat *solver);
+//--------------------------------------------------------------------------
 // void shweep_terminate(kissat *solver);
 
 

@@ -279,29 +279,31 @@ struct kissat {
   void *shweep_mallob_SweepJobState;
   void (*shweep_search_work_callback) (void *state, unsigned **work, int *work_size, int local_id);
 
-  unsigned shweep_initial_units;
-  unsigned shweep_orig_active;
+  struct shweep_statistics shweep;
+
+  // unsigned long shweep_initial_units;
+  // unsigned long shweep_orig_active;
   //Equivalences
-  unsigned long shweep_eqs_seen;
-  unsigned long shweep_eqs_useful;
-  unsigned long shweep_eqs_skipped_known;
-  unsigned long shweep_eqs_transitive;
-  unsigned long shweep_eqs_unitprop;
-  unsigned long shweep_skipped_imported_eq;
+  // unsigned long shweep_eqs_seen;
+  // unsigned long shweepshweep_eqs_useful;
+  // unsigned long shweepshweep_eqs_skipped_known;
+  // unsigned long shweep_eqs_transitive;
+  // unsigned long shweepshweep_eqs_unitprop;
+  // unsigned long shweep_skipped_imported_eq;
   // unsigned long shweep_invalid_imported_eq;
-  unsigned long shweep_eqs_skipped_doublefixed;
+  // unsigned long shweepshweep_eqs_skipped_doublefixed;
   // unsigned long shweep_eliminated_imported_eq;
   //Units
-  unsigned long shweep_units_seen;
-  unsigned long shweep_units_useful;
+  // unsigned long shweepshweep_units_seen;
+  // unsigned long shweepshweep_units_useful;
   // unsigned long shweep_invalid_imported_units;
-  unsigned long shweep_units_skipped_fixed;
+  // unsigned long shweepshweep_units_skipped_fixed;
   // unsigned long shweep_units_skipped_eliminated;
-  unsigned long shweep_units_transitive;
+  // unsigned long shweep_units_transitive;
 
-  unsigned long shweep_worksweeps; //sweep on next work variable
-  unsigned long shweep_resweeps_in; //resweep on variable that was in work anyways
-  unsigned long shweep_resweeps_out; //resweep on variable outside of assigned work
+  // unsigned long shweep_worksweeps; //sweep on next work variable
+  // unsigned long shweep_resweeps_in; //resweep on variable that was in work anyways
+  // unsigned long shweep_resweeps_out; //resweep on variable outside of assigned work
   // unsigned long shweep_skipped_bc_done;
   //--------------------------------------------------------------------------------
 
