@@ -2639,7 +2639,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     steal_flipflop = !steal_flipflop;
   }
   // kissat_custom_message(solver,V2_VERB_SWEEP, "#");
-  kissat_custom_message(solver,V2_VERB_SWEEP, "# >> Providing %i (left %i)", stolen_count, locally_left);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "# gave %i (left %i)", stolen_count, locally_left);
   // kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   if (stolen_count > max_steal_count) {
     kissat_custom_message (solver, V0_CRIT_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
@@ -2669,7 +2669,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   if (solver->shweep_search_work_callback) {
     solver->shweep_search_work_callback(solver->shweep_mallob_SweepJobState, &sweeper->work, &stolen_amount, sweeper->localId);
   } else if (!sweeper->singlethread_debugging_provided_work){
-    //for debugging: running a single instance of kissat without Mallob/MPI overhead. Create work on my own.
+    //only for singlethreaded debugging: running a single instance of kissat without Mallob/MPI overhead, thus there is no mallob to provide work, so we need to provide it ourselves.
     //Obviously, must deallocate this array here in the single threaded case, which is allocated by C++ in the full distributed run
     NALLOC (sweeper->work, VARS);
     for (unsigned idx = 0; idx < VARS; idx++) {
@@ -2680,9 +2680,9 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   }
 
   if (stolen_amount>0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "* << Got %i", stolen_amount);
+    kissat_custom_message (solver, V2_VERB_SWEEP, "got %i", stolen_amount);
   if (stolen_amount==0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "* Sweep: no more work available == termination signal");
+    kissat_custom_message (solver, V2_VERB_SWEEP, "Got termination signal via 0 work info");
 
   const unsigned *work = sweeper->work;
   flags *flags = solver->flags;
