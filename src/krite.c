@@ -92,6 +92,11 @@ void kissat_report_dimacs (kissat *solver) {
     return;
   }
   unsigned num_units = gather_units(solver, false);
+
+  if (num_units != SIZE_STACK(solver->units)) {
+    kissat_custom_message (solver, 1, "Warn SWEEPER num_units %i different to stack->units %i ", num_units, SIZE_STACK(solver->units));
+  }
+
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) {
     kissat_custom_message (solver, 1, "SWEEPER does not report dimacs, because told by calldback");

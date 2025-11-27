@@ -2822,8 +2822,6 @@ struct shweep_statistics shweep_get_statistics (kissat * solver) {
   solver->shweep.units_new = SIZE_STACK(solver->units) - solver->shweep.units_orig;
   solver->shweep.eliminated = SIZE_STACK(solver->eliminated);
 
-  solver->shweep.vars_end = SIZE_STACK(solver->import);
-  solver->shweep.clauses_end = BINIRR_CLAUSES + SIZE_STACK(solver->units);
   // solver->shweep.vars_active_orig = solver->shweep.vars_active_orig;
   return solver->shweep;
 }
@@ -3226,6 +3224,10 @@ int kissat_mallob_shweep(kissat *solver) {
   solver->probing = false;
 
   shweep_print_var_stats (solver, V1_INFO_SWEEP);
+
+  //now that we have actually incorporated all the equivalences into the clause database (via substitute) can count the true number of remaining clauses
+  solver->shweep.vars_end = SIZE_STACK(solver->import);
+  solver->shweep.clauses_end = BINIRR_CLAUSES + SIZE_STACK(solver->units);
 
   kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER EXIT");
 
