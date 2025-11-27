@@ -1886,8 +1886,7 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   } else {
     //if we resweep EVERY found equivalence in a distributed setting, we might resweep the same ones very often.
     //so given that multiple solvers will probably find the same equivalence, have only some of them continue resweeping on it, that should suffice
-    generator random = solver->random;
-    unsigned rnd_per_mille = kissat_pick_random(&random, 0,1000); //in range [0..999]
+    int rnd_per_mille = kissat_pick_random(&solver->random, 0,1000); //in range [0..999]
     if (rnd_per_mille < GET_OPTION (mallob_resweep_chance)) { //default chance is 1000, i.e. always resweeping
       PUSH_STACK(sweeper->RESWEEP, repr_idx);
     }
@@ -2531,7 +2530,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   unsigned long useful = solver->shweep.units_useful;
 
   for (;;) {
-    int ilit = INVALID_LIT;
+    unsigned ilit = INVALID_LIT;
     solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &ilit, sweeper->localId); //the semantic format is always unsigned, but the function signature is int to keep it simple for the outside
     if (ilit==INVALID_LIT)
       break;
@@ -2559,8 +2558,8 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   //However, to keep this more transparent to the Mallob side and not mix unsigned and int too much in external signatures, we still pass the internal literals as int's instead of unsigned's
 
   for (;;) {
-    int ilit1 = INVALID_LIT; //Mallob will leave them untouched if there is no equivalence to provide
-    int ilit2 = INVALID_LIT;
+    unsigned ilit1 = INVALID_LIT; //Mallob will leave them untouched if there is no equivalence to provide
+    unsigned ilit2 = INVALID_LIT;
     // kissat_custom_message(solver, V2_VERB_SWEEP,  "calling eq callback ");
     solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &ilit1, &ilit2, sweeper->localId);
     // kissat_custom_message(solver, V2_VERB_SWEEP,  "called eq callback and got %i, %i ", ilit1, ilit2);
