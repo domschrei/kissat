@@ -73,17 +73,21 @@ void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (
 int shweep_get_max_steal_amount(kissat *solver);
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count);
 unsigned shweep_get_num_vars (kissat *solver);
-void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out);
+// void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out);
 void shweep_terminate(kissat *solver);
 bool kissat_is_inconsistent (kissat *solver);
 
 struct shweep_statistics {
-  unsigned long initial_units, orig_active;
+  //incremental counters
   unsigned long eqs_seen, eqs_useful, eqs_skipped_known, eqs_transitive, eqs_unitprop, eqs_skipped_doublefixed;
   unsigned long units_seen, units_useful, units_skipped_fixed, units_transitive;
   unsigned long worksweeps, resweeps_in, resweeps_out; //worksweep: sweep a variable because scheduled in work. resweep: sweep a variable because part of recent equivalence
+  //global info taken from kissat
+  unsigned long vars_active_orig, vars_formally_orig, units_orig; //active: actual #vars we still have to solve at the start of sweep. #formally: the formal number of variables, some of which might already be fixed
+  unsigned long sweep_eqs, sweep_units, units_new, units_end, eliminated;
+  unsigned long vars_end, clauses_end;
 };
-struct shweep_statistics shweep_get_stats(kissat *solver);
+struct shweep_statistics shweep_get_statistics(kissat *solver);
 //--------------------------------------------------------------------------
 // void shweep_terminate(kissat *solver);
 

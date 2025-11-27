@@ -694,9 +694,6 @@ struct kissat_statistics kissat_get_statistics (kissat * solver)
   return stats_out;
 }
 
-struct shweep_statistics shweep_get_stats (kissat * solver) {
-  return solver->shweep;
-}
 
 bool kissat_importing_redundant_clauses (kissat * solver) 
 {

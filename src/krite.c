@@ -89,8 +89,9 @@ void kissat_report_dimacs (kissat * solver) {
     kissat_custom_message (solver, 1, "SWEEPER will not report dimacs, because is inconsistent");
     return;
   }
-
   unsigned num_units = gather_units(solver, false);
+  solver->shweep.vars_end = imported;
+  solver->shweep.clauses_end = BINIRR_CLAUSES + num_units;
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) {
     kissat_custom_message (solver, 1, "SWEEPER does not report dimacs, because told by calldback");

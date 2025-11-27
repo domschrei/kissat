@@ -258,12 +258,13 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->rank = GET_OPTION (mallob_rank);
     sweeper->localId = GET_OPTION (mallob_local_id);
 
-    // sweeper->orig_active=0;
+    solver->shweeper_initialized = true; //flag that tells us whether the shweeper is initialized and we can access it -- important to have this flag itself already on the solver level, such that the flag is always in a defined state
     sweeper->singlethread_debugging_provided_work=false;
     sweeper->max_work_after_steal=0;
-    solver->shweep.initial_units = SIZE_STACK(solver->units);
-    solver->shweeper_initialized = true; //important to have this flag already on the solver level, where we can reliably access it even when the sweeper doesnt exist yet
-    solver->shweep.orig_active  = solver->active;
+
+    solver->shweep.vars_formally_orig = solver->vars;
+    solver->shweep.units_orig = SIZE_STACK(solver->units);
+    solver->shweep.vars_active_orig  = solver->active;
 
     //we don't allocate the work[] array, that will be allocated by Mallob/C++ and we only operate on the provided memory range
   }
@@ -2422,28 +2423,21 @@ bool shweep_var_still_open(sweeper *sweeper, unsigned idx) {
 void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
     kissat *solver = sweeper->solver;
     const unsigned repr_ilit = sweep_repr (sweeper, ilit);
+    solver->shweep.units_seen++;
     assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: imported invalid unit lit %u", ilit));
     assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: imported invalid repr_unit lit %u from imported lit %u", repr_ilit, ilit ));
 
     const unsigned repr_idx = IDX (repr_ilit);
     flags *flags = FLAGS (repr_idx);
-
     if (!flags->active) {
       solver->shweep.units_skipped_fixed++;
       return;
     }
-
     assert(!flags->eliminated || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: imported eliminated unit %u", ilit));
-    // if (flags->eliminated) {
-      // solver->shweep_units_skipped_eliminated++;
-      // ;
-      // return;
-    // }
     if (ilit != repr_ilit) {
       solver->shweep.units_transitive++;
     }
     kissat_custom_message(solver, V4_UVERB_SWEEP," importing idx(%i),lit(%i) as repr_lit(%i)", IDX(repr_ilit), ilit, repr_ilit);
-
     kissat_assign_unit (solver, repr_ilit, "shweep imported unit");
     solver->shweep.units_useful++;
     INC (sweep_units);
@@ -2639,7 +2633,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
       stolen_work[stolen_count]=idx; //steal
       stolen_count++;
       work[i] = INVALID_IDX; //deactivate in original array
-      // FLAGS(idx)->sweep=false; //mark that this variable is no longer in our work set, i.e. no longer to-sweep. Relevant because we might stumble upon it as a resweep-candidate
+      FLAGS(idx)->sweep=false; //mark that this variable is no longer in our work set, i.e. no longer to-sweep. Relevant because we might stumble upon it as a resweep-candidate
     } else {
       locally_left++;
     }
@@ -2805,12 +2799,13 @@ unsigned shweep_get_num_vars(kissat *solver) {
 }
 
 void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out) {
+
   *eqs = solver->statistics.sweep_equivalences;
   *sweep_units = solver->statistics.sweep_units;
   *total_units = SIZE_STACK(solver->units);
-  *new_units = SIZE_STACK(solver->units) - solver->shweep.initial_units;
+  *new_units = SIZE_STACK(solver->units) - solver->shweep.units_orig;
   *eliminated = SIZE_STACK(solver->eliminated);
-  *orig_active = solver->shweep.orig_active;
+  *orig_active = solver->shweep.vars_active_orig;
   *end_active = solver->active;
   *worksweeps = solver->shweep.worksweeps;
   *resweeps_in = solver->shweep.resweeps_in;
@@ -2819,17 +2814,30 @@ void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new
 }
 
 
+struct shweep_statistics shweep_get_statistics (kissat * solver) {
+  //most of the shweep. statistics were incremental and are thus now at some count according to the program run
+  //here we add now some additional stats from kissat itself
+  solver->shweep.sweep_eqs = solver->statistics.sweep_equivalences;
+  solver->shweep.sweep_units = solver->statistics.sweep_units;
+  solver->shweep.units_end = SIZE_STACK(solver->units);
+  solver->shweep.units_new = SIZE_STACK(solver->units) - solver->shweep.units_orig;
+  solver->shweep.eliminated = SIZE_STACK(solver->eliminated);
+  // solver->shweep.vars_active_orig = solver->shweep.vars_active_orig;
+  return solver->shweep;
+}
+
+
 bool is_nonroot_nonzero(kissat *solver) {
   //Skip if we are sufficiently Only show some full information list/dump for one solver if very verbose
   return (! GET_OPTION (mallob_is_root) || ! GET_OPTION (mallob_local_id)==0);
 }
 
-bool is_nonzero(kissat *solver) {
+bool is_localid_nonzero(kissat *solver) {
   return GET_OPTION (mallob_local_id) != 0;
 }
 
 void shweep_print_import_statistics(kissat *solver) {
-  if (is_nonzero (solver))
+  if (is_localid_nonzero (solver))
     return;
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
   // kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT Final stats: Equivalences:");
@@ -2846,7 +2854,7 @@ void shweep_print_import_statistics(kissat *solver) {
 }
 
 void shweep_print_var_stats(kissat *solver, int verb) {
-  if (is_nonzero (solver))
+  if (is_localid_nonzero (solver))
     return;
   kissat_custom_message(solver, verb, "SWEEPER VARS total %i, active %i, units %i, eliminated %i , CLAUSES irr+binary %i", solver->vars,
     solver->active, SIZE_STACK(solver->units), SIZE_STACK(solver->eliminated),solver->statistics.clauses_irredundant + solver->statistics.clauses_binary);
@@ -2895,7 +2903,7 @@ void shweep_print_all_reprs(sweeper *sweeper) {
 
 
 void shweep_print_all_variable_status(kissat *solver) {
-  if (is_nonzero (solver))
+  if (is_localid_nonzero (solver))
     return;
   if (GET_OPTION(mallob_custom_sweep_verbosity) < V5_XVERB_SWEEP)
     return;
@@ -3172,7 +3180,7 @@ int kissat_mallob_shweep(kissat *solver) {
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
 
-  if (!is_nonzero (solver)) {
+  if (!is_localid_nonzero (solver)) {
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units", equivalences, units);
     int total_sweeps = solver->shweep.worksweeps + solver->shweep.resweeps_in + solver->shweep.resweeps_out;
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i total sweeps, %i worksweeps (%.2f %), %i resweeps_in (%.2f %), %i resweeps_out (%.2f %)",
