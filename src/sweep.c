@@ -2797,20 +2797,20 @@ unsigned shweep_get_num_vars(kissat *solver) {
   return solver->vars;
 }
 
-void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out) {
+// void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out) {
 
-  *eqs = solver->statistics.sweep_equivalences;
-  *sweep_units = solver->statistics.sweep_units;
-  *total_units = SIZE_STACK(solver->units);
-  *new_units = SIZE_STACK(solver->units) - solver->shweep.units_orig;
-  *eliminated = SIZE_STACK(solver->eliminated);
-  *orig_active = solver->shweep.vars_active_orig;
-  *end_active = solver->active;
-  *worksweeps = solver->shweep.worksweeps;
-  *resweeps_in = solver->shweep.resweeps_in;
-  *resweeps_out = solver->shweep.resweeps_out;
-  assert(solver->statistics.units == SIZE_STACK(solver->units));
-}
+  // *eqs = solver->statistics.sweep_equivalences;
+  // *sweep_units = solver->statistics.sweep_units;
+  // *total_units = SIZE_STACK(solver->units);
+  // *new_units = SIZE_STACK(solver->units) - solver->shweep.units_orig;
+  // *eliminated = SIZE_STACK(solver->eliminated);
+  // *orig_active = solver->shweep.vars_active_orig;
+  // *end_active = solver->active;
+  // *worksweeps = solver->shweep.worksweeps;
+  // *resweeps_in = solver->shweep.resweeps_in;
+  // *resweeps_out = solver->shweep.resweeps_out;
+  // assert(solver->statistics.units == SIZE_STACK(solver->units));
+// }
 
 
 struct shweep_statistics shweep_get_statistics (kissat * solver) {
@@ -2821,6 +2821,9 @@ struct shweep_statistics shweep_get_statistics (kissat * solver) {
   solver->shweep.units_end = SIZE_STACK(solver->units);
   solver->shweep.units_new = SIZE_STACK(solver->units) - solver->shweep.units_orig;
   solver->shweep.eliminated = SIZE_STACK(solver->eliminated);
+
+  solver->shweep.vars_end = SIZE_STACK(solver->import);
+  solver->shweep.clauses_end = BINIRR_CLAUSES + SIZE_STACK(solver->units);
   // solver->shweep.vars_active_orig = solver->shweep.vars_active_orig;
   return solver->shweep;
 }
