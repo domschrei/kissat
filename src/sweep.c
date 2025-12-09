@@ -2856,8 +2856,8 @@ void shweep_print_import_statistics(kissat *solver) {
 void shweep_print_var_stats(kissat *solver, int verb) {
   if (is_localid_nonzero (solver))
     return;
-  kissat_custom_message(solver, verb, "SWEEPER VARS total %i, active %i, units %i, eliminated %i , CLAUSES irr+binary %i", solver->vars,
-    solver->active, SIZE_STACK(solver->units), SIZE_STACK(solver->eliminated),solver->statistics.clauses_irredundant + solver->statistics.clauses_binary);
+  kissat_custom_message(solver, verb, "SWEEPER VARS total %i, active %i, units %i, eliminated %i , CLAUSES irr+binary %i, Import stacksize %i", solver->vars,
+    solver->active, SIZE_STACK(solver->units), SIZE_STACK(solver->eliminated),solver->statistics.clauses_irredundant + solver->statistics.clauses_binary, SIZE_STACK(solver->import));
 }
 
 

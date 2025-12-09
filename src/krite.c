@@ -81,14 +81,12 @@ void kissat_report_dimacs (kissat *solver) {
   size_t imported = SIZE_STACK (solver->import);
   if (imported) imported--;
 
-
-  // kissat_custom_message (solver, 3, "SWEEPER gathers units, only counting, not reporting yet");
   if (GET_OPTION(mallob_is_shweeper) && solver->shweeper_terminate) {
     kissat_custom_message (solver, 1, "SWEEPER will not report dimacs, because was externally terminated");
     return;
   }
   if (GET_OPTION(mallob_is_shweeper) && solver->inconsistent) {
-    kissat_custom_message (solver, 1, "SWEEPER will not report dimacs, because is inconsistent");
+    kissat_custom_message (solver, 1, "SWEEPER will not report dimacs, because is inconsistent (UNSAT)");
     return;
   }
   unsigned num_units = gather_units(solver, false);

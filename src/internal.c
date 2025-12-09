@@ -561,6 +561,7 @@ void kissat_import_model (kissat * solver, const int *literals, int size) {
     if (import->eliminated) continue;
     const unsigned ilit = import->lit;
     const value value = elit < 0 ? -1 : 1;
+    kissat_message(solver, "Importing elit %i, eid %i  on  ilit %i val %i(%i previously)  \n", elit, eidx, ilit, value, solver->values[ilit]);
     solver->values[ilit] = value;
   }
 }
@@ -569,13 +570,23 @@ int kissat_value (kissat *solver, int elit) {
   kissat_require_initialized (solver);
   kissat_require_valid_external_internal (elit);
   const unsigned eidx = ABS (elit);
+
+  kissat_message(solver, "value of elit %i \n", elit);
+  kissat_message(solver, "      eidx %i, SIZE_STACK(solver->import) %lu \n", eidx, SIZE_STACK (solver->import));
+
   if (eidx >= SIZE_STACK (solver->import))
     return 0;
   const import *const import = &PEEK_STACK (solver->import, eidx);
+
+  kissat_message(solver, "      import->imported %i, import->eliminated %i, import->lit %i\n", import->imported, import->eliminated, import->lit);
+
   if (!import->imported)
     return 0;
   value tmp;
   if (import->eliminated) {
+
+    kissat_message(solver, "      solver->extended %i, STACKSIZE(solver->extend) %lu \n", solver->extended, SIZE_STACK(solver->extend));
+
     if (!solver->extended && !EMPTY_STACK (solver->extend))
       kissat_extend (solver);
     const unsigned eliminated = import->lit;
@@ -584,6 +595,9 @@ int kissat_value (kissat *solver, int elit) {
     const unsigned ilit = import->lit;
     tmp = VALUE (ilit);
   }
+
+  kissat_message(solver, "      tmp %i\n", tmp);
+
   if (!tmp)
     return 0;
   if (elit < 0)
