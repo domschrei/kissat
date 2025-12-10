@@ -64,19 +64,14 @@ kissat *kissat_init (void) {
   solver->shweeper_initialized = false;
   solver->shweeper_terminate = false;
 
-  //Sweep Equivalence Export
+  //Sweep Export
   solver->shweep_export_eq_buffer = 0;
   solver->shweep_export_eq_callback = 0;
-
-  //Sweep Equivalence Import
-  solver->shweep_import_eq_callback = 0;
-  // solver->num_conflicts_at_last_equivalence_import = 0;
-
-  //Sweep Unit export
   solver->shweep_export_unit_callback = 0;
 
-  //Sweep Unit import
-  solver->shweep_import_units_callback = 0;
+  //Sweep Import
+  solver->shweep_import_SweepJob_eq_callback = 0;
+  solver->shweep_import_SweepJob_unit_callback = 0;
 
   //Sweep Workstealing
   solver->shweep_mallob_KissatState = 0;
@@ -561,7 +556,7 @@ void kissat_import_model (kissat * solver, const int *literals, int size) {
     if (import->eliminated) continue;
     const unsigned ilit = import->lit;
     const value value = elit < 0 ? -1 : 1;
-    kissat_message(solver, "Importing elit %i, eid %i  on  ilit %i val %i(%i previously)  \n", elit, eidx, ilit, value, solver->values[ilit]);
+    // kissat_message(solver, "Importing elit %i, eid %i  on  ilit %i val %i(%i previously)  \n", elit, eidx, ilit, value, solver->values[ilit]);
     solver->values[ilit] = value;
   }
 }
@@ -571,21 +566,21 @@ int kissat_value (kissat *solver, int elit) {
   kissat_require_valid_external_internal (elit);
   const unsigned eidx = ABS (elit);
 
-  kissat_message(solver, "value of elit %i \n", elit);
-  kissat_message(solver, "      eidx %i, SIZE_STACK(solver->import) %lu \n", eidx, SIZE_STACK (solver->import));
+  // kissat_message(solver, "value of elit %i \n", elit);
+  // kissat_message(solver, "      eidx %i, SIZE_STACK(solver->import) %lu \n", eidx, SIZE_STACK (solver->import));
 
   if (eidx >= SIZE_STACK (solver->import))
     return 0;
   const import *const import = &PEEK_STACK (solver->import, eidx);
 
-  kissat_message(solver, "      import->imported %i, import->eliminated %i, import->lit %i\n", import->imported, import->eliminated, import->lit);
+  // kissat_message(solver, "      import->imported %i, import->eliminated %i, import->lit %i\n", import->imported, import->eliminated, import->lit);
 
   if (!import->imported)
     return 0;
   value tmp;
   if (import->eliminated) {
 
-    kissat_message(solver, "      solver->extended %i, STACKSIZE(solver->extend) %lu \n", solver->extended, SIZE_STACK(solver->extend));
+    // kissat_message(solver, "      solver->extended %i, STACKSIZE(solver->extend) %lu \n", solver->extended, SIZE_STACK(solver->extend));
 
     if (!solver->extended && !EMPTY_STACK (solver->extend))
       kissat_extend (solver);
@@ -596,7 +591,7 @@ int kissat_value (kissat *solver, int elit) {
     tmp = VALUE (ilit);
   }
 
-  kissat_message(solver, "      tmp %i\n", tmp);
+  // kissat_message(solver, "      tmp %i\n", tmp);
 
   if (!tmp)
     return 0;
@@ -627,10 +622,10 @@ void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *bu
   solver->shweep_export_eq_callback = export_callback;
 }
 
-void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalences, int *eqs_size)) {
-  solver->shweep_mallob_KissatState = state;
-  solver->shweep_import_eq_callback = import_callback;
-}
+// void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalences, int *eqs_size)) {
+  // solver->shweep_mallob_KissatState = state;
+  // solver->shweep_import_eq_callback = import_callback;
+// }
 
 void shweep_set_SweepJob_eq_import_callback(kissat *solver, void *SweepJobState, void (*import_eq_callback) (void *SweepJob_State, int *lit1, int *lit2, int localId)) {
   solver->shweep_mallob_SweepJobState = SweepJobState;
@@ -642,10 +637,10 @@ void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_
   solver->shweep_export_unit_callback = export_callback;
 }
 
-void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count)) {
-  solver->shweep_mallob_KissatState = state;
-  solver->shweep_import_units_callback = import_callback;
-}
+// void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count)) {
+  // solver->shweep_mallob_KissatState = state;
+  // solver->shweep_import_units_callback = import_callback;
+// }
 
 void shweep_set_SweepJob_unit_import_callback(kissat *solver, void *SweepJobState, void (*import_unit_callback) (void *SweepJobState, int *lit, int localId)) {
   solver->shweep_mallob_SweepJobState = SweepJobState;

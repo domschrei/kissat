@@ -2731,8 +2731,6 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   if (!shweep_sweepable_variable(sweeper, idx))
     return;
 
-  // shweep_import_units(sweeper);
-  // shweep_import_equivalences (sweeper);
   shweep_import_SweepJob_units (sweeper);
   shweep_import_SweepJob_equivalences (sweeper);
 
