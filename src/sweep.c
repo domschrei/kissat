@@ -21,49 +21,6 @@
 #include "resources.h"
 #include "substitute.h" //at the end of shweeping
 
-/**
- * Overview of all methods
-static int sweep_solve (sweeper *sweeper) {
-void  x   set_kitten_ticks_limit (sweeper *sweeper) {
-bool  x   kitten_ticks_limit_hit (sweeper *sweeper, const char *when) {
-void      init_sweeper (kissat *solver, sweeper *sweeper) {
-unsig     release_sweeper (sweeper *sweeper) {
-void      clear_sweeper (sweeper *sweeper) {
-unsig x   sweep_repr (sweeper *sweeper, unsigned lit) {
-void  x   add_literal_to_environment (sweeper *sweeper, unsigned depth,
-void  x   sweep_clause (sweeper *sweeper, unsigned depth) {
-void  x   sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
-void  x   sweep_reference (sweeper *sweeper, unsigned depth,
-void      save_core_clause (void *state, bool learned, size_t size,
-void      add_core (sweeper *sweeper, unsigned core_idx) {
-void      save_core (sweeper *sweeper, unsigned core) {
-void      clear_core (sweeper *sweeper, unsigned core_idx) {
-void      save_add_clear_core (sweeper *sweeper) {
-void      init_backbone_and_partition (sweeper *sweeper) {
-void      sweep_empty_clause (sweeper *sweeper) {
-void  x   sweep_refine_partition (sweeper *sweeper) {
-void  x   sweep_refine_backbone (sweeper *sweeper) {
-void  x   sweep_refine (sweeper *sweeper) {
-void  x   flip_backbone_literals (struct sweeper *sweeper) {
-bool  x   sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
-void      add_binary (kissat *solver, unsigned lit, unsigned other) {
-bool  x   scheduled_variable (sweeper *sweeper, unsigned idx) {
-void  x   schedule_inner (sweeper *sweeper, unsigned idx) {
-void  x   schedule_outer (sweeper *sweeper, unsigned idx) {
-unsig x   next_scheduled (sweeper *sweeper) {
-void      substitute_connected_clauses (sweeper *sweeper, unsigned lit,
-void      sweep_remove (sweeper *sweeper, unsigned lit) {
-void      flip_partition_literals (struct sweeper *sweeper) {
-bool      sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
-const char *sweep_variable (sweeper *sweeper, unsigned idx) {
-bool      scheduable_variable (sweeper *sweeper, unsigned idx,
-unsig     schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
-unsig     reschedule_previously_remaining (sweeper *sweeper) {
-unsig     incomplete_variables (sweeper *sweeper) {
-void      mark_incomplete (sweeper *sweeper) {
-unsig     schedule_sweeping (sweeper *sweeper) {
-void      unschedule_sweeping (sweeper *sweeper, unsigned swept,
-*/
 
 
 const int V0_CRIT_SWEEP = 0;
@@ -94,11 +51,12 @@ struct sweeper {
 
   //Mallob Shared Sweeping
   unsigned *work;     //Variables scheduled for sweeping on this solver
-  unsigneds RESWEEP;  //Local Equivalences found, for quick re-sweeping on them
+  unsigneds RESWEEP;  //Stack of recent equivalences found locally, for quick re-sweeping on them
   int work_end;    //size of the allocated work array.
   int work_head;   //index of the currently next scheduled variable in work
-  int max_work_after_steal; //a second approximation of how much work is left, updated when getting stolen
-  volatile bool allow_stealing; //prevent steal attempts once this solver is inconsistent
+  int max_work_after_steal;     //an approximation of how much work is left, updated when getting stolen
+  bool allow_stealing; //prevent steal attempts once this solver is inconsistent
+  int sweep_round; //receives the current sweep round number, externally by Mallob
 
   //some statistics
   unsigned skipped_bc_done;
@@ -254,17 +212,18 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->skipped_bc_done=0;
     sweeper->stumbled_units=0;
     sweeper->allow_stealing=true;
+    sweeper->sweep_round=1;
 
     sweeper->rank = GET_OPTION (mallob_rank);
     sweeper->localId = GET_OPTION (mallob_local_id);
 
-    solver->shweeper_initialized = true; //flag that tells us whether the shweeper is initialized and we can access it -- important to have this flag itself already on the solver level, such that the flag is always in a defined state
     sweeper->singlethread_debugging_provided_work=false;
     sweeper->max_work_after_steal=0;
 
     solver->shweep.vars_formally_orig = solver->vars;
     solver->shweep.units_orig = SIZE_STACK(solver->units);
     solver->shweep.vars_active_orig  = solver->active;
+    solver->shweeper_initialized = true; //flag that tells us whether the shweeper is initialized and we can access it -- important to have this flag already on the solver level, such that it is always in a defined state
 
     //we don't allocate the work[] array, that will be allocated by Mallob/C++ and we only operate on the provided memory range
   }
@@ -2398,6 +2357,36 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
 }
 
 
+void shweep_check_new_environment_limits(sweeper *sweeper) {
+  int completed = sweeper->sweep_round - 1; //sweep_round is periodically updated by the Mallob main thread
+  if (sweeper->solver->statistics.sweep_completed != completed) {
+    sweeper->solver->statistics.sweep_completed = completed;
+    kissat *solver = sweeper->solver;
+
+    uint64_t vars_limit = GET_OPTION (sweepvars);
+    vars_limit <<= completed;
+    const unsigned max_vars_limit = GET_OPTION (sweepmaxvars);
+    if (vars_limit > max_vars_limit)
+      vars_limit = max_vars_limit;
+    sweeper->limit.vars = vars_limit;
+
+    uint64_t depth_limit = completed;
+    depth_limit += GET_OPTION (sweepdepth);
+    const unsigned max_depth = GET_OPTION (sweepmaxdepth);
+    if (depth_limit > max_depth)
+      depth_limit = max_depth;
+    sweeper->limit.depth = depth_limit;
+
+    uint64_t clause_limit = GET_OPTION (sweepclauses);
+    clause_limit <<= completed;
+    const unsigned max_clause_limit = GET_OPTION (sweepmaxclauses);
+    if (clause_limit > max_clause_limit)
+      clause_limit = max_clause_limit;
+    sweeper->limit.clauses = clause_limit;
+
+    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP updated environment limits (round %i): vars %i, depth %i, clauses %i ", sweeper->sweep_round, vars_limit, depth_limit, clause_limit);
+  }
+}
 
 
 bool shweep_var_still_open(sweeper *sweeper, unsigned idx) {
@@ -2492,7 +2481,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   if (already_fixed==1) //Interesting edge case: One of the two eq variables is already fixed locally, but the other is not, meaning this imported equivalence just became a propagating unit clause
     solver->shweep.eqs_unitprop++;
 
-  //todo: if it is a unitprop equivalence, rather import it as a unit at this point?
+  //todo: if it is a unitprop equivalence, rather import it as a unit at this point? Probably the same.
 
   if (other < lit) {
     unsigned tmp = lit;
@@ -2596,12 +2585,12 @@ int shweep_get_max_steal_amount(kissat *solver) {
   // if (half!=0)
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Max steal answer: %i to found %i max_steal_amount (work_head=%i, work_end=%i, count_left=%i)", half, sweeper->work_head, sweeper->work_end, sweeper->max_work_left);
   if (!sweeper->allow_stealing) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL Guard: I am already exiting from solving, not allowing stealing anymore");
+    kissat_custom_message(solver,V2_VERB_SWEEP, "steal guard: I am already exiting from solving, don't allow stealing anymore");
     return 0;
   }
   assert( (half>=0 && half<=solver->vars) || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
   if (half != 0) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEP STEAL can provide at most %i \n", half);
+    kissat_custom_message(solver,V2_VERB_SWEEP, "can provide at most %i \n", half);
   }
   return half;
 }
@@ -2733,6 +2722,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
 
   shweep_import_SweepJob_units (sweeper);
   shweep_import_SweepJob_equivalences (sweeper);
+  shweep_check_new_environment_limits (sweeper);
 
   kissat_custom_message(solver,V3_VVERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
 
@@ -2787,6 +2777,7 @@ void shweep_terminate(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "SWEEPER received dedicated volatile TERMINATE signal");
 }
 
+
 bool kissat_is_inconsistent (kissat *solver) {
   return solver->inconsistent;
 }
@@ -2824,6 +2815,10 @@ struct shweep_statistics shweep_get_statistics (kissat * solver) {
   return solver->shweep;
 }
 
+
+void shweep_set_sweep_round(kissat *solver, int round) {
+  solver->sweeper->sweep_round = round;
+}
 
 bool is_nonroot_nonzero(kissat *solver) {
   //Skip if we are sufficiently Only show some full information list/dump for one solver if very verbose
@@ -3143,6 +3138,7 @@ int kissat_mallob_shweep(kissat *solver) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER saw dedicated volatile shweep TERMINATE flag during loop \n");
       break;
     }
+
 
     unsigned idx = shweep_next_scheduled (&sweeper);
 
