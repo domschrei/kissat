@@ -81,10 +81,10 @@ void kissat_report_dimacs (kissat *solver) {
   size_t imported = SIZE_STACK (solver->import);
   if (imported) imported--;
 
-  if (GET_OPTION(mallob_is_shweeper) && solver->termination.flagged) {
-    kissat_custom_message (solver, 1, "SWEEPER will not report dimacs because was externally terminated");
-    return;
-  }
+  // if (GET_OPTION(mallob_is_shweeper) && solver->termination.flagged) {
+    // kissat_custom_message (solver, 1, "SWEEPER will not report dimacs because was externally terminated");
+    // return;
+  // }
   if (GET_OPTION(mallob_is_shweeper) && solver->inconsistent) {
     kissat_custom_message (solver, 1, "SWEEPER will not report dimacs because is inconsistent (UNSAT)");
     return;
@@ -97,7 +97,7 @@ void kissat_report_dimacs (kissat *solver) {
 
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) {
-    kissat_custom_message (solver, 1, "SWEEPER does not report dimacs, because told by calldback");
+    kissat_custom_message (solver, 1, "SWEEPER does not report dimacs, because told no by callback");
     return;
   }
   kissat_custom_message (solver, 1, "SWEEPER reports final formula via kissat_report_dimacs");

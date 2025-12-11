@@ -2772,8 +2772,8 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
 }
 
 void shweep_terminate(kissat *solver) {
-  // solver->shweeper_terminate = true; //relevant volatile
-  solver->termination.flagged = true; //also set the standard termination flag, just in case
+  solver->shweeper_terminated_externally= true;
+  solver->termination.flagged = true;
   kissat_custom_message(solver, V2_VERB_SWEEP, "SWEEPER received termination signal");
 }
 
