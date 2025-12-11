@@ -262,7 +262,7 @@ struct kissat {
   //Shared Mallob Sweeping
   sweeper *sweeper;
   bool shweeper_initialized;
-  volatile bool shweeper_terminate;
+  // volatile bool shweeper_terminate;
 
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state);

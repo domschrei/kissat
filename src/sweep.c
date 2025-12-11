@@ -505,7 +505,7 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
   if (SIZE_STACK(sweeper->clause)==1) {
     assert(GET_OPTION(mallob_is_shweeper)); //make sure that sequential kissat still asserts a size==1 clause here
 
-    kissat_custom_message (solver, V1_INFO_SWEEP, "WARN: Sweeper detected a clause size 1, clause ref %i. "
+    kissat_custom_message (solver, V3_VVERB_SWEEP, "Sweeper detected a clause size 1, clause ref %i. "
                                                   "We just declare this a unit and carry on, but note that units do not occur in this spot in original sweeping. "
                                                   "Maybe due to importing it can happen here now", ref);
     unsigned detected_unit = 0;
@@ -515,13 +515,13 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
         assert(detected_unit==0);
         detected_unit = lit;
       }
-      kissat_custom_message (solver, V1_INFO_SWEEP, "WARN: Sweeper detected clause size 1: idx(%i)/lit(%i)=val %i, repr_lit(%i)", IDX(lit), lit, value, sweep_repr (sweeper, lit));
+      kissat_custom_message (solver, V3_VVERB_SWEEP, "Sweeper detected clause size 1: idx(%i)/lit(%i)=val %i, repr_lit(%i)", IDX(lit), lit, value, sweep_repr (sweeper, lit));
     }
     //directly assign this detected unit here in place
     kissat_assign_unit (solver, detected_unit, "stumbled while kitten-copying");
      /* Catch for Mallob to share */
     int elit = kissat_export_literal (solver, detected_unit);
-    kissat_custom_message(solver,V1_INFO_SWEEP, " stumble-U idx(%u)/lit(%u), elit(%i)", IDX(detected_unit),detected_unit, elit);
+    kissat_custom_message(solver,V2_VERB_SWEEP, " stumble-U idx(%u)/lit(%u), elit(%i)", IDX(detected_unit),detected_unit, elit);
     shweep_export_unit(solver, detected_unit);
     INC (sweep_units);
     CLEAR_STACK (sweeper->clause); //usually done by sweep_clause, but we skip that here
@@ -2711,8 +2711,8 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   if (solver->termination.flagged) //Kissats own standard termination flag
     return;
 
-  if (solver->shweeper_terminate)  //Dedicated volatile flag that can be triggered by Mallob externally
-    return;
+  // if (solver->shweeper_terminate)  //Dedicated volatile flag that can be triggered by Mallob externally
+    // return;
 
   if (solver->inconsistent) // If we found UNSAT, directly exit the remaining recursions of "sweep with prop"
     return;
@@ -2772,9 +2772,9 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
 }
 
 void shweep_terminate(kissat *solver) {
-  solver->shweeper_terminate = true; //relevant volatile
+  // solver->shweeper_terminate = true; //relevant volatile
   solver->termination.flagged = true; //also set the standard termination flag, just in case
-  kissat_custom_message(solver, V1_INFO_SWEEP, "SWEEPER received dedicated volatile TERMINATE signal");
+  kissat_custom_message(solver, V2_VERB_SWEEP, "SWEEPER received termination signal");
 }
 
 
@@ -3090,19 +3090,19 @@ bool kissat_sweep (kissat *solver) {
 
 
 int kissat_mallob_shweep(kissat *solver) {
-  kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER START");
+  kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER Start");
   // printf("SWEEPER START PRINT, CUSTOM VERBOSITY %i \n", GET_OPTION (mallob_custom_sweep_verbosity));
   // kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER CUSTOM VERBOSITY %i \n", GET_OPTION (mallob_custom_sweep_verbosity));
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent) {
-    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSATISFIABLE solution! exiting sweep loop");
+    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER directly UNSAT. not even starting loop");
     return false;
   }
   if (TERMINATED (sweep_terminated_7))
     return false;
   if (DELAYING (sweep)) {
-    kissat_custom_message(solver,V0_CRIT_SWEEP, "SWEEPER Warn: Exiting because DELAYING(sweep)");
+    kissat_custom_message(solver,V0_CRIT_SWEEP, "ERROR: SWEEPER Exiting because delaying sweep");
     return false;
   }
   assert (!solver->level);
@@ -3123,21 +3123,21 @@ int kissat_mallob_shweep(kissat *solver) {
 
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found result UNSATISFIABLE !\n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSAT!\n");
       break;
     }
     if (TERMINATED (sweep_terminated_8)) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER saw builtin TERMINATE during loop \n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting loop due to termination \n");
       break;
     }
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER ran into Kitten Tick limit timeout \n");
       break;
     }
-    if (solver->shweeper_terminate) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER saw dedicated volatile shweep TERMINATE flag during loop \n");
-      break;
-    }
+    // if (solver->shweeper_terminate) {
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER saw dedicated volatile shweep TERMINATE flag during loop \n");
+      // break;
+    // }
 
 
     unsigned idx = shweep_next_scheduled (&sweeper);
@@ -3176,11 +3176,10 @@ int kissat_mallob_shweep(kissat *solver) {
 
   if (!is_localid_nonzero (solver)) {
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units", equivalences, units);
-    int total_sweeps = solver->shweep.worksweeps + solver->shweep.resweeps_in + solver->shweep.resweeps_out;
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i total sweeps, %i worksweeps (%.2f %), %i resweeps_in (%.2f %), %i resweeps_out (%.2f %)",
-      total_sweeps, solver->shweep.worksweeps, 100*solver->shweep.worksweeps /(float)total_sweeps,
-      solver->shweep.resweeps_in, 100*solver->shweep.resweeps_in/(float)total_sweeps,
-      solver->shweep.resweeps_out, 100*solver->shweep.resweeps_out/(float)total_sweeps
+    int resweeps = solver->shweep.resweeps_in + solver->shweep.resweeps_out;
+    int total_sweeps = solver->shweep.worksweeps + resweeps;
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i total sweeps, %i worksweeps (%.2f %), %i resweeps (%.2f %)",
+      total_sweeps, solver->shweep.worksweeps, 100*solver->shweep.worksweeps /(float)total_sweeps, resweeps, 100*resweeps/(float)total_sweeps
       );
   }
 
@@ -3201,18 +3200,18 @@ int kissat_mallob_shweep(kissat *solver) {
 
   STOP (sweep);
   if (solver->inconsistent)
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER found result UNSATISFIABLE !");
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER found UNSAT!");
 
   //Equivalent Literal Subsitution.
   //Applies the equivalences we found to actually reduce the database.
   //Is scheduled always directly after sweeping also in the normal kissat run
   if (GET_OPTION (substitute) && !solver->inconsistent) {
-    if (solver->termination.flagged) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER skipping substitute, not necessary due to external termination");
-    } else {
-      kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER running substitute for equivalent substitutions");
+    // if (solver->termination.flagged) {
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER skipping substitute due to termination");
+    // } else {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER running substitute for equivalent substitutions");
       kissat_substitute (solver, true);
-    }
+    // }
   }
 
   solver->probing = false;
