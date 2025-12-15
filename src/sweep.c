@@ -2495,7 +2495,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
 
   kissat_custom_message(solver, V4_UVERB_SWEEP," imported idx(%i)==idx(%i), lit(%i)==lit(%i)", IDX(lit), IDX(other), lit, other);
 
-  //maybe need also to add these two binary clauses? are added by original sweep_equivalence_candidates, for the cores...
+  //todo: maybe need also to add these two binary clauses? are added by original sweep_equivalence_candidates, for the cores...
   // add_binary (solver, lit,     not_other);
   // add_binary (solver, not_lit, other);
 
@@ -3091,8 +3091,6 @@ bool kissat_sweep (kissat *solver) {
 
 int kissat_mallob_shweep(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER Start");
-  // printf("SWEEPER START PRINT, CUSTOM VERBOSITY %i \n", GET_OPTION (mallob_custom_sweep_verbosity));
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER CUSTOM VERBOSITY %i \n", GET_OPTION (mallob_custom_sweep_verbosity));
   if (!GET_OPTION (mallob_is_shweeper))
     return false;
   if (solver->inconsistent) {

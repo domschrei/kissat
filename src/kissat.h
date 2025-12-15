@@ -89,6 +89,7 @@ struct shweep_statistics {
   unsigned long vars_end, clauses_end;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
+
 //--------------------------------------------------------------------------
 // void shweep_terminate(kissat *solver);
 

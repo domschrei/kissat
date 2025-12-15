@@ -5,5 +5,6 @@
 
 struct kissat;
 bool kissat_congruence (struct kissat *);
+bool kissat_mallob_congruencer(struct kissat *);
 
 #endif

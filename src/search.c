@@ -2,6 +2,8 @@
 #include "analyze.h"
 #include "bump.h"
 #include "classify.h"
+#include "clauseimport.h"
+#include "congruence.h"
 #include "decide.h"
 #include "eliminate.h"
 #include "inline.h"
@@ -22,7 +24,6 @@
 #include "terminate.h"
 #include "trail.h"
 #include "walk.h"
-#include "clauseimport.h"
 
 #include "sweep.h" //for mallob shweep
 #include <inttypes.h>
@@ -184,8 +185,10 @@ int kissat_search (kissat *solver) {
   int res = 0;
   if (solver->inconsistent)
     res = 20;
-  if (!res && GET_OPTION (mallob_is_shweeper)) {}
+  if (!res && GET_OPTION (mallob_is_shweeper))
     res = kissat_mallob_shweep(solver);
+  if (!res && GET_OPTION (mallob_is_congruencer))
+    res = kissat_mallob_congruencer(solver);
   if (!res && GET_OPTION (luckyearly))
     res = kissat_lucky (solver);
   if (!res && kissat_preprocessing (solver))

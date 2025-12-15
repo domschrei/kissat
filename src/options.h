@@ -79,6 +79,7 @@
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
   OPTION (mallob_custom_sweep_verbosity, 0, 0, 4, "the verbosity of the kissat_custom_message messages") \
   OPTION (mallob_is_root, 0, 0, 1, "whether the hosting MPI process is the root rank") \
+  OPTION (mallob_is_congruencer, 0, 0, 1, "this solver is used exclusively in the Mallob SWEEP app for supporting congruence closure") \
   OPTION (mallob_is_shweeper, 0, 0, 1, "this solver is used exclusively in the Mallob SWEEP app for shared sweeping") \
   OPTION (mallob_local_id, 9999, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
   OPTION (mallob_rank, 9999, 0, 1e6, "the rank of the hosting MPI process") \
