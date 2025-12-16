@@ -1,4 +1,3 @@
-
 #include "internal.h"
 #include "inline.h"
 #include "utilities.h"

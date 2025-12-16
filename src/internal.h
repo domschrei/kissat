@@ -75,7 +75,7 @@ typedef STACK (watch *) patches;
 
 struct kitten;
 
-typedef struct sweeper sweeper; //for Mallob distributed Sweeping, Kissat must know about its sweeper
+typedef struct sweeper sweeper; //for Mallob distributed Sweeping, the Kissat solver must know about its sweeper
 
 
 struct kissat {
