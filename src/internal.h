@@ -276,7 +276,6 @@ struct kissat {
   void (*shweep_search_work_callback) (void *state, unsigned **work, int *work_size, int local_id);
 
   struct shweep_statistics shweep;     //statistics for mallob sweeping
-  struct shweep_statistics congruence; //statistics for mallob congruencer
 
 
   // Initial variable phases

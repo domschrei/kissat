@@ -2412,8 +2412,8 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
     kissat *solver = sweeper->solver;
     const unsigned repr_ilit = sweep_repr (sweeper, ilit);
     solver->shweep.units_seen++;
-    assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: imported invalid unit lit %u", ilit));
-    assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: imported invalid repr_unit lit %u from imported lit %u", repr_ilit, ilit ));
+    assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported invalid unit lit %u", ilit));
+    assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported invalid repr_unit lit %u from imported lit %u", repr_ilit, ilit ));
 
     const unsigned repr_idx = IDX (repr_ilit);
     flags *flags = FLAGS (repr_idx);
@@ -2421,7 +2421,7 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
       solver->shweep.units_skipped_fixed++;
       return;
     }
-    assert(!flags->eliminated || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: imported eliminated unit %u", ilit));
+    assert(!flags->eliminated || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported eliminated unit %u", ilit));
     if (ilit != repr_ilit) {
       solver->shweep.units_transitive++;
     }
@@ -2444,8 +2444,8 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     const unsigned ilit = imported_ilits[i];
     const unsigned repr_ilit = sweep_repr(sweeper, ilit); //We might have some other internal representative literal for this imported literal
 
-    assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message(solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: ilit %i not valid internal literal", ilit));
-    assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message(solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: repr_ilit %i not valid internal literal", repr_ilit));
+    assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message(solver, "SWEEP ERROR/Error: ilit %i not valid internal literal", ilit));
+    assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message(solver, "SWEEP ERROR/Error: repr_ilit %i not valid internal literal", repr_ilit));
 
     if (ilit != repr_ilit)
       is_transitive = true;
@@ -2455,7 +2455,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     if (!flags->active) {
       already_fixed++;
     }
-    assert(!flags->eliminated || kissat_custom_assert_message(solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: imported an eq-literal ilit(%i) that is locally eliminated", ilit));
+    assert(!flags->eliminated || kissat_custom_assert_message(solver,  "SWEEP ERROR/Error: imported an eq-literal ilit(%i) that is locally eliminated", ilit));
     repr_ilits[i]=repr_ilit;
   }
 
@@ -2560,7 +2560,7 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   unsigned long new_seen = solver->shweep.eqs_seen - seen;
   unsigned long new_useful = solver->shweep.eqs_useful - useful;
   if (new_seen > 0) {
-    kissat_custom_message(solver, V2_VERB_SWEEP,  "Imported %i / %i eqs ", new_useful, new_seen);
+    kissat_custom_message(solver, V3_VVERB_SWEEP,  "Imported %i / %i eqs ", new_useful, new_seen);
   }
 
 }
@@ -2572,7 +2572,7 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
 int shweep_get_max_steal_amount(kissat *solver) {
   if (!solver || !solver->shweeper_initialized || !solver->sweeper) {
     //guard against very early stealing attempts where this solver is not even initialized yet.
-    kissat_custom_message(solver,V3_VVERB_SWEEP, "SWEEP STEAL Guard: I am not fully initialized yet.");
+    kissat_custom_message(solver,V4_UVERB_SWEEP, "SWEEP STEAL Guard: I am not fully initialized yet.");
     return 0;
   }
   sweeper *sweeper = solver->sweeper;
@@ -2585,12 +2585,12 @@ int shweep_get_max_steal_amount(kissat *solver) {
   // if (half!=0)
   // kissat_custom_message(solver,V2_VERB_SWEEP, "Max steal answer: %i to found %i max_steal_amount (work_head=%i, work_end=%i, count_left=%i)", half, sweeper->work_head, sweeper->work_end, sweeper->max_work_left);
   if (!sweeper->allow_stealing) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "steal guard: I am already exiting from solving, don't allow stealing anymore");
+    kissat_custom_message(solver,V4_UVERB_SWEEP, "steal guard: I am already exiting from solving, don't allow stealing anymore");
     return 0;
   }
-  assert( (half>=0 && half<=solver->vars) || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
+  assert( (half>=0 && half<=solver->vars) || kissat_custom_assert_message (solver, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
   if (half != 0) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "can provide at most %i \n", half);
+    kissat_custom_message(solver,V3_VVERB_SWEEP, "can provide at most %i \n", half);
   }
   return half;
 }
@@ -2628,11 +2628,11 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     steal_flipflop = !steal_flipflop;
   }
   // kissat_custom_message(solver,V2_VERB_SWEEP, "#");
-  kissat_custom_message(solver,V2_VERB_SWEEP, "# gave %i (left %i)", stolen_count, locally_left);
+  kissat_custom_message(solver,V3_VVERB_SWEEP, "# gave %i (left %i)", stolen_count, locally_left);
   // kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   if (stolen_count > max_steal_count) {
     kissat_custom_message (solver, V0_CRIT_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
-    assert(kissat_custom_assert_message (solver, V1_INFO_SWEEP, "stolen count > max_steal_count"));
+    assert(kissat_custom_assert_message (solver, "stolen count > max_steal_count"));
   }
   sweeper->max_work_after_steal = locally_left;
   return stolen_count;
@@ -2648,7 +2648,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   sweeper->work_end = 0;
   sweeper->max_work_after_steal = 0;
 
-  kissat_custom_message (solver, V2_VERB_SWEEP, "searching for work");
+  kissat_custom_message (solver, V3_VVERB_SWEEP, "searching for work");
 
   //Decouple stolen_amount from work_end as long as possible, to not have spurious reset-writes on work_end influence the logic here
   int stolen_amount = 0;
@@ -2669,9 +2669,9 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   }
 
   if (stolen_amount>0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "got %i", stolen_amount);
+    kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
   if (stolen_amount==0)
-    kissat_custom_message (solver, V2_VERB_SWEEP, "Got termination signal via 0 work info");
+    kissat_custom_message (solver, V3_VVERB_SWEEP, "Got termination signal via 0 work info");
 
   const unsigned *work = sweeper->work;
   flags *flags = solver->flags;
@@ -2731,7 +2731,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   //When resweeping, we can further differentiate whether the new variable happens to also be in our work schedule anyways (resweeps_in)
   //or whether it brought us out of our assigned work and we are now sweeping a variable that also other solvers might sweep, potentially causing redundant work (resweeps_out)
   if (isWorkVar) {
-    assert(FLAGS (idx)->sweep || kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEPER ERROR: scheduled work-var whose but its flag is already sweep==false \n"));
+    assert(FLAGS (idx)->sweep || kissat_custom_assert_message (solver, "SWEEPER ERROR: scheduled work-var whose but its flag is already sweep==false \n"));
     solver->shweep.worksweeps++;
   } else {
     if (FLAGS (idx)->sweep)
@@ -2748,7 +2748,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   //This can become recursive, where we eagerly always re-sweep first on the last found equivalence
   while (!EMPTY_STACK (sweeper->RESWEEP)) {
     unsigned resweep_idx = POP_STACK (sweeper->RESWEEP);
-    kissat_custom_message(solver,V3_VVERB_SWEEP, "re-shweep idx %i [%i on stack]", resweep_idx, SIZE_STACK (sweeper->RESWEEP));
+    kissat_custom_message(solver,V4_UVERB_SWEEP, "re-shweep idx %i [%i on stack]", resweep_idx, SIZE_STACK (sweeper->RESWEEP));
     shweep_sweep_variable_with_prop (sweeper, resweep_idx, false);
   }
 }
@@ -2786,20 +2786,6 @@ unsigned shweep_get_num_vars(kissat *solver) {
   return solver->vars;
 }
 
-// void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out) {
-
-  // *eqs = solver->statistics.sweep_equivalences;
-  // *sweep_units = solver->statistics.sweep_units;
-  // *total_units = SIZE_STACK(solver->units);
-  // *new_units = SIZE_STACK(solver->units) - solver->shweep.units_orig;
-  // *eliminated = SIZE_STACK(solver->eliminated);
-  // *orig_active = solver->shweep.vars_active_orig;
-  // *end_active = solver->active;
-  // *worksweeps = solver->shweep.worksweeps;
-  // *resweeps_in = solver->shweep.resweeps_in;
-  // *resweeps_out = solver->shweep.resweeps_out;
-  // assert(solver->statistics.units == SIZE_STACK(solver->units));
-// }
 
 
 struct shweep_statistics shweep_get_statistics (kissat * solver) {
@@ -2816,8 +2802,10 @@ struct shweep_statistics shweep_get_statistics (kissat * solver) {
 }
 
 
+
 void shweep_set_sweep_round(kissat *solver, int round) {
-  solver->sweeper->sweep_round = round;
+  if (solver->sweeper) //skip the congruencer solver that doesnt have sweep
+    solver->sweeper->sweep_round = round;
 }
 
 bool is_nonroot_nonzero(kissat *solver) {
@@ -2859,7 +2847,7 @@ void shweep_print_all_reprs(sweeper *sweeper) {
   if (is_nonroot_nonzero (solver))
     return;
   //Dont compute anything if not at all verbose
-  if (GET_OPTION(mallob_custom_sweep_verbosity) < 1)
+  if (GET_OPTION(mallob_custom_sweep_verbosity) < V1_INFO_SWEEP)
     return;
   int num_self_active = 0;
   int num_self_fixed = 0;
@@ -2960,7 +2948,7 @@ void shweep_print_all_clauses(kissat *solver) {
 
 bool kissat_sweep (kissat *solver) {
   if (GET_OPTION (mallob_is_shweeper)) {
-    assert(kissat_custom_assert_message (solver, V0_CRIT_SWEEP, "SWEEP ERROR/Error: Shweeper accidentally got into original sweeping code"));
+    assert(kissat_custom_assert_message (solver, "SWEEP ERROR/Error: Shweeper accidentally got into original sweeping code"));
     return false;
   }
   if (!GET_OPTION (sweep))
@@ -3100,7 +3088,7 @@ int kissat_mallob_shweep(kissat *solver) {
   if (TERMINATED (sweep_terminated_7))
     return false;
   if (DELAYING (sweep)) {
-    kissat_custom_message(solver,V0_CRIT_SWEEP, "ERROR: SWEEPER Exiting because delaying sweep");
+    kissat_custom_message(solver, V0_CRIT_SWEEP, "ERROR: SWEEPER Exiting because delaying sweep");
     return false;
   }
   assert (!solver->level);
@@ -3194,7 +3182,7 @@ int kissat_mallob_shweep(kissat *solver) {
   assert (solver->probing);
   STOP (probe);
 
-  shweep_print_var_stats (solver, V3_VVERB_SWEEP);
+  shweep_print_var_stats (solver, V4_UVERB_SWEEP);
 
   STOP (sweep);
   if (solver->inconsistent)
@@ -3207,7 +3195,7 @@ int kissat_mallob_shweep(kissat *solver) {
     // if (solver->termination.flagged) {
       // kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER skipping substitute due to termination");
     // } else {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER running substitute for equivalent substitutions");
+      kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER running substitute for equivalent substitutions");
       kissat_substitute (solver, true);
     // }
   }

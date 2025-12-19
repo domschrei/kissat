@@ -117,10 +117,8 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
 
 
 
-void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...) {
-  if (GET_OPTION(mallob_custom_sweep_verbosity)<verb) {
-    return;
-  }
+
+void kissat_custom_message_va(kissat *solver, const char *fmt, va_list ap) {
   uint64_t mallob_local_id = GET_OPTION(mallob_local_id);
   uint64_t mallob_rank     = GET_OPTION(mallob_rank);
   uint64_t num_spaces = 20 * mallob_rank + 5 * mallob_local_id;
@@ -141,15 +139,32 @@ void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...)
   strncat(new_fmt, prefix, sizeof(new_fmt) - strlen(new_fmt) - 1);
   strncat(new_fmt, fmt, sizeof(new_fmt) - strlen(new_fmt) - 1);
 
+  va_list ap_copy;
+  va_copy(ap_copy, ap);
+  print_message(GREEN, new_fmt, &ap_copy);
+  va_end(ap_copy);
+  // va_list ap;
+  // va_start(ap, fmt);
+  // print_message (GREEN, new_fmt, &ap);
+  // va_end (ap);
+}
+
+void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...) {
+  if (GET_OPTION(mallob_custom_sweep_verbosity)<verb) {
+    return;
+  }
   va_list ap;
   va_start(ap, fmt);
-  print_message (GREEN, new_fmt, &ap);
+  kissat_custom_message_va(solver, fmt, ap);
   va_end (ap);
 }
 
-bool kissat_custom_assert_message(kissat *solver, const int verb, const char *fmt, ...) {
-  kissat_custom_message (solver, verb, fmt);
-  return false;
+bool kissat_custom_assert_message(kissat *solver, const char *fmt, ...) {
+   va_list ap;
+    va_start(ap, fmt);
+    kissat_custom_message_va(solver, fmt, ap);
+    va_end(ap);
+    return false;
 }
 
 

@@ -2,6 +2,7 @@
 
 #include "dense.h"
 #include "inline.h"
+#include "print.h"
 #include "proprobe.h"
 #include "propsearch.h"
 #include "trail.h"
@@ -119,6 +120,10 @@ static void resume_watching_irredundant_binaries (kissat *solver,
   for (all_stack (litpair, litpair, *binaries)) {
     const unsigned first = litpair.lits[0];
     const unsigned second = litpair.lits[1];
+
+    //todo Nicco: remove again after debugging
+    assert (!ELIMINATED (IDX (first)) ||  kissat_custom_assert_message (solver, "assert error: idx(%u) ilit(%u) is eliminated", IDX(first), first));
+    assert (!ELIMINATED (IDX (second)) || kissat_custom_assert_message (solver, "assert error: idx(%u) ilit(%u) is eliminated", IDX(second), second));
 
     assert (!ELIMINATED (IDX (first)));
     assert (!ELIMINATED (IDX (second)));

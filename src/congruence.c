@@ -28,7 +28,6 @@
 #define V2_INFO 2
 #define V3_VERB 3
 #define V4_VVERB 4
-#define CONGRUENCER_ID 9999
 
 // #define INDEX_LARGE_CLAUSES
 // #define INDEX_BINARY_CLAUSES
@@ -150,7 +149,7 @@ struct closure {
   unsigneds implied;
 #endif
   //Mallob
-  bool is_importing;
+  int localId;
 };
 
 typedef struct closure closure;
@@ -186,6 +185,7 @@ static void init_closure (kissat *solver, closure *closure) {
 #ifndef NDEBUG
   INIT_STACK (closure->implied);
 #endif
+  closure->localId = GET_OPTION (mallob_local_id);
 }
 
 static size_t bytes_gate (size_t arity) {
@@ -823,11 +823,12 @@ static bool learn_congruence_unit (closure *closure, unsigned unit, bool importi
 
   if (GET_OPTION (mallob_is_congruencer)) {
     if (importing) {
-      kissat_custom_message(solver, V3_VERB, "CCC Imported unit %i", unit);
-      solver->congruence.units_useful++;
+      kissat_custom_message(solver, V4_VVERB, "CCC Imported unit %i", unit);
+      solver->shweep.units_useful++;
     } else {
       shweep_export_unit (solver, unit) ;
-      kissat_custom_message(solver, V3_VERB, "CCC exported unit %i", unit);
+      kissat_custom_message(solver, V2_INFO, "CCC exported unit %i", unit);
+      solver->shweep.congr_units++;
     }
   }
 
@@ -974,9 +975,11 @@ static bool merge_literals (closure *closure, unsigned lit,
   if (GET_OPTION (mallob_is_congruencer)) {
     if (importing) {
       kissat_custom_message (solver, V3_VERB, "CCC imported eq ilit(%i)==ilit(%i)", smaller, larger);
+      solver->shweep.eqs_useful++;
     } else {
       shweep_export_equivalence(solver, smaller, larger);
-      kissat_custom_message (solver, V3_VERB, "CCC exported eq ilit(%i)==ilit(%i)", smaller, larger);
+      kissat_custom_message (solver, V2_INFO, "CCC exported eq ilit(%i)==ilit(%i)", smaller, larger);
+      solver->shweep.congr_eqs++;
     }
   }
   return true;
@@ -4060,6 +4063,7 @@ static void extract_gates (closure *closure) {
 
 static void find_units (closure *closure) {
   kissat *const solver = closure->solver;
+  kissat_custom_message(solver, V2_INFO, "CCC find units");
   assert (solver->watching);
   assert (!solver->inconsistent);
   assert (kissat_propagated (solver));
@@ -4113,6 +4117,7 @@ static void find_units (closure *closure) {
 
 static void find_equivalences (closure *closure) {
   kissat *const solver = closure->solver;
+  kissat_custom_message(solver, V2_INFO, "CCC find eqs");
   assert (solver->watching);
   assert (!solver->inconsistent);
   unsigneds *const marked = &solver->analyzed;
@@ -4216,6 +4221,7 @@ static bool propagate_unit (closure *closure, unsigned lit) {
 
 static bool propagate_equivalence (closure *closure, unsigned lit) {
   kissat *const solver = closure->solver;
+  // kissat_custom_message(solver, V2_INFO, "CCC propagate eq");
   LOG ("propagation of congruence equivalence %s", CLOGREPR (lit));
   assert (!solver->inconsistent);
   if (VALUE (lit))
@@ -4231,6 +4237,7 @@ static bool propagate_equivalence (closure *closure, unsigned lit) {
 
 static bool propagate_units (closure *closure) {
   kissat *const solver = closure->solver;
+  // kissat_custom_message(solver, V2_INFO, "CCC propagate units");
   assert (!solver->inconsistent);
   const unsigned_array *const trail = &solver->trail;
   while (closure->units != trail->end)
@@ -4241,6 +4248,7 @@ static bool propagate_units (closure *closure) {
 
 static size_t propagate_units_and_equivalences (closure *closure) {
   kissat *const solver = closure->solver;
+  kissat_custom_message(solver, V2_INFO, "CCC propagate u&e");
   assert (!solver->inconsistent);
   START (merge);
   unsigned_fifo *schedule = &closure->schedule;
@@ -4477,6 +4485,7 @@ static void sort_references_by_clause_size (kissat *solver,
 
 static void forward_subsume_matching_clauses (closure *closure) {
   kissat *const solver = closure->solver;
+  kissat_custom_message(solver, V2_INFO, "CCC forward subsume");
   START (matching);
   reset_closure (closure);
   litpairs binaries;
@@ -4613,23 +4622,23 @@ void congruencer_import_units(closure *closure) {
   if (!solver->shweep_import_SweepJob_eq_callback)
     return;
 
-  unsigned long seen = solver->congruence.units_seen;
-  unsigned long useful = solver->congruence.units_useful;
+  unsigned long seen = solver->shweep.units_seen;
+  unsigned long useful = solver->shweep.units_useful;
+
+  //todo: just pass on the normal localID, is treated by mallob just as another sweeper, same interface
 
   for (;;) {
     unsigned ilit = INVALID_LIT;
-    solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &ilit, CONGRUENCER_ID); //the semantic format is always unsigned, but the function signature is int to keep it simple for the outside
+    solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &ilit, closure->localId); //the semantic format is always unsigned, but the function signature is int to keep it simple for the outside
     if (ilit==INVALID_LIT)
       break;
-    solver->congruence.units_seen++;
+    solver->shweep.units_seen++;
     const unsigned repr_ilit = find_repr(closure, ilit);
-    closure->is_importing = true;
     learn_congruence_unit(closure, repr_ilit, true);
-    closure->is_importing = false;
   }
 
-  unsigned long new_seen = solver->congruence.units_seen - seen;
-  unsigned long new_useful = solver->congruence.units_useful - useful;
+  unsigned long new_seen = solver->shweep.units_seen - seen;
+  unsigned long new_useful = solver->shweep.units_useful - useful;
   if (new_seen>0) {
     kissat_custom_message(solver, V2_INFO, "CCC Imported %i / %i units ", new_useful, new_seen);
   }
@@ -4643,7 +4652,7 @@ void congruencer_import_equivalences(closure *closure) {
   if (!solver->shweep_import_SweepJob_eq_callback)
     return;
 
-  unsigned long seen   = solver->congruence.eqs_seen;
+  unsigned long seen   = solver->shweep.eqs_seen;
   unsigned long useful = solver->statistics.congruent;
 
   //Note: We share literals globally already in *internal* representation (i.e. unsigned), since during Sweeping no deletions/additions/renamings of variables happens
@@ -4651,21 +4660,27 @@ void congruencer_import_equivalences(closure *closure) {
   //However, to keep this more transparent to the Mallob side and not mix unsigned and int too much in external signatures, we still pass the internal literals as int's instead of unsigned's
 
   for (;;) {
-    unsigned ilit1 = INVALID_LIT; //Mallob will leave them untouched if there is no equivalence to provide
+    unsigned ilit1 = INVALID_LIT; //Mallob will leave them untouched if there is no more equivalence to provide
     unsigned ilit2 = INVALID_LIT;
-    solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &ilit1, &ilit2, CONGRUENCER_ID);
+    solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &ilit1, &ilit2, closure->localId);
     // kissat_custom_message(solver, V2_VERB_SWEEP,  "called eq callback and got %i, %i ", ilit1, ilit2);
     if (ilit1 == INVALID_LIT && ilit2 == INVALID_LIT)
       break;
-    closure->is_importing=true;
+
+    solver->shweep.eqs_seen++;
     merge_literals(closure, ilit1, ilit2, true);
-    closure->is_importing=false;
-    solver->congruence.eqs_seen++;
+    // if (merge_literals(closure, ilit1, ilit2, true)) {
+      // size_t propagated = propagate_units_and_equivalences (closure);
+      // if (propagated)
+        // kissat_custom_message (solver, "propagated %zu ", propagated);
+    // }
+
+
   }
 
-  unsigned long new_seen = solver->congruence.eqs_seen - seen;
+  unsigned long new_seen = solver->shweep.eqs_seen - seen;
   unsigned long new_useful = solver->statistics.congruent - useful;
-  solver->congruence.eqs_useful = solver->statistics.congruent;
+
   if (new_seen > 0) {
     kissat_custom_message(solver, V2_INFO,  "CCC Imported %i / %i eqs ", new_useful, new_seen);
   }
@@ -4721,6 +4736,7 @@ bool kissat_congruence (kissat *solver) {
   kissat_phase (solver, "congruence", GET (closures),
                 "merged %u equivalent variables %.2f%%", equivalent,
                 kissat_percent (equivalent, solver->active));
+  kissat_custom_message (solver, V2_INFO, "congruence integrated %i equivalences", equivalent);
   assert (solver->active >= equivalent);
 #ifndef QUIET
   solver->active -= equivalent;
@@ -4739,9 +4755,19 @@ bool kissat_congruence (kissat *solver) {
 
 bool kissat_mallob_congruencer(kissat *solver) {
   // int equivalent = 0;
-  int rounds=0;
+  kissat_custom_message (solver, V1_WARN, "CONGRUENCER CCC START");
+  int round = 0;
+  int eqs_ex = 0;
+  int eqs_in = 0;
+  int clauses = 0;
+  solver->probing = true;
   while (true) {
-    kissat_custom_message(solver, V1_WARN, "CCC round %i", rounds);
+    kissat_custom_message(solver, V2_INFO, "CCC round %i: clauses %i (%i)", round, CLAUSES, CLAUSES - clauses);
+    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs ex %i ", round, solver->shweep.congr_eqs - eqs_ex);
+    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs in %i ", round, solver->shweep.eqs_useful- eqs_in);
+    eqs_ex = solver->shweep.congr_eqs;
+    eqs_in = solver->shweep.eqs_useful;
+    clauses = CLAUSES;
     if (solver->inconsistent){
       kissat_custom_message(solver, V1_WARN, "CCC break loop: inconsistent (UNSAT)");
       break;
@@ -4752,11 +4778,110 @@ bool kissat_mallob_congruencer(kissat *solver) {
     }
     kissat_congruence(solver);
     kissat_substitute(solver, true);
-    rounds++;
+    round++;
   }
 
   kissat_custom_message(solver, V1_WARN, "CCC exit");
 
   return (solver->inconsistent ? 20 : 0);
+
+}
+
+bool kissat_mallob_tightloop_congruence(kissat *solver) {
+  if (solver->inconsistent)
+    return false;
+  kissat_check_statistics (solver);
+  solver->probing = true;
+  assert (!solver->level);
+  assert (solver->probing);
+  assert (solver->watching);
+  if (!GET_OPTION (congruence))
+    return false;
+  if (!GET_OPTION (congruenceands) && !GET_OPTION (congruenceites) &&
+      !GET_OPTION (congruencexors))
+    return false;
+  if (GET_OPTION (congruenceonce) && solver->statistics.closures)
+    return false;
+  if (TERMINATED (congruence_terminated_8))
+    return false;
+  if (DELAYING (congruence))
+    return false;
+  START (congruence);
+  INC (closures);
+  closure closure;
+  init_closure (solver, &closure);
+  extract_gates (&closure);
+  bool reset = false;
+
+  kissat_custom_message (solver, V1_WARN, "CONGRUENCER CCC START");
+  int round = 0;
+  int eqs_ex = 0;
+  int eqs_in = 0;
+  int clauses = 0;
+
+  while (true) {
+    if (solver->inconsistent){
+      kissat_custom_message(solver, V1_WARN, "CCC break tight loop: inconsistent (UNSAT)");
+      break;
+    }
+    if (solver->termination.flagged) {
+      kissat_custom_message(solver, V1_WARN, "CCC break tight loop: termination flagged");
+      break;
+    }
+    if (solver->shweeper_terminated_externally) {
+      kissat_custom_message(solver, V1_WARN, "CCC break tight loop: external volatile termination");
+      break;
+    }
+
+    kissat_custom_message(solver, V2_INFO, "CCC round %i: clauses %i (%i)", round, CLAUSES, CLAUSES - clauses);
+    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs ex %i ", round, solver->shweep.congr_eqs - eqs_ex);
+    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs in %i ", round, solver->shweep.eqs_useful- eqs_in);
+    eqs_ex = solver->shweep.congr_eqs;
+    eqs_in = solver->shweep.eqs_useful;
+    clauses = CLAUSES;
+
+    congruencer_import_units (&closure);
+    congruencer_import_equivalences (&closure);
+
+    if (!solver->inconsistent && !TERMINATED (congruence_terminated_9)) {
+      find_units (&closure);
+      if (!solver->inconsistent && !TERMINATED (congruence_terminated_10)) {
+        find_equivalences (&closure);
+        if (!solver->inconsistent && !TERMINATED (congruence_terminated_11)) {
+          size_t propagated = propagate_units_and_equivalences (&closure);
+          if (!solver->inconsistent && propagated &&
+              !TERMINATED (congruence_terminated_12)) {
+            forward_subsume_matching_clauses (&closure);
+            reset = true;
+              }
+        }
+      }
+    }
+    round++;
+  }
+
+  kissat_custom_message (solver, V1_WARN, "CONGRUENCE CCC END");
+
+  if (!reset)
+    reset_closure (&closure);
+  unsigned equivalent = reset_repr (&closure);
+  kissat_phase (solver, "congruence", GET (closures),
+                "merged %u equivalent variables %.2f%%", equivalent,
+                kissat_percent (equivalent, solver->active));
+  kissat_custom_message (solver, V1_WARN, "CONGRUENCE CCC equivalences: %i", equivalent);
+  assert (solver->active >= equivalent);
+#ifndef QUIET
+  solver->active -= equivalent;
+  REPORT (!equivalent, 'c');
+  if (!solver->inconsistent)
+    solver->active += equivalent;
+#endif
+  if (kissat_average (equivalent, solver->active) < 0.001)
+    BUMP_DELAY (congruence);
+  else
+    REDUCE_DELAY (congruence);
+  STOP (congruence);
+  kissat_check_statistics (solver);
+  return equivalent;
 
 }

@@ -79,13 +79,15 @@ void shweep_set_sweep_round(kissat *solver, int round);
 bool kissat_is_inconsistent (kissat *solver);
 
 struct shweep_statistics {
-  //incremental counters
+  //importing
   unsigned long eqs_seen, eqs_useful, eqs_skipped_known, eqs_transitive, eqs_unitprop, eqs_skipped_doublefixed;
   unsigned long units_seen, units_useful, units_skipped_fixed, units_transitive;
-  unsigned long worksweeps, resweeps_in, resweeps_out; //worksweep: sweep a variable because scheduled in work. resweep: sweep a variable because part of recent equivalence
-  //global info taken from kissat
+  //how often did we sweep due to schedule vs. resweep due to recent equivalence
+  unsigned long worksweeps, resweeps_in, resweeps_out;
+  //info that already kissat tracks
   unsigned long vars_active_orig, vars_formally_orig, units_orig; //active: actual #vars we still have to solve at the start of sweep. #formally: the formal number of variables, some of which might already be fixed
   unsigned long sweep_eqs, sweep_units, units_new, units_end, eliminated;
+  unsigned long congr_eqs, congr_units;
   unsigned long vars_end, clauses_end;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
