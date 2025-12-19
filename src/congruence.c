@@ -4791,8 +4791,8 @@ bool kissat_mallob_congruencer(kissat *solver) {
     // congruencer_import_units (&closure);
     // congruencer_import_equivalences (&closure);
 
-    // kissat_custom_message(solver, V1_WARN, "CCC substitute");
-    // kissat_substitute(solver, true);
+    kissat_custom_message(solver, V1_WARN, "CCC substitute");
+    kissat_substitute(solver, true);
     // if (progress) {
 
 
