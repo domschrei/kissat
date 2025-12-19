@@ -1,4 +1,6 @@
 #include "congruence.h"
+
+#include "backtrack.h"
 #include "dense.h"
 #include "fifo.h"
 #include "inline.h"
@@ -15,8 +17,10 @@
 #include "trail.h"
 #include "utilities.h"
 
-#include "substitute.h" //for Mallob Congruencer
 #include "clauseexport.h"
+#include "reduce.h"
+#include "substitute.h" //for Mallob Congruencer
+#include "transitive.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -823,11 +827,11 @@ static bool learn_congruence_unit (closure *closure, unsigned unit, bool importi
 
   if (GET_OPTION (mallob_is_congruencer)) {
     if (importing) {
-      kissat_custom_message(solver, V4_VVERB, "CCC Imported unit %i", unit);
+      kissat_custom_message(solver, V4_VVERB, "CCC Importing unit %i", unit);
       solver->shweep.units_useful++;
     } else {
       shweep_export_unit (solver, unit) ;
-      kissat_custom_message(solver, V2_INFO, "CCC exported unit %i", unit);
+      kissat_custom_message(solver, V2_INFO, "CCC exporting unit %i", unit);
       solver->shweep.congr_units++;
     }
   }
@@ -974,11 +978,11 @@ static bool merge_literals (closure *closure, unsigned lit,
   INC (congruent);
   if (GET_OPTION (mallob_is_congruencer)) {
     if (importing) {
-      kissat_custom_message (solver, V3_VERB, "CCC imported eq ilit(%i)==ilit(%i)", smaller, larger);
+      kissat_custom_message (solver, V3_VERB, "CCC importing eq ilit(%i)==ilit(%i)", smaller, larger);
       solver->shweep.eqs_useful++;
     } else {
       shweep_export_equivalence(solver, smaller, larger);
-      kissat_custom_message (solver, V2_INFO, "CCC exported eq ilit(%i)==ilit(%i)", smaller, larger);
+      kissat_custom_message (solver, V2_INFO, "CCC exporting eq ilit(%i)==ilit(%i)", smaller, larger);
       solver->shweep.congr_eqs++;
     }
   }
@@ -4726,6 +4730,11 @@ bool kissat_congruence (kissat *solver) {
             !TERMINATED (congruence_terminated_12)) {
           forward_subsume_matching_clauses (&closure);
           reset = true;
+
+          // if (GET_OPTION (mallob_is_congruencer)) { //maybe position it after find_units and find_equivalences?
+            // congruencer_import_units (&closure);
+            // congruencer_import_equivalences (&closure);
+          // }
         }
       }
     }
@@ -4763,8 +4772,8 @@ bool kissat_mallob_congruencer(kissat *solver) {
   solver->probing = true;
   while (true) {
     kissat_custom_message(solver, V2_INFO, "CCC round %i: clauses %i (%i)", round, CLAUSES, CLAUSES - clauses);
-    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs ex %i ", round, solver->shweep.congr_eqs - eqs_ex);
-    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs in %i ", round, solver->shweep.eqs_useful- eqs_in);
+    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs exported %i ", round, solver->shweep.congr_eqs - eqs_ex);
+    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs imported %i ", round, solver->shweep.eqs_useful- eqs_in);
     eqs_ex = solver->shweep.congr_eqs;
     eqs_in = solver->shweep.eqs_useful;
     clauses = CLAUSES;
@@ -4776,8 +4785,29 @@ bool kissat_mallob_congruencer(kissat *solver) {
       kissat_custom_message(solver, V1_WARN, "CCC break loop: termination flagged");
       break;
     }
+    // kissat_backtrack_propagate_and_flush_trail (solver); // added as a test, but probably not needed...
     kissat_congruence(solver);
-    kissat_substitute(solver, true);
+
+    // congruencer_import_units (&closure);
+    // congruencer_import_equivalences (&closure);
+
+    // kissat_custom_message(solver, V1_WARN, "CCC substitute");
+    // kissat_substitute(solver, true);
+    // if (progress) {
+
+
+      //maybe we need to explicitly remove the garbage-marked clauses from the database before the next round?
+      //because without this reduce, the dense_mode reads some binary clauses from the database where one literal is already eliminated...
+      // kissat_custom_message(solver, V1_WARN, "CCC reduce");
+      // kissat_reduce(solver);
+
+
+      //maybe transitive reduction is already sufficient to clean up binary clauses with eliminated variables?
+      // kissat_custom_message(solver, V1_WARN, "CCC transred");
+      // kissat_transitive_reduction (solver);
+    // }
+
+
     round++;
   }
 
@@ -4840,6 +4870,7 @@ bool kissat_mallob_tightloop_congruence(kissat *solver) {
     eqs_in = solver->shweep.eqs_useful;
     clauses = CLAUSES;
 
+    //todo: dangerous that we only do extraction of gates once, doesnt seem to work that good... not intended by original structure
     congruencer_import_units (&closure);
     congruencer_import_equivalences (&closure);
 
