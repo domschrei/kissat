@@ -8,4 +8,6 @@ bool kissat_sweep (struct kissat *);
 
 int kissat_mallob_shweep(struct kissat *);
 
+int kissat_mallob_shweep_just_import(struct kissat *);
+
 #endif

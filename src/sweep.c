@@ -2362,6 +2362,9 @@ void shweep_check_new_environment_limits(sweeper *sweeper) {
   if (sweeper->solver->statistics.sweep_completed != completed) {
     sweeper->solver->statistics.sweep_completed = completed;
     kissat *solver = sweeper->solver;
+    if ( ! GET_OPTION (mallob_growing_environments)) {
+      return;
+    }
 
     uint64_t vars_limit = GET_OPTION (sweepvars);
     vars_limit <<= completed;
@@ -2454,6 +2457,11 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     flags *flags = FLAGS (repr_idx);
     if (!flags->active) {
       already_fixed++;
+    }
+    if (GET_OPTION (mallob_is_congruencer) && flags->eliminated) {
+      // kissat_custom_message(solver, V2_VERB_SWEEP,"CCC skips importing ilit(%i)/repr_ilit(%i), is already eliminated", ilit, repr_ilit);
+      solver->shweep.congr_eqs_skipped++;
+      return;
     }
     assert(!flags->eliminated || kissat_custom_assert_message(solver,  "SWEEP ERROR/Error: imported an eq-literal ilit(%i) that is locally eliminated", ilit));
     repr_ilits[i]=repr_ilit;
@@ -3072,7 +3080,20 @@ bool kissat_sweep (kissat *solver) {
 
 
 
-
+int kissat_mallob_shweep_just_import(kissat *solver) {
+  sweeper sweeper;
+  init_sweeper (solver, &sweeper);
+  int units = solver->statistics.sweep_units;
+  int eqs   = solver->statistics.sweep_equivalences;
+  shweep_import_SweepJob_units (&sweeper);
+  shweep_import_SweepJob_equivalences (&sweeper);
+  release_sweeper (&sweeper);
+  units = solver->statistics.sweep_units - units;
+  eqs   = solver->statistics.sweep_equivalences - eqs;
+  kissat_custom_message (solver, V2_VERB_SWEEP, "CCC/SWEEP Import: %i eqs, %i units", eqs, units);
+  kissat_substitute (solver, true);
+  return 0;
+}
 
 
 
@@ -3217,3 +3238,4 @@ int kissat_mallob_shweep(kissat *solver) {
   return (solver->inconsistent ? 20 : 0);
   //will now directly continue into kissat_report_dimacs
 }
+

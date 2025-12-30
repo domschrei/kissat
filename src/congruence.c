@@ -21,6 +21,7 @@
 #include "reduce.h"
 #include "substitute.h" //for Mallob Congruencer
 #include "transitive.h"
+#include "sweep.h" //to import units and equivalences
 
 #include <stddef.h>
 #include <stdint.h>
@@ -4716,10 +4717,10 @@ bool kissat_congruence (kissat *solver) {
   init_closure (solver, &closure);
   extract_gates (&closure);
   bool reset = false;
-  if (GET_OPTION (mallob_is_congruencer)) { //maybe position it after find_units and find_equivalences?
-    congruencer_import_units (&closure);
-    congruencer_import_equivalences (&closure);
-  }
+  // if (GET_OPTION (mallob_is_congruencer)) { //maybe position it after find_units and find_equivalences?
+    // congruencer_import_units (&closure);
+    // congruencer_import_equivalences (&closure);
+  // }
   if (!solver->inconsistent && !TERMINATED (congruence_terminated_9)) {
     find_units (&closure);
     if (!solver->inconsistent && !TERMINATED (congruence_terminated_10)) {
@@ -4786,6 +4787,10 @@ bool kissat_mallob_congruencer(kissat *solver) {
       break;
     }
     // kissat_backtrack_propagate_and_flush_trail (solver); // added as a test, but probably not needed...
+    //do import via the sweep.c logic, somehow more robust
+
+    kissat_mallob_shweep_just_import (solver);
+
     kissat_congruence(solver);
 
     // congruencer_import_units (&closure);

@@ -103,7 +103,7 @@ void kissat_mark_eliminated_variable (kissat *solver, unsigned idx) {
   assert (pos < (1u << 30));
   import->lit = pos;
   import->eliminated = true;
-  kissat_custom_message (solver, 2, "eliminated idx(%u) ilit(%u)", IDX(lit), lit);
+  kissat_custom_message (solver, 3, "eliminated idx(%u) ilit(%u)", IDX(lit), lit);
   // kissat_message(solver, "eliminating iidx %i == eidx %i \n", idx, kissat_export_literal (solver, lit));
 
   PUSH_STACK (solver->eliminated, (value) 0);
