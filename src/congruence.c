@@ -4771,6 +4771,7 @@ bool kissat_mallob_congruencer(kissat *solver) {
   int eqs_in = 0;
   int clauses = 0;
   solver->probing = true;
+  solver->shweeper_in_congruence = true; //prevent "dummy" sweeper objects that we create solely for importing eqs&units participate in workstealing
   while (true) {
     kissat_custom_message(solver, V2_INFO, "CCC round %i: clauses %i (%i)", round, CLAUSES, CLAUSES - clauses);
     kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs exported %i ", round, solver->shweep.congr_eqs - eqs_ex);
@@ -4817,6 +4818,7 @@ bool kissat_mallob_congruencer(kissat *solver) {
   }
 
   kissat_custom_message(solver, V1_WARN, "CCC exit");
+  solver->shweeper_in_congruence = false;
 
   return (solver->inconsistent ? 20 : 0);
 

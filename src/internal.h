@@ -259,14 +259,15 @@ struct kissat {
 
 
   //--------------------------------------------------------------------------------
-  //Shared Mallob Sweeping
+  //For distributed equivalence sweeping coordinated by Mallob
   sweeper *sweeper;
   bool shweeper_initialized;
+  bool shweeper_in_congruence;
   volatile bool shweeper_terminated_externally;
 
   int *shweep_export_eq_buffer;
-  void (*shweep_export_eq_callback) (void *state);
-  void (*shweep_export_unit_callback) (void *state, int lit);
+  void (*shweep_export_eq_callback) (void *state); //Export to own Mallob::Kissat object
+  void (*shweep_export_unit_callback) (void *state, int lit); //Export to own Mallob::Kissat object
 
   void (*shweep_import_SweepJob_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId); //Import directly from SweepJob and bypass Kissat
   void (*shweep_import_SweepJob_unit_callback) (void *SweepJobState, int *lit, int localId); //Import directly from SweepJob and bypass Kissat

@@ -2578,7 +2578,11 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
 //Want to allocate memory in C++ for the steal, but don't know yet how much memory, so we ask first here
 //To know how much there is work left, needs to be compacted first
 int shweep_get_max_steal_amount(kissat *solver) {
-  if (!solver || !solver->shweeper_initialized || !solver->sweeper) {
+  //guard against:
+  //solver not existing (maybe the Mallob::Kissat object exists but its kissat solver for some reason not)
+  //solver is initialized, but not the sweeper subcomponent. we can NOT just directly test for solver->sweeper, because before initialization those are random bits (ok, could initialize cleanly as =0 ...)
+  //sweeper might exist, but only because we use it as a subroutine during congruence closure, only because import of eqs&units SOMEHOW is more robust (less assert problems) via the sweep interface than the congruence interface
+  if (!solver || !solver->shweeper_initialized || !solver->sweeper || solver->shweeper_in_congruence) {
     //guard against very early stealing attempts where this solver is not even initialized yet.
     kissat_custom_message(solver,V4_UVERB_SWEEP, "SWEEP STEAL Guard: I am not fully initialized yet.");
     return 0;
@@ -2664,6 +2668,10 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
 
   //The new work will be allocated by Mallob/C++, and we will only read from it on the provided *work array and size
   if (solver->shweep_search_work_callback) {
+     /*
+      * This callback will bring the thread into the Mallob/C++ area, where it will loop continuously until either some work is found or zero work is returned, signalling the end of sweeping
+      * Thus the main wait loop (code-wise) happens on the Mallob-Level, and not here
+      */
     solver->shweep_search_work_callback(solver->shweep_mallob_SweepJobState, &sweeper->work, &stolen_amount, sweeper->localId);
   } else if (!sweeper->singlethread_debugging_provided_work){
     //only for singlethreaded debugging: running a single instance of kissat without Mallob/MPI overhead, thus there is no mallob to provide work, so we need to provide it ourselves.
