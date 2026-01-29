@@ -51,7 +51,9 @@ kissat *kissat_init (void) {
   kissat_init_checker (solver);
 #endif
 
+#ifndef NPROOFS
   solver->proof = 0;
+#endif
   solver->last_glue = 0;
 
   solver->consume_clause_state = 0;
@@ -623,12 +625,14 @@ void kissat_trace_proof_internally (kissat * solver, void *state,
     void (*on_lrup_import)     (void* state, unsigned long id, const int* lits, int nbLits, const unsigned char* sigData),
     void (*on_drup_deletion)   (void* state, const int* lits, int nbLits)) {
 
+#ifndef NPROOFS
   solver->proof_log_state = state;
   solver->on_drup_derivation = on_drup_derivation;
   solver->on_lrup_import = on_lrup_import;
   solver->on_drup_deletion = on_drup_deletion;
 
   kissat_init_ext_proof (solver);
+#endif
 }
 
 bool kissat_importing_redundant_clauses (kissat * solver) 
@@ -732,8 +736,10 @@ void kissat_import_redundant_clauses (kissat * solver)
       continue;
     }
 
+#ifndef NPROOFS
     // Import the *original* (non shortened) clause to the proof interface
     if (solver->proof) solver->on_lrup_import (solver->proof_log_state, id, buffer, originalSize, sig);
+#endif
 
     if (effectiveSize == 1) {
       // Unit clause!
@@ -747,6 +753,7 @@ void kissat_import_redundant_clauses (kissat * solver)
       // This call *does not* append anything to the proof.
       kissat_learned_unit_from_import (solver, lit);
 
+#ifndef NPROOFS
       // If the unit was simplified from a larger clause, we need to explicitly derive the unit
       // on the basis of the imported clause and then immediately delete the original clause
       // since the solver doesn't remember it either.
@@ -754,6 +761,7 @@ void kissat_import_redundant_clauses (kissat * solver)
         solver->on_drup_derivation (solver->proof_log_state, &elit, 1, glue);
         solver->on_drup_deletion (solver->proof_log_state, buffer, originalSize);
       }
+#endif
 
       solver->num_imported_external_clauses++;
       continue;
@@ -779,9 +787,11 @@ void kissat_import_redundant_clauses (kissat * solver)
       kissat_new_redundant_clause (solver, glue) :
       kissat_new_redundant_clause_from_import (solver, glue);
 
+#ifndef NPROOFS
     // If the clause was simplified from a larger clause, we need to immediately delete
     // the original clause since the solver doesn't remember it either.
     if (simplified && solver->proof) solver->on_drup_deletion (solver->proof_log_state, buffer, originalSize);
+#endif
 
     if (ref != INVALID_REF) {
       // Valid reference => Long clause (size>2) 

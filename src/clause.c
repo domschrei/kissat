@@ -151,7 +151,10 @@ reference new_redundant_clause (kissat *solver, unsigned glue, bool export) {
   unsigned *lits = BEGIN_STACK (solver->clause);
   // If the clause is not directly a shared clause and we don't export it via the proof logger,
   // export it via the explicit clause export callback.
-  if (export && !solver->proof) kissat_export_redundant_clause (solver, glue, size, lits);
+#ifndef NPROOFS
+  if (!solver->proof)
+#endif
+    if (export) kissat_export_redundant_clause (solver, glue, size, lits);
   // The clause is treated as "original" (w.r.t. proof logging) iff it's a shared clause.
   return new_clause (solver, !export, true, glue, size, lits);
 }

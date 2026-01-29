@@ -239,6 +239,12 @@ struct kissat {
 
 #ifndef NPROOFS
   proof *proof;
+
+  // Proof logging
+  void *proof_log_state;
+  void (*on_drup_derivation) (void* state, const int* lits, int nbLits, int glue);
+  void (*on_lrup_import)     (void* state, unsigned long id, const int* lits, int nbLits, const unsigned char* sigData);
+  void (*on_drup_deletion)   (void* state, const int* lits, int nbLits);
 #endif
 
   // Clause export
@@ -246,6 +252,7 @@ struct kissat {
   int *consume_clause_buffer;
   unsigned consume_clause_max_size;
   void (*consume_clause) (void *state, int size, int glue);
+  unsigned last_glue;
   
   // Clause import
   void *produce_clause_state;
@@ -265,13 +272,6 @@ struct kissat {
   void *report_preprocess_state;
   bool (*begin_report) (void *state, int vars, int cls);
   void (*report_preprocessed_lit) (void *state, int lit);
-
-  // Proof logging
-  void *proof_log_state;
-  void (*on_drup_derivation) (void* state, const int* lits, int nbLits, int glue);
-  void (*on_lrup_import)     (void* state, unsigned long id, const int* lits, int nbLits, const unsigned char* sigData);
-  void (*on_drup_deletion)   (void* state, const int* lits, int nbLits);
-  unsigned last_glue;
 
   statistics statistics;
 };

@@ -21,7 +21,9 @@ void learned_unit (kissat *solver, unsigned lit, bool export) {
     ADD_UNIT_TO_PROOF (lit);
     // Only export the clause via the explicit export callback if there is no
     // proof logger which does the same indirectly.
+#ifndef NPROOFS
     if (!solver->proof)
+#endif
       kissat_export_redundant_clause (solver, 1, 1, &lit);
   }
 }
