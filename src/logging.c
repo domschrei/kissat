@@ -10,7 +10,7 @@ static void begin_logging (kissat *solver, const char *prefix,
                            const char *fmt, va_list *ap) {
   TERMINAL (stdout, 1);
   assert (GET_OPTION (log));
-  fputs ("c ", stdout);
+  fputs (solver->prefix, stdout);
   COLOR (MAGENTA);
   printf ("%s %u ", prefix, solver->level);
   vprintf (fmt, *ap);
@@ -22,6 +22,16 @@ static void end_logging (void) {
   COLOR (NORMAL);
   fflush (stdout);
 }
+
+void kissat_begin_logging (kissat *solver, const char *prefix,
+                           const char *fmt, ...) {
+  va_list ap;
+  va_start (ap, fmt);
+  begin_logging (solver, prefix, fmt, &ap);
+  va_end (ap);
+}
+
+void kissat_end_logging (void) { end_logging (); }
 
 void kissat_log_msg (kissat *solver, const char *prefix, const char *fmt,
                      ...) {

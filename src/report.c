@@ -92,18 +92,17 @@ void kissat_report (kissat *solver, bool verbose, char type) {
       *r[j] = 0;
     }
     if (solver->limits.reports > 1)
-      fputs ("c\n", stdout);
+      kissat_line (solver);
     for (unsigned j = 0; j < ROWS; j++) {
-      fputs ("c  ", stdout);
+      fputs (solver->prefix, stdout);
       COLOR (CYAN);
       fputs (rows[j], stdout);
       COLOR (NORMAL);
       fputc ('\n', stdout);
     }
-    fputs ("c\n", stdout);
+    kissat_line (solver);
   }
-  fputc ('c', stdout);
-  fputc (' ', stdout);
+  kissat_prefix (solver);
   switch (type) {
   case '1':
   case '0':
