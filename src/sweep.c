@@ -2358,7 +2358,7 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
 
 
 void shweep_check_new_environment_limits(sweeper *sweeper) {
-  int completed = sweeper->sweep_round - 1; //sweep_round is periodically updated by the Mallob main thread
+  int completed = sweeper->sweep_round - 1; //sweep_round is periodically updated by the Mallob main thread, starts at 1
   if (sweeper->solver->statistics.sweep_completed != completed) {
     sweeper->solver->statistics.sweep_completed = completed;
     kissat *solver = sweeper->solver;
@@ -2366,6 +2366,7 @@ void shweep_check_new_environment_limits(sweeper *sweeper) {
       return;
     }
 
+    //copy of the original sweep environment increases
     uint64_t vars_limit = GET_OPTION (sweepvars);
     vars_limit <<= completed;
     const unsigned max_vars_limit = GET_OPTION (sweepmaxvars);
@@ -2684,15 +2685,18 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
     sweeper->singlethread_debugging_provided_work=true;
   }
 
-  if (stolen_amount>0)
-    kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
-  if (stolen_amount==0)
-    kissat_custom_message (solver, V3_VVERB_SWEEP, "Got termination signal via 0 work info");
+  // if (stolen_amount>0)
+    // kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
+  // if (stolen_amount==0)
+    // kissat_custom_message (solver, V3_VVERB_SWEEP, "Got termination signal via 0 work info");
+  //update: we no longer handle terminations via this search_work function, but separately. was anyways a bit shoehorned in here
+  kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
 
   const unsigned *work = sweeper->work;
+
+  //We mark all variables that we have stolen as to-sweep
+  //It can then happen that a variable is sweeped earlier than its position in this queue, due to immediate re-sweeping upon detecting an equivalence. In that case we then falsify the sweep flag, to skip it later
   flags *flags = solver->flags;
-  //We mark all variables that we have stolen, and will now begin to sweep, as to-sweep.
-  //It can then happen that a variable is sweeped earlier than its position in this queue, due to immediate re-shweeping upon detecting an equivalence. In that case we then falsify the sweep flag, to skip it later
   for (int i=0; i<stolen_amount; i++) {
     flags[work[i]].sweep = true;
   }
@@ -3149,6 +3153,10 @@ int kissat_mallob_shweep(kissat *solver) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER ran into Kitten Tick limit timeout \n");
       break;
     }
+    if (solver->termination.flagged) {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting, termination.flagged\n");
+      break;
+    }
     // if (solver->shweeper_terminate) {
       // kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER saw dedicated volatile shweep TERMINATE flag during loop \n");
       // break;
@@ -3159,14 +3167,31 @@ int kissat_mallob_shweep(kissat *solver) {
 
     //we might have ran out of work
     if (idx == INVALID_IDX) {
-      //try to steal from somebody
-      if (!shweep_search_work_from_others (&sweeper)) {
-        //Termination. The steal came back with length 0, which is the signal from Mallob that the Sweep Job is terminated.
-        break;
+      while (true) {
+        //update: separate worksteal and termination check. allows us to interleave imports easier
+        unsigned stolen = shweep_search_work_from_others (&sweeper);
+        if (stolen>0)
+          break;
+        if (solver->termination.flagged)
+          break;
+        //we interleave importing here, because it happened that the solver was stuck in workstealing for multiple sharing rounds
+        //and missed out on all the eqs & units of those rounds
+        //How one process can not receive work for such a long time while the other processes apparently still have enough work to pump out non-idle sharing rounds is another question...
+        shweep_import_SweepJob_units (&sweeper);
+        shweep_import_SweepJob_equivalences (&sweeper);
       }
+      //try to steal from somebody
+      // if (!shweep_search_work_from_others (&sweeper)) {
+        //Termination. The steal came back with length 0, which is the signal from Mallob that the Sweep Job is terminated.
+        // break;
+      // }
       //steal was successful, continue sweeping on the new work
-      continue;
+      // continue;
     }
+
+
+    if (solver->termination.flagged)
+      break;
 
     shweep_sweep_variable_with_prop (&sweeper, idx, true);
 
