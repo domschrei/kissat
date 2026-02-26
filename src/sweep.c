@@ -3170,8 +3170,10 @@ int kissat_mallob_shweep(kissat *solver) {
       while (true) {
         //update: separate worksteal and termination check. allows us to interleave imports easier
         unsigned stolen = shweep_search_work_from_others (&sweeper);
-        if (stolen>0)
+        if (stolen>0) {
+          idx = shweep_next_scheduled (&sweeper);
           break;
+        }
         if (solver->termination.flagged)
           break;
         //we interleave importing here, because it happened that the solver was stuck in workstealing for multiple sharing rounds
