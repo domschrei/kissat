@@ -2661,7 +2661,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   sweeper->work_end = 0;
   sweeper->max_work_after_steal = 0;
 
-  kissat_custom_message (solver, V3_VVERB_SWEEP, "searching for work");
+  kissat_custom_message (solver, V4_UVERB_SWEEP, "searching for work");
 
   //Decouple stolen_amount from work_end as long as possible, to not have spurious reset-writes on work_end influence the logic here
   int stolen_amount = 0;
@@ -2685,12 +2685,13 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
     sweeper->singlethread_debugging_provided_work=true;
   }
 
+  assert(stolen_amount>=0 || kissat_custom_assert_message ("ERROR: stolen amount %i is negative \n", stolen_amount));
   // if (stolen_amount>0)
     // kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
   // if (stolen_amount==0)
     // kissat_custom_message (solver, V3_VVERB_SWEEP, "Got termination signal via 0 work info");
   //update: we no longer handle terminations via this search_work function, but separately. was anyways a bit shoehorned in here
-  kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
+  // kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
 
   const unsigned *work = sweeper->work;
 
