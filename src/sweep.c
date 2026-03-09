@@ -2395,19 +2395,26 @@ void shweep_check_new_environment_limits(sweeper *sweeper) {
 
 bool shweep_var_still_open(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
-  // kissat_custom_message(solver,V2_VERB_SWEEP, " check idx=%u", idx);
   unsigned lit = LIT(idx);
-  if (!FLAGS(idx)->sweep)
+  if (!FLAGS(idx)->sweep) {
+    kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not to sweep", idx);
     return false;
-  if (!ACTIVE(idx))
+  }
+  if (!ACTIVE(idx)) {
+    kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not active", idx);
     return false;
-  if (sweep_repr (sweeper, lit) != lit)
+  }
+  if (sweep_repr (sweeper, lit) != lit) {
+    kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not repr", idx);
     return false;
+  }
   size_t occ;
   if (!scheduable_variable (sweeper, idx, &occ)) {
     FLAGS (idx)->sweep = false;
+    kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not occ-scheduable", idx);
     return false;
   }
+  kissat_custom_message(solver,V2_VERB_SWEEP, "           good    idx %u: still open!", idx);
   return true;
 }
 
@@ -2604,6 +2611,8 @@ int shweep_get_max_steal_amount(kissat *solver) {
   assert( (half>=0 && half<=solver->vars) || kissat_custom_assert_message (solver, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
   if (half != 0) {
     kissat_custom_message(solver,V3_VVERB_SWEEP, "can provide at most %i \n", half);
+  } else {
+    // kissat_custom_message(solver,V2_VERB_SWEEP, "can provide nothing. work_head %i, work_end %i \n", sweeper->work_head, sweeper->work_end);
   }
   return half;
 }
@@ -2615,7 +2624,7 @@ int shweep_get_max_steal_amount(kissat *solver) {
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count) {
   sweeper *sweeper = solver->sweeper;
   //steal every second local variable that is still open for sweeping
-  // kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming steal begins, could give up to %i", max_steal_count);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming steal starts, might give up to %i", max_steal_count);
   int stolen_count=0;
   int locally_left = 0;
   bool steal_flipflop=false; //steal every second var
@@ -2623,10 +2632,11 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
   const int work_end = sweeper->work_end;
   for (int i = sweeper->work_head; i < work_end; i++) {
     unsigned idx = work[i];
-    if (idx==INVALID_IDX) //the variable written at this spot had already been stolen or deactivated
+    if (idx==INVALID_IDX) //the variable written at this spot has already been stolen or deactivated
       continue;
+    kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "check still open: idx %u (for stealing)", idx);
     if (!shweep_var_still_open(sweeper, idx)) { //this variable is no longer relevant for sweeping
-      work[i] = INVALID_IDX;  //deactivate it, such that we don't have to check it again
+      work[i] = INVALID_IDX;  //deactivate it, such that we don't do the effort to check it again
       continue;
     }
     //variable is still open for sweeping. We steal every second
@@ -2661,7 +2671,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   sweeper->work_end = 0;
   sweeper->max_work_after_steal = 0;
 
-  kissat_custom_message (solver, V4_UVERB_SWEEP, "searching for work");
+  // kissat_custom_message (solver, V4_UVERB_SWEEP, "searching for work");
 
   //Decouple stolen_amount from work_end as long as possible, to not have spurious reset-writes on work_end influence the logic here
   int stolen_amount = 0;
@@ -2686,8 +2696,12 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   }
 
   assert(stolen_amount>=0 || kissat_custom_assert_message ("ERROR: stolen amount %i is negative \n", stolen_amount));
-  // if (stolen_amount>0)
-    // kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
+  if (stolen_amount>0) {
+    kissat_custom_message (solver, V3_VVERB_SWEEP, "got steal amount %i", stolen_amount);
+    for (int i = 0; i < stolen_amount; i++) {
+      kissat_custom_message (solver, V3_VVERB_SWEEP, "work[%i]=%i",i,sweeper->work[i]);
+    }
+  }
   // if (stolen_amount==0)
     // kissat_custom_message (solver, V3_VVERB_SWEEP, "Got termination signal via 0 work info");
   //update: we no longer handle terminations via this search_work function, but separately. was anyways a bit shoehorned in here
@@ -2710,6 +2724,10 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
 
 bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
+  kissat_custom_message(solver,V2_VERB_SWEEP, "check if sweepable: idx %u",idx);
+
+  assert(idx!=INVALID_IDX || kissat_custom_assert_message (solver, "Sweeper ERROR : invalid idx %u was schedulded for sweeping ", idx));
+
   if (!ACTIVE (idx))
     return false;
   // if (!FLAGS(idx)->sweep) //the sweep flag is our own indicator whether we WANT to sweep, but these other checks are hard necessary requirements
@@ -2745,7 +2763,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   shweep_import_SweepJob_equivalences (sweeper);
   shweep_check_new_environment_limits (sweeper);
 
-  kissat_custom_message(solver,V3_VVERB_SWEEP, "sweeping idx %i [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
+  kissat_custom_message(solver,V3_VVERB_SWEEP, "sweeping idx %u [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
 
 
   //Variabls can be either swept because it is their turn in the work schedule (worksweep) or because they were part of a recent found equivalence and we want to make further progress around them(resweep)
@@ -2779,10 +2797,14 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
 
   const int end  = sweeper->work_end;
   while (sweeper->work_head < end) {
-    unsigned idx = work[sweeper->work_head++];
+    unsigned idx = work[sweeper->work_head];
+    kissat_custom_message(sweeper->solver, V2_VERB_SWEEP, "next scheduled: work[%i]=%u", sweeper->work_head, idx);
+    sweeper->work_head++;
+
     sweeper->max_work_after_steal = MIN(sweeper->max_work_after_steal, end - sweeper->work_head);
     if (idx==INVALID_IDX) //skip hole
       continue;
+    kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "check still open: idx %u (for scheduling)", idx);
     if (shweep_var_still_open(sweeper, idx)) {
       return idx;
     }
@@ -3166,37 +3188,27 @@ int kissat_mallob_shweep(kissat *solver) {
 
     unsigned idx = shweep_next_scheduled (&sweeper);
 
-    //we might have ran out of work
+    //we might have ran out of work, try search for new work
     if (idx == INVALID_IDX) {
+      kissat_custom_message (solver, V2_VERB_SWEEP, "Enter worksearch loop");
       while (true) {
-        //update: separate worksteal and termination check. allows us to interleave imports easier
         unsigned stolen = shweep_search_work_from_others (&sweeper);
         if (stolen>0) {
-          idx = shweep_next_scheduled (&sweeper);
           break;
         }
         if (solver->termination.flagged)
           break;
-        //we interleave importing here, because it happened that the solver was stuck in workstealing for multiple sharing rounds
-        //and missed out on all the eqs & units of those rounds
-        //How one process can not receive work for such a long time while the other processes apparently still have enough work to pump out non-idle sharing rounds is another question...
+        //We now interleave eq/unit importing with worksteal attempts, because it happened before that the solver was stuck for so long in workstealing that multiple sharing rounds were missed
         shweep_import_SweepJob_units (&sweeper);
         shweep_import_SweepJob_equivalences (&sweeper);
       }
-      //try to steal from somebody
-      // if (!shweep_search_work_from_others (&sweeper)) {
-        //Termination. The steal came back with length 0, which is the signal from Mallob that the Sweep Job is terminated.
-        // break;
-      // }
-      //steal was successful, continue sweeping on the new work
-      // continue;
+      //workstealing might have been sucessfull. anyways we start the for(;;) loop again to repeat all checks before sweeping on idx.
+      //especially since a steal with amount>0 can still lead to zero usable indices, and thus perpetual idx==INVALID_IDX
     }
-
-
-    if (solver->termination.flagged)
-      break;
-
-    shweep_sweep_variable_with_prop (&sweeper, idx, true);
+    else {
+      //main function: sweeping around this given variable
+      shweep_sweep_variable_with_prop (&sweeper, idx, true);
+    }
 
   }
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER END LOOP");
