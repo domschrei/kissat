@@ -2397,24 +2397,24 @@ bool shweep_var_still_open(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
   unsigned lit = LIT(idx);
   if (!FLAGS(idx)->sweep) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not to sweep", idx);
+    // kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not to sweep", idx);
     return false;
   }
   if (!ACTIVE(idx)) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not active", idx);
+    // kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not active", idx);
     return false;
   }
   if (sweep_repr (sweeper, lit) != lit) {
-    kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not repr", idx);
+    // kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not repr", idx);
     return false;
   }
   size_t occ;
   if (!scheduable_variable (sweeper, idx, &occ)) {
     FLAGS (idx)->sweep = false;
-    kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not occ-scheduable", idx);
+    // kissat_custom_message(solver,V2_VERB_SWEEP, "                  idx %u: not occ-scheduable", idx);
     return false;
   }
-  kissat_custom_message(solver,V2_VERB_SWEEP, "           good    idx %u: still open!", idx);
+  // kissat_custom_message(solver,V2_VERB_SWEEP, "           good    idx %u: still open!", idx);
   return true;
 }
 
@@ -2724,7 +2724,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
 
 bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
-  kissat_custom_message(solver,V2_VERB_SWEEP, "check if sweepable: idx %u",idx);
+  // kissat_custom_message(solver,V2_VERB_SWEEP, "check if sweepable: idx %u",idx);
 
   assert(idx!=INVALID_IDX || kissat_custom_assert_message (solver, "Sweeper ERROR : invalid idx %u was schedulded for sweeping ", idx));
 
@@ -2798,13 +2798,13 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
   const int end  = sweeper->work_end;
   while (sweeper->work_head < end) {
     unsigned idx = work[sweeper->work_head];
-    kissat_custom_message(sweeper->solver, V2_VERB_SWEEP, "next scheduled: work[%i]=%u", sweeper->work_head, idx);
+    // kissat_custom_message(sweeper->solver, V2_VERB_SWEEP, "next scheduled: work[%i]=%u", sweeper->work_head, idx);
     sweeper->work_head++;
 
     sweeper->max_work_after_steal = MIN(sweeper->max_work_after_steal, end - sweeper->work_head);
     if (idx==INVALID_IDX) //skip hole
       continue;
-    kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "check still open: idx %u (for scheduling)", idx);
+    // kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "check still open: idx %u (for scheduling)", idx);
     if (shweep_var_still_open(sweeper, idx)) {
       return idx;
     }
@@ -3194,6 +3194,9 @@ int kissat_mallob_shweep(kissat *solver) {
       while (true) {
         unsigned stolen = shweep_search_work_from_others (&sweeper);
         if (stolen>0) {
+          //here was the dangerous line
+          //  idx=shweep_next_schedulded(&sweeper),
+          //which sometimes could create an INVALID_IDX that was no longer checked before being passed to shweep_sweep_variable_with_prop, leading to segfault!
           break;
         }
         if (solver->termination.flagged)
