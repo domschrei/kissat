@@ -2698,9 +2698,9 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   assert(stolen_amount>=0 || kissat_custom_assert_message ("ERROR: stolen amount %i is negative \n", stolen_amount));
   if (stolen_amount>0) {
     kissat_custom_message (solver, V3_VVERB_SWEEP, "got steal amount %i", stolen_amount);
-    for (int i = 0; i < stolen_amount; i++) {
-      kissat_custom_message (solver, V3_VVERB_SWEEP, "work[%i]=%i",i,sweeper->work[i]);
-    }
+    // for (int i = 0; i < stolen_amount; i++) {
+      // kissat_custom_message (solver, V3_VVERB_SWEEP, "work[%i]=%i",i,sweeper->work[i]);
+    // }
   }
   // if (stolen_amount==0)
     // kissat_custom_message (solver, V3_VVERB_SWEEP, "Got termination signal via 0 work info");
