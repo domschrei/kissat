@@ -56,7 +56,7 @@ struct sweeper {
   int work_head;   //index of the currently next scheduled variable in work
   int max_work_after_steal;     //an approximation of how much work is left, updated when getting stolen
   bool allow_stealing; //prevent steal attempts once this solver is inconsistent
-  int sweep_round; //receives the current sweep round number, externally by Mallob
+  int sweep_iteration; //receives the current sweep iteration, externally by Mallob
 
   //some statistics
   unsigned skipped_bc_done;
@@ -212,7 +212,7 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->skipped_bc_done=0;
     sweeper->stumbled_units=0;
     sweeper->allow_stealing=true;
-    sweeper->sweep_round=1;
+    sweeper->sweep_iteration=1;
 
     sweeper->rank = GET_OPTION (mallob_rank);
     sweeper->localId = GET_OPTION (mallob_local_id);
@@ -2358,7 +2358,7 @@ static void unschedule_sweeping (sweeper *sweeper, unsigned swept,
 
 
 void shweep_check_new_environment_limits(sweeper *sweeper) {
-  int completed = sweeper->sweep_round - 1; //sweep_round is periodically updated by the Mallob main thread, starts at 1
+  int completed = sweeper->sweep_iteration - 1; // the iterations count is periodically updated by Mallob, starts at 1
   if (sweeper->solver->statistics.sweep_completed != completed) {
     sweeper->solver->statistics.sweep_completed = completed;
     kissat *solver = sweeper->solver;
@@ -2388,7 +2388,7 @@ void shweep_check_new_environment_limits(sweeper *sweeper) {
       clause_limit = max_clause_limit;
     sweeper->limit.clauses = clause_limit;
 
-    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP updated environment limits (round %i): vars %i, depth %i, clauses %i ", sweeper->sweep_round, vars_limit, depth_limit, clause_limit);
+    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP updated environment limits (iteration %i): vars %i, depth %i, clauses %i ", sweeper->sweep_iteration, vars_limit, depth_limit, clause_limit);
   }
 }
 
@@ -2846,9 +2846,9 @@ struct shweep_statistics shweep_get_statistics (kissat * solver) {
 
 
 
-void shweep_set_sweep_round(kissat *solver, int round) {
+void shweep_set_sweep_iteration(kissat *solver, int iteration) {
   if (solver->sweeper) //skip the congruencer solver that doesnt have sweep
-    solver->sweeper->sweep_round = round;
+    solver->sweeper->sweep_iteration = iteration;
 }
 
 bool is_nonroot_nonzero(kissat *solver) {
