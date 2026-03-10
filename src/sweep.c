@@ -2816,7 +2816,7 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
 
 void shweep_terminate(kissat *solver) {
   solver->shweeper_terminated_externally = true;
-  solver->termination.flagged = true;
+  kissat_terminate(solver);
   kissat_custom_message(solver, V2_VERB_SWEEP, "SWEEPER received termination signal");
 }
 
@@ -3197,10 +3197,12 @@ int kissat_mallob_shweep(kissat *solver) {
           //here was the dangerous line
           //  idx=shweep_next_schedulded(&sweeper),
           //which sometimes could create an INVALID_IDX that was no longer checked before being passed to shweep_sweep_variable_with_prop, leading to segfault!
+          //now we just break out, to get into the next for(;;) loop
           break;
         }
-        if (solver->termination.flagged)
+        if (solver->termination.flagged) {
           break;
+        }
         //We now interleave eq/unit importing with worksteal attempts, because it happened before that the solver was stuck for so long in workstealing that multiple sharing rounds were missed
         shweep_import_SweepJob_units (&sweeper);
         shweep_import_SweepJob_equivalences (&sweeper);
