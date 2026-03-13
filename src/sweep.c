@@ -3228,8 +3228,11 @@ int kissat_mallob_shweep(kissat *solver) {
   //Get the units and equivalences that came with the very last sharing event! the one that also brought the termination signal - this is still valuable information that we dont want to throw away
   // shweep_import_units(&sweeper);
   // shweep_import_equivalences (&sweeper);
-  shweep_import_SweepJob_units (&sweeper);
-  shweep_import_SweepJob_equivalences (&sweeper);
+  //at the very end of a job there is one additional import round that could be missed if we didn't poll multiple times here, since we need to poll new for every distinct round
+  for (int i=0; i<3; i++) {
+    shweep_import_SweepJob_units (&sweeper);
+    shweep_import_SweepJob_equivalences (&sweeper);
+  }
 
   shweep_print_import_statistics(solver);
   shweep_print_var_stats (solver, V3_VVERB_SWEEP);
