@@ -2609,15 +2609,21 @@ int shweep_get_max_steal_amount(kissat *solver) {
     return 0;
   }
   assert( (half>=0 && half<=solver->vars) || kissat_custom_assert_message (solver, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
-  if (half != 0) {
-    kissat_custom_message(solver,V3_VVERB_SWEEP, "can provide at most %i \n", half);
-  } else {
+  // if (half != 0) {
+    // kissat_custom_message(solver,V3_VVERB_SWEEP, "can provide at most %i \n", half);
+  // } else {
     // kissat_custom_message(solver,V2_VERB_SWEEP, "can provide nothing. work_head %i, work_end %i \n", sweeper->work_head, sweeper->work_end);
-  }
+  // }
   return half;
 }
 
-
+int shweep_get_work_estimate(kissat *solver) {
+  if (!solver || !solver->shweeper_initialized || !solver->sweeper || solver->shweeper_in_congruence) {
+    return -1;
+  }
+  sweeper *sweeper = solver->sweeper;
+  return sweeper->work_end - sweeper->work_head;
+}
 
 //Mallob wants to steal half of this solvers work
 //Mallob provides arrays "stolen_work" that we only fill

@@ -70,6 +70,8 @@ void shweep_set_SweepJob_unit_import_callback(kissat *solver, void *SweepJobStat
 
 void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
 
+
+int shweep_get_work_estimate(kissat *solver);
 int shweep_get_max_steal_amount(kissat *solver);
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count);
 unsigned shweep_get_num_vars (kissat *solver);
