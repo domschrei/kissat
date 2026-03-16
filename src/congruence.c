@@ -828,11 +828,11 @@ static bool learn_congruence_unit (closure *closure, unsigned unit, bool importi
 
   if (GET_OPTION (mallob_is_congruencer)) {
     if (importing) {
-      kissat_custom_message(solver, V4_VVERB, "CCC Importing unit %i", unit);
+      // kissat_custom_message(solver, V4_VVERB, "CCC Importing unit %i", unit);
       solver->shweep.units_useful++;
     } else {
       shweep_export_unit (solver, unit) ;
-      kissat_custom_message(solver, V2_INFO, "CCC exporting unit %i", unit);
+      // kissat_custom_message(solver, V2_INFO, "CCC exporting unit %i", unit);
       solver->shweep.congr_units++;
     }
   }
@@ -979,11 +979,11 @@ static bool merge_literals (closure *closure, unsigned lit,
   INC (congruent);
   if (GET_OPTION (mallob_is_congruencer)) {
     if (importing) {
-      kissat_custom_message (solver, V3_VERB, "CCC importing eq ilit(%i)==ilit(%i)", smaller, larger);
+      // kissat_custom_message (solver, V3_VERB, "CCC importing eq ilit(%i)==ilit(%i)", smaller, larger);
       solver->shweep.eqs_useful++;
     } else {
       shweep_export_equivalence(solver, smaller, larger);
-      kissat_custom_message (solver, V2_INFO, "CCC exporting eq ilit(%i)==ilit(%i)", smaller, larger);
+      // kissat_custom_message (solver, V2_INFO, "CCC exporting eq ilit(%i)==ilit(%i)", smaller, larger);
       solver->shweep.congr_eqs++;
     }
   }
@@ -4254,7 +4254,7 @@ static bool propagate_units (closure *closure) {
 
 static size_t propagate_units_and_equivalences (closure *closure) {
   kissat *const solver = closure->solver;
-  kissat_custom_message(solver, V2_INFO, "CCC propagate u&e");
+  // kissat_custom_message(solver, V2_INFO, "CCC propagate u&e");
   assert (!solver->inconsistent);
   START (merge);
   unsigned_fifo *schedule = &closure->schedule;
@@ -4491,7 +4491,7 @@ static void sort_references_by_clause_size (kissat *solver,
 
 static void forward_subsume_matching_clauses (closure *closure) {
   kissat *const solver = closure->solver;
-  kissat_custom_message(solver, V2_INFO, "CCC forward subsume");
+  // kissat_custom_message(solver, V2_INFO, "CCC forward subsume");
   START (matching);
   reset_closure (closure);
   litpairs binaries;
@@ -4646,7 +4646,7 @@ void congruencer_import_units(closure *closure) {
   unsigned long new_seen = solver->shweep.units_seen - seen;
   unsigned long new_useful = solver->shweep.units_useful - useful;
   if (new_seen>0) {
-    kissat_custom_message(solver, V2_INFO, "CCC Imported %i / %i units ", new_useful, new_seen);
+    // kissat_custom_message(solver, V2_INFO, "CCC Imported %i / %i units ", new_useful, new_seen);
   }
 
 }
@@ -4688,7 +4688,7 @@ void congruencer_import_equivalences(closure *closure) {
   unsigned long new_useful = solver->statistics.congruent - useful;
 
   if (new_seen > 0) {
-    kissat_custom_message(solver, V2_INFO,  "CCC Imported %i / %i eqs ", new_useful, new_seen);
+    // kissat_custom_message(solver, V2_INFO,  "CCC Imported %i / %i eqs ", new_useful, new_seen);
   }
 
 }
@@ -4764,7 +4764,7 @@ bool kissat_congruence (kissat *solver) {
   return equivalent;
 }
 
-bool kissat_mallob_congruencer(kissat *solver) {
+int kissat_mallob_congruencer(kissat *solver) {
   // int equivalent = 0;
   kissat_custom_message (solver, V1_WARN, "CONGRUENCER CCC START");
   int round = 0;

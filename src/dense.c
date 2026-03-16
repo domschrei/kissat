@@ -61,9 +61,9 @@ static void flush_large_watches (kissat *solver, litpairs *irredundant) {
               if (lit < other) {
                 const litpair litpair = {.lits = {lit, other}};
                 PUSH_STACK (*irredundant, litpair);
-                //todo: Nicco remove this debug line
-                if (ELIMINATED (IDX(lit)) || ELIMINATED (IDX(other)))
-                  kissat_custom_message (solver,1,"warn: saving binary clause with eliminated ilit(%i),ilit(%i) ...", lit, other);
+                // todo: Nicco remove this debug line
+                // if (ELIMINATED (IDX(lit)) || ELIMINATED (IDX(other)))
+                  // kissat_custom_message (solver,1,"warn: saving binary clause with eliminated ilit(%i),ilit(%i) ...", lit, other);
               }
             } else
               *q++ = watch;

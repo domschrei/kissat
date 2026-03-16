@@ -378,10 +378,10 @@ static bool stumbled_unit_in_binary(kissat *solver, unsigned lit, unsigned other
       kissat_assign_unit (solver, other, "stumbled while kitten-copying");
       /* Catch for Mallob Sharing */
       if (GET_OPTION (mallob_is_shweeper)) {
-        // remove elit after debugging!
-        // int elit = kissat_export_literal (solver, other);
-        // kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u) elit(%i)", IDX(other),other, elit);
-        kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u)", IDX(other),other);
+        //    remove elit after debugging!
+        //    int elit = kissat_export_literal (solver, other);
+        //    kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u) elit(%i)", IDX(other),other, elit);
+        // kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u)", IDX(other),other);
         shweep_export_unit(solver, other);
       }
       INC (sweep_units);
@@ -521,7 +521,7 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
     kissat_assign_unit (solver, detected_unit, "stumbled while kitten-copying");
      /* Catch for Mallob to share */
     int elit = kissat_export_literal (solver, detected_unit);
-    kissat_custom_message(solver,V2_VERB_SWEEP, " stumble-U idx(%u)/lit(%u), elit(%i)", IDX(detected_unit),detected_unit, elit);
+    // kissat_custom_message(solver,V2_VERB_SWEEP, " stumble-U idx(%u)/lit(%u), elit(%i)", IDX(detected_unit),detected_unit, elit);
     shweep_export_unit(solver, detected_unit);
     INC (sweep_units);
     CLEAR_STACK (sweeper->clause); //usually done by sweep_clause, but we skip that here
@@ -697,10 +697,7 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
         * Catch for Mallob Sharing
         */
       if (GET_OPTION (mallob_is_shweeper)) {
-        // remove elit after debugging!
-        // int elit = kissat_export_literal (solver, unit);
-        // kissat_custom_message(solver,V3_VVERB_SWEEP, " core-U idx(%u)/lit(%u) elit(%i)", IDX(unit), unit, elit);
-        kissat_custom_message(solver,V3_VVERB_SWEEP, " core-U idx(%u)/lit(%u)", IDX(unit), unit);
+        // kissat_custom_message(solver,V3_VVERB_SWEEP, " core-U idx(%u)/lit(%u)", IDX(unit), unit);
         shweep_export_unit(solver, unit);
         // sweeper->done[IDX(unit)]=true;
       }
@@ -1089,7 +1086,7 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
      * Larger environment ==> More detected backbones
      * We found the backbone even with the limited environment, nice. Now propagate this as a unit clause.
      */
-    kissat_custom_message(solver,V3_VVERB_SWEEP, " lit is backbone -U! %u", lit);
+    // kissat_custom_message(solver,V3_VVERB_SWEEP, " lit is backbone -U! %u", lit);
     LOG ("sweep unit %s", LOGLIT (lit));
     save_add_clear_core (sweeper);
     INC (sweep_unsat_backbone);
@@ -1288,9 +1285,7 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
             * Catch for Mallob Sharing
             */
           if (GET_OPTION (mallob_is_shweeper)) {
-            // int elit = kissat_export_literal (solver, lit);
-            // kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-U idx(%u)/lit(%u) elit(%i)", IDX(lit),lit, elit);
-            kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-U idx(%u)/lit(%u)", IDX(lit),lit);
+            // kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-U idx(%u)/lit(%u)", IDX(lit),lit);
             shweep_export_unit(solver, lit);
           }
 
@@ -1405,7 +1400,7 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
             // remove elit after debugging!
             // int elit = kissat_export_literal (solver, unit);
             // kissat_custom_message(solver,V3_VVERB_SWEEP, " size1-U idx(%u)/lit(%u) elit(%i)", IDX(unit),unit, elit);
-            kissat_custom_message(solver,V3_VVERB_SWEEP, " size1-U idx(%u)/lit(%u) elit(%i)", IDX(unit),unit);
+            // kissat_custom_message(solver,V3_VVERB_SWEEP, " size1-U idx(%u)/lit(%u) elit(%i)", IDX(unit),unit);
             shweep_export_unit(solver, unit);
           }
 
@@ -1794,12 +1789,10 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
 
     if (lit < other) {
       shweep_export_equivalence(solver, lit, other);
-      kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_lit, idx_other, lit, other);
-      // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)] (elit(%i)==elit(%i))", idx_lit, idx_other, lit, other, elit, eother);
+      // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_lit, idx_other, lit, other);
     } else {
       shweep_export_equivalence(solver, other, lit);
-      kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_other, idx_lit, other, lit);
-      // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)] (elit(%i)==elit(%i))", idx_other, idx_lit, other, lit, eother, elit);
+      // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_other, idx_lit, other, lit);
     }
   }
 
@@ -2436,7 +2429,7 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
     if (ilit != repr_ilit) {
       solver->shweep.units_transitive++;
     }
-    kissat_custom_message(solver, V4_UVERB_SWEEP," importing idx(%i),lit(%i) as repr_lit(%i)", IDX(repr_ilit), ilit, repr_ilit);
+    // kissat_custom_message(solver, V4_UVERB_SWEEP," importing idx(%i),lit(%i) as repr_lit(%i)", IDX(repr_ilit), ilit, repr_ilit);
     kissat_assign_unit (solver, repr_ilit, "shweep imported unit");
     solver->shweep.units_useful++;
     INC (sweep_units);
@@ -2509,7 +2502,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   const unsigned not_lit = NOT (lit);
   const unsigned not_other = NOT (other);
 
-  kissat_custom_message(solver, V4_UVERB_SWEEP," imported idx(%i)==idx(%i), lit(%i)==lit(%i)", IDX(lit), IDX(other), lit, other);
+  // kissat_custom_message(solver, V4_UVERB_SWEEP," imported idx(%i)==idx(%i), lit(%i)==lit(%i)", IDX(lit), IDX(other), lit, other);
 
   //todo: maybe need also to add these two binary clauses? are added by original sweep_equivalence_candidates, for the cores...
   // add_binary (solver, lit,     not_other);
@@ -2546,7 +2539,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   unsigned long new_seen = solver->shweep.units_seen - seen;
   unsigned long new_useful = solver->shweep.units_useful - useful;
   if (new_seen>0) {
-    kissat_custom_message(solver, V2_VERB_SWEEP,  "Imported %i / %i units ", new_useful, new_seen);
+    // kissat_custom_message(solver, V2_VERB_SWEEP,  "Imported %i / %i units ", new_useful, new_seen);
   }
 
 }
@@ -2576,7 +2569,7 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   unsigned long new_seen = solver->shweep.eqs_seen - seen;
   unsigned long new_useful = solver->shweep.eqs_useful - useful;
   if (new_seen > 0) {
-    kissat_custom_message(solver, V3_VVERB_SWEEP,  "Imported %i / %i eqs ", new_useful, new_seen);
+    // kissat_custom_message(solver, V3_VVERB_SWEEP,  "Imported %i / %i eqs ", new_useful, new_seen);
   }
 
 }
@@ -2630,7 +2623,7 @@ int shweep_get_work_estimate(kissat *solver) {
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count) {
   sweeper *sweeper = solver->sweeper;
   //steal every second local variable that is still open for sweeping
-  kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming steal starts, might give up to %i", max_steal_count);
+  // kissat_custom_message(solver,V2_VERB_SWEEP, "Incoming steal starts, might give up to %i", max_steal_count);
   int stolen_count=0;
   int locally_left = 0;
   bool steal_flipflop=false; //steal every second var
@@ -2640,7 +2633,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     unsigned idx = work[i];
     if (idx==INVALID_IDX) //the variable written at this spot has already been stolen or deactivated
       continue;
-    kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "check still open: idx %u (for stealing)", idx);
+    // kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "check still open: idx %u (for stealing)", idx);
     if (!shweep_var_still_open(sweeper, idx)) { //this variable is no longer relevant for sweeping
       work[i] = INVALID_IDX;  //deactivate it, such that we don't do the effort to check it again
       continue;
@@ -2657,7 +2650,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     steal_flipflop = !steal_flipflop;
   }
   // kissat_custom_message(solver,V2_VERB_SWEEP, "#");
-  kissat_custom_message(solver,V3_VVERB_SWEEP, "# gave %i (left %i)", stolen_count, locally_left);
+  // kissat_custom_message(solver,V3_VVERB_SWEEP, "# gave %i (left %i)", stolen_count, locally_left);
   // kissat_custom_message(solver,V2_VERB_SWEEP, "#");
   if (stolen_count > max_steal_count) {
     kissat_custom_message (solver, V0_CRIT_SWEEP, "Error: stolen_count=%i, max_steal_count=%i", stolen_count, max_steal_count);
@@ -2681,7 +2674,6 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
 
   //Decouple stolen_amount from work_end as long as possible, to not have spurious reset-writes on work_end influence the logic here
   int stolen_amount = 0;
-  // const int local_id = GET_OPTION(mallob_local_id);
 
   //The new work will be allocated by Mallob/C++, and we will only read from it on the provided *work array and size
   if (solver->shweep_search_work_callback) {
@@ -2703,13 +2695,9 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
 
   assert(stolen_amount>=0 || kissat_custom_assert_message ("ERROR: stolen amount %i is negative \n", stolen_amount));
   if (stolen_amount>0) {
-    kissat_custom_message (solver, V3_VVERB_SWEEP, "got steal amount %i", stolen_amount);
-    // for (int i = 0; i < stolen_amount; i++) {
-      // kissat_custom_message (solver, V3_VVERB_SWEEP, "work[%i]=%i",i,sweeper->work[i]);
-    // }
+    // kissat_custom_message (solver, V3_VVERB_SWEEP, "got steal amount %i", stolen_amount);
   }
-  // if (stolen_amount==0)
-    // kissat_custom_message (solver, V3_VVERB_SWEEP, "Got termination signal via 0 work info");
+
   //update: we no longer handle terminations via this search_work function, but separately. was anyways a bit shoehorned in here
   // kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
 
@@ -3166,8 +3154,8 @@ int kissat_mallob_shweep(kissat *solver) {
   init_sweeper (solver, &sweeper);
 
   shweep_print_var_stats (solver, V1_INFO_SWEEP);
-  shweep_print_all_variable_status(solver);
-  shweep_print_all_clauses (solver);
+  // shweep_print_all_variable_status(solver);
+  // shweep_print_all_clauses (solver);
 
   for (;;) {
     if (solver->inconsistent) {
@@ -3191,6 +3179,11 @@ int kissat_mallob_shweep(kissat *solver) {
       // break;
     // }
 
+
+
+     /*
+      * TODO: custom messages auskommentieren, teure Strings die jeweils erstellt werden
+      */
 
     unsigned idx = shweep_next_scheduled (&sweeper);
 

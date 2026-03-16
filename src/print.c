@@ -147,7 +147,7 @@ void kissat_custom_message_va(kissat *solver, const char *fmt, va_list ap) {
 
   va_list ap_copy;
   va_copy(ap_copy, ap);
-  print_message(GREEN, new_fmt, &ap_copy);
+  print_message(solver, GREEN, new_fmt, &ap_copy);
   va_end(ap_copy);
   // va_list ap;
   // va_start(ap, fmt);
