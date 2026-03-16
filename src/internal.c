@@ -13,6 +13,8 @@
 #include "resources.h"
 #include "clauseimport.h"
 #include "search.h"
+#include "stack.h"
+#include "proof.h"
 
 #include <assert.h>
 #include <inttypes.h>
@@ -48,6 +50,11 @@ kissat *kissat_init (void) {
 #ifndef NDEBUG
   kissat_init_checker (solver);
 #endif
+
+#ifndef NPROOFS
+  solver->proof = 0;
+#endif
+  solver->last_glue = 0;
 
   //Clause Export
   solver->consume_clause_state = 0;
@@ -98,7 +105,14 @@ kissat *kissat_init (void) {
   solver->r_fx = 0;
   solver->r_ia = 0;
 
+  solver->prefix = kissat_strdup (solver, "c ");
+
   return solver;
+}
+
+void kissat_set_prefix (kissat *solver, const char *prefix) {
+  kissat_freestr (solver, solver->prefix);
+  solver->prefix = kissat_strdup (solver, prefix);
 }
 
 #define DEALLOC_GENERIC(NAME, ELEMENTS_PER_BLOCK) \
@@ -195,6 +209,8 @@ void kissat_release (kissat *solver) {
 #ifndef QUIET
   RELEASE_STACK (solver->profiles.stack);
 #endif
+
+  kissat_freestr (solver, solver->prefix);
 
 #ifndef NDEBUG
   kissat_release_checker (solver);
@@ -308,13 +324,6 @@ void kissat_print_statistics (kissat *solver) {
   (void) solver;
 }
 
-
-
-
-
- /*
-  *  Tell kissat about a new literal as part of a clause. elit 0 marks end of a clause
-  */
 void kissat_add (kissat *solver, int elit) {
   kissat_require_initialized (solver);
   kissat_require (!GET (searches), "incremental solving not supported");
@@ -557,7 +566,6 @@ void kissat_import_model (kissat * solver, const int *literals, int size) {
     if (import->eliminated) continue;
     const unsigned ilit = import->lit;
     const value value = elit < 0 ? -1 : 1;
-    // kissat_message(solver, "Importing elit %i, eid %i  on  ilit %i val %i(%i previously)  \n", elit, eidx, ilit, value, solver->values[ilit]);
     solver->values[ilit] = value;
   }
 }
@@ -566,23 +574,13 @@ int kissat_value (kissat *solver, int elit) {
   kissat_require_initialized (solver);
   kissat_require_valid_external_internal (elit);
   const unsigned eidx = ABS (elit);
-
-  // kissat_message(solver, "value of elit %i \n", elit);
-  // kissat_message(solver, "      eidx %i, SIZE_STACK(solver->import) %lu \n", eidx, SIZE_STACK (solver->import));
-
   if (eidx >= SIZE_STACK (solver->import))
     return 0;
   const import *const import = &PEEK_STACK (solver->import, eidx);
-
-  // kissat_message(solver, "      import->imported %i, import->eliminated %i, import->lit %i\n", import->imported, import->eliminated, import->lit);
-
   if (!import->imported)
     return 0;
   value tmp;
   if (import->eliminated) {
-
-    // kissat_message(solver, "      solver->extended %i, STACKSIZE(solver->extend) %lu \n", solver->extended, SIZE_STACK(solver->extend));
-
     if (!solver->extended && !EMPTY_STACK (solver->extend))
       kissat_extend (solver);
     const unsigned eliminated = import->lit;
@@ -591,9 +589,6 @@ int kissat_value (kissat *solver, int elit) {
     const unsigned ilit = import->lit;
     tmp = VALUE (ilit);
   }
-
-  // kissat_message(solver, "      tmp %i\n", tmp);
-
   if (!tmp)
     return 0;
   if (elit < 0)
@@ -609,7 +604,7 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
   solver->consume_clause = consume;
 }
 
-void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue))
+void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue, unsigned long *id, unsigned char *sig))
 {
   solver->produce_clause_state = state;
   solver->produce_clause = produce;
@@ -704,8 +699,22 @@ struct kissat_statistics kissat_get_statistics (kissat * solver)
   return stats_out;
 }
 
+void kissat_trace_proof_internally (kissat * solver, void *state,
+    void (*on_drup_derivation) (void* state, const int* lits, int nbLits, int glue),
+    void (*on_lrup_import)     (void* state, unsigned long id, const int* lits, int nbLits, const unsigned char* sigData),
+    void (*on_drup_deletion)   (void* state, const int* lits, int nbLits)) {
 
-bool kissat_importing_redundant_clauses (kissat * solver) 
+#ifndef NPROOFS
+  solver->proof_log_state = state;
+  solver->on_drup_derivation = on_drup_derivation;
+  solver->on_lrup_import = on_lrup_import;
+  solver->on_drup_deletion = on_drup_deletion;
+
+  kissat_init_ext_proof (solver);
+#endif
+}
+
+bool kissat_importing_redundant_clauses (kissat * solver)
 {
   if (solver->produce_clause == 0) return false;
   if (solver->level != 0) return false;
@@ -719,11 +728,16 @@ void kissat_import_redundant_clauses (kissat * solver)
   int *buffer = 0;
   int size = 0;
   int glue = 0;
+  unsigned long id = 0;
+  unsigned char sig[16];
+  ints simplified_clause;
+  INIT_STACK(simplified_clause);
   solver->num_conflicts_at_last_import = solver->statistics.conflicts;
 
   while (true) {
-    solver->produce_clause (solver->produce_clause_state, &buffer, &size, &glue);
-    const int originalSize = size;
+    solver->produce_clause (solver->produce_clause_state, &buffer, &size, &glue, &id, sig);
+    const unsigned originalSize = (unsigned) size;
+    solver->last_glue = glue;
 
     //printf("KISSAT TRY_LEARN size=%i\n", size);
 
@@ -733,7 +747,8 @@ void kissat_import_redundant_clauses (kissat * solver)
 
     // Analyze each of the literals
     bool okToImport = true;
-    unsigned effectiveSize = 0;
+    CLEAR_STACK(simplified_clause);
+
     for (unsigned i = 0; i < (unsigned)size; i++) {
       int elit = buffer[i];
       if (!VALID_EXTERNAL_LITERAL (elit)) {
@@ -779,9 +794,10 @@ void kissat_import_redundant_clauses (kissat * solver)
         break;
       } else {
         // This literal is fine
-        effectiveSize++;
+        PUSH_STACK(simplified_clause, elit);
       }
     }
+    const size_t effectiveSize = SIZE_STACK(simplified_clause);
 
     // Drop clause, or no valid literals?
     if (!okToImport || effectiveSize == 0) {
@@ -789,31 +805,8 @@ void kissat_import_redundant_clauses (kissat * solver)
       continue;
     }
 
-    // Was the clauses shortened (due to fixed literals) so it should be re-exported?
-    const bool shortened = false; //effectiveSize < originalSize;
-
-    if (effectiveSize == 1) {
-      // Unit clause!
-
-      // Get literal
-      unsigned i = 0; while (buffer[i] == 0) i++;
-      const unsigned lit = kissat_import_literal (solver, buffer[i]);
-      assert (VALID_INTERNAL_LITERAL (lit));
-
-      // Learn unit clause
-      //printf("KISSAT LEARN %i\n", lit);
-      if (shortened) {
-        // Coming from non-unit clause: import unit and also export it yourself
-        kissat_learned_unit (solver, lit);
-      } else {
-        // Import shared unit while avoiding its re-export
-        kissat_learned_unit_from_import (solver, lit);
-      }
-      solver->num_imported_external_clauses++;
-      continue;
-    }
-
-    // Larger clause of size >= 2
+    // Was the clauses shortened during import (due to fixed literals)?
+    const bool simplified = effectiveSize < originalSize;
 
     if (effectiveSize > CAPACITY_STACK (solver->clause)) {
       // Clause is too large
@@ -822,24 +815,62 @@ void kissat_import_redundant_clauses (kissat * solver)
       continue;
     }
 
+#ifndef NPROOFS
+    // Import the *original* (non shortened) clause to the proof interface
+    if (solver->proof) solver->on_lrup_import (solver->proof_log_state, id, buffer, originalSize, sig);
+#endif
+
+    if (effectiveSize == 1) {
+      // Unit clause!
+
+      // Get literal
+      const int elit = TOP_STACK(simplified_clause);
+      const unsigned lit = kissat_import_literal (solver, elit);
+      assert (VALID_INTERNAL_LITERAL (lit));
+
+      // Learn unit clause: Import shared unit while avoiding its re-export.
+      // This call *does not* append anything to the proof.
+      kissat_learned_unit_from_import (solver, lit);
+
+#ifndef NPROOFS
+      // If the unit was simplified from a larger clause, we need to explicitly derive the unit
+      // on the basis of the imported clause and then immediately delete the original clause
+      // since the solver doesn't remember it either.
+      if (simplified && solver->proof) {
+        solver->on_drup_derivation (solver->proof_log_state, &elit, 1, glue);
+        solver->on_drup_deletion (solver->proof_log_state, buffer, originalSize);
+      }
+#endif
+
+      solver->num_imported_external_clauses++;
+      continue;
+    }
+
+    // Larger clause of size >= 2
+
     // Write clause into internal stack
     assert (EMPTY_STACK (solver->clause));
     //printf("KISSAT LEARN");
-    for (unsigned i = 0; i < (unsigned)size; i++) {
-      if (buffer[i] == 0) continue;
-      const unsigned lit = kissat_import_literal (solver, buffer[i]);
+    for (unsigned i = 0; i < effectiveSize; i++) {
+      const int elit = PEEK_STACK(simplified_clause, i);
+      const unsigned lit = kissat_import_literal (solver, elit);
       assert (VALID_INTERNAL_LITERAL (lit));
       PUSH_STACK (solver->clause, lit);
       //printf(" %i", lit);
     }
     //printf("\n");
-    assert (SIZE_STACK (solver->clause) == effectiveSize);
 
-    // Learn clause, re-export iff the clause was just shortened
-    // (i.e., block re-export iff the clause is imported without changes)
-    const reference ref = shortened ?
+    // Learn clause, add to proof and re-export if the clause was simplified.
+    // Learn clause but don't add to proof or exports if the clause is imported as is.
+    const reference ref = simplified ?
       kissat_new_redundant_clause (solver, glue) :
       kissat_new_redundant_clause_from_import (solver, glue);
+
+#ifndef NPROOFS
+    // If the clause was simplified from a larger clause, we need to immediately delete
+    // the original clause since the solver doesn't remember it either.
+    if (simplified && solver->proof) solver->on_drup_deletion (solver->proof_log_state, buffer, originalSize);
+#endif
 
     if (ref != INVALID_REF) {
       // Valid reference => Long clause (size>2) 
@@ -855,9 +886,6 @@ void kissat_import_redundant_clauses (kissat * solver)
 
   //printf("KISSAT next import @ %lu conflicts\n", solver->num_conflicts_at_last_import);
 }
-
-
-
 
 void kissat_set_initial_variable_phases (kissat * solver, signed char *lookup, int size)
 {

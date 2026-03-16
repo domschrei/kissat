@@ -1,3 +1,4 @@
+#include "proof.h"
 #ifndef NPROOFS
 
 #include "allocate.h"
@@ -60,6 +61,15 @@ void kissat_init_proof (kissat *solver, file *file, bool binary) {
   proof->solver = solver;
   solver->proof = proof;
   LOG ("starting to trace %s proof", binary ? "binary" : "non-binary");
+}
+
+void kissat_init_ext_proof (kissat *solver) {
+  assert (!solver->proof);
+  proof *proof = kissat_calloc (solver, 1, sizeof (struct proof));
+  proof->binary = false;
+  proof->file = 0;
+  proof->solver = solver;
+  solver->proof = proof;
 }
 
 static void flush_buffer (proof *proof) {
@@ -295,6 +305,15 @@ static void print_added_proof_line (proof *proof) {
 #ifndef NDEBUG
   check_repeated_proof_lines (proof);
 #endif
+  if (proof->file == 0) {
+    proof->solver->on_drup_derivation (proof->solver->proof_log_state, BEGIN_STACK(proof->line), SIZE_STACK(proof->line), proof->solver->last_glue);
+    proof->lines++;
+    CLEAR_STACK (proof->line);
+#if !defined(NDEBUG) || defined(LOGGING)
+    CLEAR_STACK (proof->imported);
+#endif
+    return;
+  }
   if (proof->binary)
     write_char (proof, 'a');
   print_proof_line (proof);
@@ -308,6 +327,15 @@ static void print_delete_proof_line (proof *proof) {
     LOGIMPORTED3 ("deleted internal proof line");
   LOGLINE3 ("deleted external proof line");
 #endif
+  if (proof->file == 0) {
+    proof->solver->on_drup_deletion (proof->solver->proof_log_state, BEGIN_STACK(proof->line), SIZE_STACK(proof->line));
+    proof->lines++;
+    CLEAR_STACK (proof->line);
+#if !defined(NDEBUG) || defined(LOGGING)
+    CLEAR_STACK (proof->imported);
+#endif
+    return;
+  }
   write_char (proof, 'd');
   if (!proof->binary)
     write_char (proof, ' ');

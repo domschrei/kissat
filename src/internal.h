@@ -33,8 +33,6 @@
 #include "vector.h"
 #include "watch.h"
 
-// #include "sweep.h" //for Mallob Shweep
-
 typedef struct datarank datarank;
 
 struct datarank {
@@ -203,6 +201,7 @@ struct kissat {
   uint64_t ticks;
 
   format format;
+  char *prefix;
 
   statches antecedents[2];
   statches gates[2];
@@ -243,18 +242,24 @@ struct kissat {
 
 #ifndef NPROOFS
   proof *proof;
-#endif
 
+  // Proof logging
+  void *proof_log_state;
+  void (*on_drup_derivation) (void* state, const int* lits, int nbLits, int glue);
+  void (*on_lrup_import)     (void* state, unsigned long id, const int* lits, int nbLits, const unsigned char* sigData);
+  void (*on_drup_deletion)   (void* state, const int* lits, int nbLits);
+#endif
 
   // Clause export
   void *consume_clause_state;
   int *consume_clause_buffer;
   unsigned consume_clause_max_size;
   void (*consume_clause) (void *state, int size, int glue);
+  unsigned last_glue;
 
   // Clause import
   void *produce_clause_state;
-  void (*produce_clause) (void *state, int **clause, int *size, int *glue);
+  void (*produce_clause) (void *state, int **clause, int *size, int *glue, unsigned long *id, unsigned char *sig);
   unsigned long num_conflicts_at_last_import;
 
 
@@ -287,7 +292,6 @@ struct kissat {
   unsigned long num_imported_external_clauses;
   unsigned long num_discarded_external_clauses;
   unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;
-
 
   // Preprocessing reporting
   void *report_preprocess_state;
