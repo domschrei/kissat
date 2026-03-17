@@ -4866,10 +4866,10 @@ bool kissat_mallob_tightloop_congruence(kissat *solver) {
       kissat_custom_message(solver, V1_WARN, "CCC break tight loop: termination flagged");
       break;
     }
-    if (solver->sweepjob_terminated) {
-      kissat_custom_message(solver, V1_WARN, "CCC break tight loop: external volatile termination");
-      break;
-    }
+    // if (solver->sweepjob_terminated) {
+      // kissat_custom_message(solver, V1_WARN, "CCC break tight loop: external volatile termination");
+      // break;
+    // }
 
     kissat_custom_message(solver, V2_INFO, "CCC round %i: clauses %i (%i)", round, CLAUSES, CLAUSES - clauses);
     kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs ex %i ", round, solver->shweep.congr_eqs - eqs_ex);

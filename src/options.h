@@ -79,6 +79,7 @@
   OPTION (luckyearly, 1, 0, 1, "lucky assignments before preprocessing") \
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
   OPTION (mallob_custom_sweep_verbosity, 0, 0, 4, "the verbosity of the kissat_custom_message messages") \
+  OPTION (mallob_individual_sweepiters, 1, 0, 1, "start a new sweeper for every iteration. Closer to the sequential model and allows cleaner substitute calls between iterations") \
   OPTION (mallob_is_congruencer, 0, 0, 1, "do only congruence closure for the Mallob Sweep App") \
   OPTION (mallob_is_root, 0, 0, 1, "the hosting MPI process is the root rank") \
   OPTION (mallob_is_shweeper, 0, 0, 1, "do only equivalence sweeping for the Mallob Sweep App") \

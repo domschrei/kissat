@@ -79,6 +79,11 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
 unsigned shweep_get_num_vars (kissat *solver);
 // void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out);
 void shweep_terminate(kissat *solver);
+void shweep_set_end_iteration(kissat *solver);
+void shweep_set_end_sweepjob(kissat *solver);
+bool shweep_get_end_iteration(kissat *solver);
+bool shweep_get_end_sweepjob(kissat *solver);
+
 void shweep_set_sweep_iteration(kissat *solver, int iteration);
 bool kissat_is_inconsistent (kissat *solver);
 

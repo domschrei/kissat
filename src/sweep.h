@@ -12,4 +12,6 @@ int kissat_mallob_shweep_just_import(struct kissat *);
 
 int kissat_pure_sequential_sweeping(struct kissat *);
 
+int kissat_mallob_shweep_iterations(struct kissat *);
+
 #endif
