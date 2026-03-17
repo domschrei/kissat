@@ -185,6 +185,8 @@ int kissat_search (kissat *solver) {
   int res = 0;
   if (solver->inconsistent)
     res = 20;
+  if (!res && GET_OPTION (puresweep))
+    res = kissat_pure_sequential_sweeping(solver);
   if (!res && GET_OPTION (mallob_is_congruencer))
     res = kissat_mallob_congruencer(solver);
   if (!res && GET_OPTION (mallob_is_shweeper) && !GET_OPTION (mallob_is_congruencer))

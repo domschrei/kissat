@@ -568,6 +568,7 @@ static bool substitute_round (kissat *solver, unsigned round) {
 }
 
 static void substitute_rounds (kissat *solver, bool complete) {
+  kissat_custom_message (solver, 2, "Enter Substitute rounds");
   START (substitute);
   INC (substitutions);
   const unsigned maxrounds = GET_OPTION (substituterounds);

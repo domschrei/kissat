@@ -264,11 +264,11 @@ struct kissat {
 
 
   //--------------------------------------------------------------------------------
-  //For distributed equivalence sweeping coordinated by Mallob
+  //For distributed equivalence sweeping, coordinated by Mallob
   sweeper *sweeper;
   bool shweeper_initialized;
   bool shweeper_in_congruence;
-  volatile bool shweeper_terminated_externally;
+  volatile bool sweepjob_terminated;
 
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state); //Export to own Mallob::Kissat object
@@ -283,6 +283,7 @@ struct kissat {
 
   struct shweep_statistics shweep;     //statistics for mallob sweeping
 
+  //--------------------------------------------------------------------------------
 
   // Initial variable phases
   signed char *initial_variable_phases;

@@ -94,6 +94,7 @@ struct shweep_statistics {
   unsigned long sweep_eqs, sweep_units, units_new, units_end, eliminated;
   unsigned long congr_eqs, congr_units;
   unsigned long vars_end, clauses_end;
+  unsigned long curr_active;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
 

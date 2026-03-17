@@ -79,12 +79,11 @@
   OPTION (luckyearly, 1, 0, 1, "lucky assignments before preprocessing") \
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
   OPTION (mallob_custom_sweep_verbosity, 0, 0, 4, "the verbosity of the kissat_custom_message messages") \
-  OPTION (mallob_growing_environments, 1, 0, 1, "gradually increase the sweep environment after a full sweep round") \
   OPTION (mallob_is_congruencer, 0, 0, 1, "do only congruence closure for the Mallob Sweep App") \
   OPTION (mallob_is_root, 0, 0, 1, "the hosting MPI process is the root rank") \
   OPTION (mallob_is_shweeper, 0, 0, 1, "do only equivalence sweeping for the Mallob Sweep App") \
-  OPTION (mallob_local_id, 9999, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
-  OPTION (mallob_rank, 9999, 0, 1e6, "the rank of the hosting MPI process") \
+  OPTION (mallob_local_id, 0, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
+  OPTION (mallob_rank, 0, 0, 1e6, "the rank of the hosting MPI process") \
   OPTION (mallob_resweep_chance, 1e4, 0, 1e4, "chance to resweep on a variable in an equivalence (per mille)") \
   OPTION (mallob_sequential_stats, 0, 0, 1, "report sequential kissat stats on sweeping. Nothing to do with mallob, but keep here to remind that its one of our options") \
   OPTION (mallob_staggered_logs, 0, 0, 1, "print custom sweep messages spatially staggered, instead of all aligned to start of the line") \
@@ -110,6 +109,9 @@
   OPTION (proberounds, 2, 1, INT_MAX, "probing rounds") \
   OPTION (profile, 2, 0, 4, "profile level") \
   OPTION (promote, 1, 0, 1, "promote clauses") \
+  OPTION (puresweep, 0, 0, 1, "just doing sequential sweeping and nothing else") \
+  OPTION (puresweep_iterations, 3, 0, 100, "number of iterations of pure sweeping") \
+  OPTION (puresweep_maxEnvGrowth, 0, 0, 100, "the max number of completed rounds that should affect sweep environment growth") \
   NQTOPT (quiet, 0, 0, 1, "disable all messages") \
   OPTION (randec, 1, 0, 1, "random decisions") \
   OPTION (randecfocused, 1, 0, 1, "random decisions in focused mode") \

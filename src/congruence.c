@@ -4866,7 +4866,7 @@ bool kissat_mallob_tightloop_congruence(kissat *solver) {
       kissat_custom_message(solver, V1_WARN, "CCC break tight loop: termination flagged");
       break;
     }
-    if (solver->shweeper_terminated_externally) {
+    if (solver->sweepjob_terminated) {
       kissat_custom_message(solver, V1_WARN, "CCC break tight loop: external volatile termination");
       break;
     }

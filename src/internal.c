@@ -70,7 +70,7 @@ kissat *kissat_init (void) {
   //Shared Sweeping  -------------------------------------------------------
   solver->shweeper_initialized = false;
   solver->shweeper_in_congruence = false;
-  solver->shweeper_terminated_externally= false;
+  solver->sweepjob_terminated= false;
 
   //Sweep Export
   solver->shweep_export_eq_buffer = 0;
