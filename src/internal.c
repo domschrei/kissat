@@ -70,9 +70,10 @@ kissat *kissat_init (void) {
   //Shared Sweeping  -------------------------------------------------------
   // solver->shweeper_initialized = false;
   solver->shweeper_in_congruence = false;
-  solver->shweep_end_sweep_iteration = false;
-  solver->shweep_end_sweep_job =  false;
+  solver->shweep_end_iteration_signal = false;
+  solver->shweep_end_job_signal =  false;
   solver->shweeper_allows_stealing = false;
+  solver->shweep_curr_iteration = 0;
 
   //Sweep Export
   solver->shweep_export_eq_buffer = 0;
@@ -86,6 +87,8 @@ kissat *kissat_init (void) {
   //Sweep Workstealing
   solver->shweep_mallob_KissatState = 0;
   solver->shweep_search_work_callback = 0;
+
+  solver->shweep_report_finished_iteration_callback = 0;
   //-----------------------------------------------------------------
 
   solver->initial_variable_phases = 0;
@@ -651,22 +654,11 @@ void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (
   solver->shweep_search_work_callback = search_callback;
 }
 
-// void shweep_set_start_sweep_app_callback(kissat *solver, void *KissatState, void (*sweep_app_callback) (void *KissatState)) {
-  // solver->shweep_mallob_KissatState = KissatState;
-  // solver->start_sweep_app_callback = sweep_app_callback;
-// }
 
-
-
-// void shweep_set_sweep_app_formula_report_callback (kissat * solver, void *state,
-  // bool (*begin_report) (void *state, int vars, int cls),
-  // void (*report_lit) (void *state, int lit))
-// {
-  // solver->report_preprocess_state = state;
-  // solver->begin_report = begin_report;
-  // solver->report_preprocessed_lit = report_lit;
-// }
-
+void shweep_set_report_finished_iteration_callback(kissat *solver, void *SweepJobState, void (*report_callback) (void *SweepJob_state, int localId)) {
+  solver->shweep_mallob_SweepJobState = SweepJobState;
+  solver->shweep_report_finished_iteration_callback = report_callback;
+}
 
 
 

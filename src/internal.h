@@ -266,12 +266,13 @@ struct kissat {
   //--------------------------------------------------------------------------------
   //For distributed equivalence sweeping, coordinated by Mallob
   sweeper *sweeper;
-  // bool shweeper_initialized;
   bool shweeper_in_congruence;
-  volatile bool shweep_end_sweep_job;
-  volatile bool shweep_end_sweep_iteration;
-  //there exists windows  in-between the sweep iterations where no (accessible) sweeper object exists, so we track on the solver-level whether we can steal right now
-  bool shweeper_allows_stealing;
+  volatile int shweep_curr_iteration;
+  volatile bool shweep_end_iteration_signal;
+  volatile bool shweep_end_job_signal;
+
+  //there exist time-windows in between the sweep iterations where no (accessible) sweeper object exists, we track on the permanent solver-level whether a sweeper exists and is accessible to steal right now
+  volatile bool shweeper_allows_stealing;
 
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state); //Export to own Mallob::Kissat object
@@ -283,6 +284,8 @@ struct kissat {
   void *shweep_mallob_KissatState;
   void *shweep_mallob_SweepJobState;
   void (*shweep_search_work_callback) (void *state, unsigned **work, int *work_size, int local_id);
+
+  void (*shweep_report_finished_iteration_callback) (void *SweepJobState, int localId);
 
   struct shweep_statistics shweep;     //statistics for mallob sweeping
 

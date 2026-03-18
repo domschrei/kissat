@@ -71,20 +71,21 @@ void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_
 void shweep_set_SweepJob_unit_import_callback(kissat *solver, void *SweepJobState, void (*import_unit_callback) (void *SweepJobState, int *lit, int localId));
 
 void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
+void shweep_set_report_finished_iteration_callback(kissat *solver, void *SweepJobState, void (*report_callback) (void *SweepJob_state, int localId));
 
 
 int shweep_get_work_estimate(kissat *solver);
 int shweep_get_max_steal_amount(kissat *solver);
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count);
 unsigned shweep_get_num_vars (kissat *solver);
-// void shweep_get_sweep_stats(kissat *solver, int *eqs, int *sweep_units, int *new_units, int *total_units, int *eliminated, int *orig_active, int *end_active, int *worksweeps, int *resweeps_in, int *resweeps_out);
-void shweep_terminate(kissat *solver);
-void shweep_set_end_iteration(kissat *solver);
-void shweep_set_end_sweepjob(kissat *solver);
-bool shweep_get_end_iteration(kissat *solver);
-bool shweep_get_end_sweepjob(kissat *solver);
 
-void shweep_set_sweep_iteration(kissat *solver, int iteration);
+void shweep_terminate(kissat *solver);
+void shweep_set_end_iteration_signal(kissat *solver);
+void shweep_set_end_job_signal(kissat *solver);
+bool shweep_get_end_iteration_signal(kissat *solver);
+bool shweep_get_end_job_signal(kissat *solver);
+int shweep_get_curr_iteration(kissat *solver);
+
 bool kissat_is_inconsistent (kissat *solver);
 
 struct shweep_statistics {
@@ -96,10 +97,13 @@ struct shweep_statistics {
   unsigned long worksweeps, resweeps_in, resweeps_out;
   //info that already kissat tracks
   unsigned long vars_active_orig, vars_formally_orig, units_orig; //active: actual #vars we still have to solve at the start of sweep. #formally: the formal number of variables, some of which might already be fixed
-  unsigned long sweep_eqs, sweep_units, units_new, units_end, eliminated;
+  unsigned long sweep_eqs, sweep_units, units_new, units_end;
   unsigned long congr_eqs, congr_units;
   unsigned long vars_end, clauses_end;
-  unsigned long curr_active;
+  unsigned long clauses, binirr, clauses_orig, binirr_orig;
+  unsigned long curr_iteration;
+  unsigned long curr_active, curr_units, curr_eliminated;
+  unsigned long env_limit_depth, env_limit_vars, env_limit_clauses;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
 
