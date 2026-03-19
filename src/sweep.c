@@ -224,12 +224,8 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) depth    limit %u", completed, sweeper->limit.depth);
     kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) clause   limit %u", completed, sweeper->limit.clauses);
 
-    //Tracking how many variables we have already swept or stepped over in this iteration
-    solver->shweep.progress_work_sweeps=0;
-    solver->shweep.progress_work_stepovers=0;
-    solver->shweep.progress_unsched_resweeps=0;
 
-    //Datastrutures and heads of the sweeper
+    //Datastructures and heads of the sweeper
     //the array sweeper->work is NOT created here, instead it will be allocated by C++/Mallob and only passed down as a pointer, and we operate on the provided memory range
     INIT_STACK (sweeper->RESWEEP);
     sweeper->work_head=0;
@@ -243,6 +239,7 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->max_work_after_steal=0;
 
 
+    //allow only now stealing, after everything else has been set up (especially work_head=0 and work_end=0) preventing any
     solver->shweeper_allows_stealing = true;
   }
 }
@@ -3447,9 +3444,15 @@ int mallob_shweep_single_iteration(kissat *solver) {
 
   // assert(solver->end_sweep_iteration || kissat_custom_assert_message (solver, "Sweeper ERROR : left sweeping loop without end_iteration signal "));
 
-  //immediate reset of the flag to prevent that it lingers and we interpret it again also at the start of the next iteration
+  //immediately reset the flag to prevent that it lingers and we interpret it again also at the start of the next iteration
   solver->shweep_end_iteration_signal = false;
 
+
+  //immediately reset these to prevent them leaking into the now upcoming sharing round of the next iteration. Which can be initialized by the root node while here we might still be in substitute()
+  //Ok to reset them here because these individual values are not read by the iteration-report callback
+  solver->shweep.progress_work_sweeps=0;
+  solver->shweep.progress_work_stepovers=0;
+  solver->shweep.progress_unsched_resweeps=0;
 
   kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper END single iteration loop");
   // sweeper.allow_stealing=false; //if we landed here due to external termination or some error in the loop, and still have work>0, this flag prevents that other solvers try to steal from us while we (and our datastructures) are shutting down
