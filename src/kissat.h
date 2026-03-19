@@ -94,7 +94,9 @@ struct shweep_statistics {
   unsigned long units_seen, units_useful, units_skipped_fixed, units_transitive;
   unsigned long congr_eqs_skipped;
   //how often did we sweep due to schedule vs. resweep due to recent equivalence
-  unsigned long worksweeps, resweeps_in, resweeps_out;
+  unsigned long progress_work_sweeps;
+  unsigned long progress_work_stepovers;
+  unsigned long progress_unsched_resweeps;
   //info that already kissat tracks
   unsigned long vars_active_orig, vars_formally_orig, units_orig; //active: actual #vars we still have to solve at the start of sweep. #formally: the formal number of variables, some of which might already be fixed
   unsigned long sweep_eqs, sweep_units, units_new, units_end;

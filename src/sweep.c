@@ -55,13 +55,10 @@ struct sweeper {
   int work_end;    //size of the allocated work array.
   int work_head;   //index of the currently next scheduled variable in work
   int max_work_after_steal;     //an approximation of how much work is left, updated when getting stolen
-  // bool allow_stealing; //prevent steal attempts once this solver is inconsistent
   int sweep_iteration; //receives the current sweep iteration, externally by Mallob
 
   //some statistics
-  unsigned skipped_bc_done;
   unsigned stumbled_units;
-  // unsigned orig_active;
 
   bool singlethread_debugging_provided_work; //for single-threaded debugging runs only
   int rank;
@@ -227,12 +224,16 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) depth    limit %u", completed, sweeper->limit.depth);
     kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) clause   limit %u", completed, sweeper->limit.clauses);
 
+    //Tracking how many variables we have already swept or stepped over in this iteration
+    solver->shweep.progress_work_sweeps=0;
+    solver->shweep.progress_work_stepovers=0;
+    solver->shweep.progress_unsched_resweeps=0;
 
-
+    //Datastrutures and heads of the sweeper
+    //the array sweeper->work is NOT created here, instead it will be allocated by C++/Mallob and only passed down as a pointer, and we operate on the provided memory range
     INIT_STACK (sweeper->RESWEEP);
     sweeper->work_head=0;
     sweeper->work_end=0;
-    sweeper->skipped_bc_done=0;
     sweeper->stumbled_units=0;
 
     sweeper->rank = GET_OPTION (mallob_rank);
@@ -241,9 +242,8 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->singlethread_debugging_provided_work=false;
     sweeper->max_work_after_steal=0;
 
-    solver->shweeper_allows_stealing = true;
 
-    //we don't allocate the work[] array here, instead it will be allocated by Mallob/C++ and we only operate on the provided memory range
+    solver->shweeper_allows_stealing = true;
   }
 }
 
@@ -2722,10 +2722,9 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   assert(stolen_amount>=0 || kissat_custom_assert_message ("ERROR: stolen amount %i is negative \n", stolen_amount));
   if (stolen_amount>0) {
     // kissat_custom_message (solver, V3_VVERB_SWEEP, "got steal amount %i", stolen_amount);
+    kissat_custom_message (solver, V3_VVERB_SWEEP, "stole %i", stolen_amount);
   }
 
-  //update: we no longer handle terminations via this search_work function, but separately. was anyways a bit shoehorned in here
-  // kissat_custom_message (solver, V3_VVERB_SWEEP, "got %i", stolen_amount);
 
   const unsigned *work = sweeper->work;
 
@@ -2744,7 +2743,9 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
 
 bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
-  // kissat_custom_message(solver,V2_VERB_SWEEP, "check if sweepable: idx %u",idx);
+
+  //check here whether a variable can be swept at all
+  //on purpose we do not check for FLAGS->sweep, because here arrive also variables from resweeping which were not marked by us with the "to be swept" flag, yet now we want to sweep them
 
   assert(idx!=INVALID_IDX || kissat_custom_assert_message (solver, "Sweeper ERROR : invalid idx %u was schedulded for sweeping ", idx));
 
@@ -2794,12 +2795,16 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   //or whether it brought us out of our assigned work and we are now sweeping a variable that also other solvers might sweep, potentially causing redundant work (resweeps_out)
   if (isWorkVar) {
     assert(FLAGS (idx)->sweep || kissat_custom_assert_message (solver, "SWEEPER ERROR: scheduled work-var whose but its flag is already sweep==false \n"));
-    solver->shweep.worksweeps++;
+    //this variable comes directly from scheduling
+    solver->shweep.progress_work_sweeps++;
   } else {
     if (FLAGS (idx)->sweep)
-      solver->shweep.resweeps_in++;
+      //this variable comes from resweeping, but it happens to also be scheduled eventually, so it just skips ahead of the line now
+      solver->shweep.progress_work_sweeps++; //same counter as above, for simplicity we don't differentiate this special case
     else
-      solver->shweep.resweeps_out++;
+      //this variable comes from resweeping, and is not scheduled, so we are doing unplanned sweeping on it, while it is scheduled as work on some other solver.
+      //However, we expect it to be worth it because it comes from the neighborhood of a previous found equivalences, so I might help to improve our local database
+      solver->shweep.progress_unsched_resweeps++;
   }
 
   FLAGS (idx)->sweep = false; //remember that we swept this variable now. still part of old sweeping. maybe in case of shweep we dont need this flag? leave it in for now...
@@ -2825,14 +2830,14 @@ unsigned shweep_next_scheduled(sweeper *sweeper) {
     sweeper->work_head++;
 
     sweeper->max_work_after_steal = MIN(sweeper->max_work_after_steal, end - sweeper->work_head);
-    if (idx==INVALID_IDX) //skip hole
+    if (idx==INVALID_IDX) //there is no work in this slot anymore, was stolen by somebody else
       continue;
     // kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "check still open: idx %u (for scheduling)", idx);
     if (shweep_var_still_open(sweeper, idx)) {
       return idx;
     }
     // kissat_custom_message (sweeper->solver, V2_VERB_SWEEP, "    skip work[%i]=%u", head-1, work[head-1]);
-    sweeper->skipped_bc_done++;
+    sweeper->solver->shweep.progress_work_stepovers++;
   }
   return INVALID_IDX;
 }
@@ -2855,8 +2860,8 @@ unsigned shweep_get_num_vars(kissat *solver) {
 
 
 struct shweep_statistics shweep_get_statistics (kissat * solver) {
-  //some shweep statistics are updated incremented live during sweeping
-  //some others we add here, mainly general kissat stats
+  //some shweep statistics are updated live incrementally during the sweeping
+  //some others (more global ones) are now added here
   solver->shweep.sweep_eqs      = solver->statistics.sweep_equivalences;
   solver->shweep.sweep_units    = solver->statistics.sweep_units;
   solver->shweep.curr_iteration = solver->shweep_curr_iteration;
@@ -3272,14 +3277,14 @@ int kissat_mallob_shweep(kissat *solver) {
                 "found %" PRIu64 " equivalences and %" PRIu64 " units",
                 equivalences, units);
 
-  if (!is_localid_nonzero (solver)) {
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units", equivalences, units);
-    int resweeps = solver->shweep.resweeps_in + solver->shweep.resweeps_out;
-    int total_sweeps = solver->shweep.worksweeps + resweeps;
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i total sweeps, %i worksweeps (%.2f %), %i resweeps (%.2f %)",
-      total_sweeps, solver->shweep.worksweeps, 100*solver->shweep.worksweeps /(float)total_sweeps, resweeps, 100*resweeps/(float)total_sweeps
-      );
-  }
+  // if (!is_localid_nonzero (solver)) {
+    // kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i Equivalences, %i sweep_units", equivalences, units);
+    // int resweeps = solver->shweep.resweeps_into_work + solver->shweep.progress_unsched_resweeps;
+    // int total_sweeps = solver->shweep.progress_work_sweeps + resweeps;
+    // kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER RESULT %i total sweeps, %i worksweeps (%.2f %), %i resweeps (%.2f %)",
+      // total_sweeps, solver->shweep.progress_work_sweeps, 100*solver->shweep.progress_work_sweeps /(float)total_sweeps, resweeps, 100*resweeps/(float)total_sweeps
+      // );
+  // }
 
   unsigned inactive = release_sweeper (&sweeper);
 
@@ -3494,6 +3499,12 @@ int mallob_shweep_single_iteration(kissat *solver) {
 
 }
 
+void representative_report_finished_iteration(kissat *solver) {
+  if (solver->shweep_report_finished_iteration_callback) { //only the representative solver at the root node reports this
+    solver->shweep_report_finished_iteration_callback (solver->shweep_mallob_SweepJobState, GET_OPTION (mallob_local_id));
+  }
+}
+
 
 int kissat_mallob_shweep_iterations(kissat *solver) {
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start main");
@@ -3502,25 +3513,23 @@ int kissat_mallob_shweep_iterations(kissat *solver) {
   solver->shweep.units_orig         = SIZE_STACK(solver->units);
   solver->shweep.vars_active_orig   = solver->active;
   solver->shweep.clauses_orig = CLAUSES;
-  solver->shweep.binirr_orig = BINIRR_CLAUSES;
+  solver->shweep.binirr_orig  = BINIRR_CLAUSES;
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig vars : %i", solver->shweep.vars_formally_orig);
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig units: %i", solver->shweep.units_orig);
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig activ: %i", solver->shweep.vars_active_orig);
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig CLAUSES: %i", CLAUSES);
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig BINIRR : %i", BINIRR_CLAUSES);
-  //report a baseline before starting to sweep
-  if (solver->shweep_report_finished_iteration_callback) { //only the representative solver at the root node reports this
-    solver->shweep_report_finished_iteration_callback (solver->shweep_mallob_SweepJobState, GET_OPTION (mallob_local_id));
-  }
+  //report a zero-baseline before starting
+  representative_report_finished_iteration (solver);
+
   while (!solver->shweep_end_job_signal) {
     solver->shweep_curr_iteration++;
     mallob_shweep_single_iteration (solver);
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER substituting");
     kissat_substitute(solver, true);
-    if (solver->shweep_report_finished_iteration_callback) { //only the representative solver at the root node reports this
-      solver->shweep_report_finished_iteration_callback (solver->shweep_mallob_SweepJobState, GET_OPTION (mallob_local_id));
-    }
-    INC(sweep_completed); //this allows the next init_sweeper to increase its environments accordingly
+    //after substitution cleaned up the database we can properly report the metrics of this round
+    representative_report_finished_iteration (solver);
+    INC(sweep_completed); //this counter increases the environment size of the next iteration
   }
 
   //now we trigger the termination, only after the last substitute. The only remaining function is report_dimacs, which does not test for termination
