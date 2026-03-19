@@ -2658,7 +2658,9 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
       continue;
     // kissat_custom_message(sweeper->solver,V2_VERB_SWEEP, "check still open: idx %u (for stealing)", idx);
     if (!shweep_var_still_open(sweeper, idx)) { //this variable is no longer relevant for sweeping
-      work[i] = INVALID_IDX;  //deactivate it, such that we don't do the effort to check it again
+      //update: we dont deactivate it here anymore, because otherwise the local sweeper would later no longer recognize that this has been a valid variable that as been stepped-over
+      //and anyways, the only semi-expensive check might be the occ-counter, and this is still only done only once, because then its sweep flag is set to false
+      // work[i] = INVALID_IDX;  //deactivate it, such that we don't do the effort to check it again
       continue;
     }
     //variable is still open for sweeping. We steal every second
