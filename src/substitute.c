@@ -558,17 +558,17 @@ static bool substitute_round (kissat *solver, unsigned round) {
   kissat_phase (solver, "substitute", GET (substitutions),
                 "round %u removed %u variables %.0f%%", round, removed,
                 kissat_percent (removed, active));
+  kissat_custom_message (solver, 2, "Subst round %i removed %i", round, removed);
   kissat_check_statistics (solver);
   REPORT (!removed, 'd');
 #ifdef QUIET
   (void) round;
 #endif
-  kissat_custom_message (solver, 2, "Substitute round %i: removed %i", round, removed);
   return !solver->inconsistent && removed;
 }
 
 static void substitute_rounds (kissat *solver, bool complete) {
-  kissat_custom_message (solver, 2, "Enter Substitute rounds");
+  // kissat_custom_message (solver, 2, "Enter Substitute rounds");
   START (substitute);
   INC (substitutions);
   const unsigned maxrounds = GET_OPTION (substituterounds);

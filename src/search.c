@@ -190,7 +190,7 @@ int kissat_search (kissat *solver) {
   if (!res && GET_OPTION (mallob_is_congruencer))
     res = kissat_mallob_congruencer(solver);
   if (!res && GET_OPTION (mallob_is_shweeper) && GET_OPTION (mallob_individual_sweepiters) && !GET_OPTION (mallob_is_congruencer))
-    res = kissat_mallob_shweep_iterations (solver);
+    res = kissat_mallob_distributed_sweep_multiple_iterations (solver);
   if (!res && GET_OPTION (mallob_is_shweeper) && !GET_OPTION (mallob_individual_sweepiters) && !GET_OPTION (mallob_is_congruencer))
     res = kissat_mallob_shweep(solver);
   if (!res && GET_OPTION (luckyearly))

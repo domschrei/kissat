@@ -4069,7 +4069,7 @@ static void extract_gates (closure *closure) {
 
 static void find_units (closure *closure) {
   kissat *const solver = closure->solver;
-  kissat_custom_message(solver, V2_INFO, "CCC find units");
+  // kissat_custom_message(solver, V2_INFO, "CCC find units");
   assert (solver->watching);
   assert (!solver->inconsistent);
   assert (kissat_propagated (solver));
@@ -4116,6 +4116,7 @@ static void find_units (closure *closure) {
   assert (EMPTY_STACK (*marked));
 #ifndef QUIET
   kissat_very_verbose (solver, "found %zu units", units);
+  kissat_custom_message (solver, 2, "congruence found %zu units", units);
 #else
   (void) units;
 #endif
@@ -4123,7 +4124,7 @@ static void find_units (closure *closure) {
 
 static void find_equivalences (closure *closure) {
   kissat *const solver = closure->solver;
-  kissat_custom_message(solver, V2_INFO, "CCC find eqs");
+  // kissat_custom_message(solver, V2_INFO, "CCC find eqs");
   assert (solver->watching);
   assert (!solver->inconsistent);
   unsigneds *const marked = &solver->analyzed;
@@ -4186,6 +4187,7 @@ static void find_equivalences (closure *closure) {
 #ifndef QUIET
   size_t found = SIZE_FIFO (closure->schedule);
   kissat_very_verbose (solver, "found %zu equivalences", found);
+  kissat_custom_message (solver, 2, "congruence found %zu equivalences", found);
 #endif
 }
 
@@ -4695,6 +4697,7 @@ void congruencer_import_equivalences(closure *closure) {
 
 
 bool kissat_congruence (kissat *solver) {
+  kissat_custom_message (solver, V2_INFO, "congruence");
   if (solver->inconsistent)
     return false;
   kissat_check_statistics (solver);
@@ -4722,6 +4725,7 @@ bool kissat_congruence (kissat *solver) {
     // congruencer_import_units (&closure);
     // congruencer_import_equivalences (&closure);
   // }
+  kissat_custom_message (solver, V2_INFO, "congruence run");
   if (!solver->inconsistent && !TERMINATED (congruence_terminated_9)) {
     find_units (&closure);
     if (!solver->inconsistent && !TERMINATED (congruence_terminated_10)) {
@@ -4747,7 +4751,7 @@ bool kissat_congruence (kissat *solver) {
   kissat_phase (solver, "congruence", GET (closures),
                 "merged %u equivalent variables %.2f%%", equivalent,
                 kissat_percent (equivalent, solver->active));
-  kissat_custom_message (solver, V2_INFO, "congruence integrated %i equivalences", equivalent);
+  kissat_custom_message (solver, V2_INFO, "congruence merged %u equivalent variables", equivalent);
   assert (solver->active >= equivalent);
 #ifndef QUIET
   solver->active -= equivalent;

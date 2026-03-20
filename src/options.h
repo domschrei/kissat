@@ -94,6 +94,7 @@
   OPTION (minimizeticks, 1, 0, 1, "count ticks in minimize and shrink") \
   OPTION (modeinit, 1e3, 10, 1e8, "initial focused conflicts limit") \
   OPTION (modeint, 1e3, 10, 1e8, "focused conflicts interval") \
+  OPTION (neverdelay, 0, 0, 1, "never apply a delay bump") \
   OPTION (otfs, 1, 0, 1, "on-the-fly strengthening") \
   OPTION (phase, 1, 0, 1, "initial decision phase") \
   OPTION (phasesaving, 1, 0, 1, "enable phase saving") \

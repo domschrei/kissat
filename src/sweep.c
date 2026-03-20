@@ -20,6 +20,8 @@
 #include "clauseexport.h" //export stuff during shweeping
 #include "resources.h"
 #include "substitute.h" //at the end of shweeping
+#include "congruence.h" //to interleave with pure sweeping if desired
+#include "propinitially.h" //before pure sweeping
 
 #include <sys/stat.h>
 
@@ -2718,7 +2720,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
     sweeper->singlethread_debugging_provided_work=true;
   }
 
-  assert(stolen_amount>=0 || kissat_custom_assert_message ("ERROR: stolen amount %i is negative \n", stolen_amount));
+  assert(stolen_amount>=0 || kissat_custom_assert_message (solver, "ERROR: stolen amount %i is negative \n", stolen_amount));
   if (stolen_amount>0) {
     // kissat_custom_message (solver, V3_VVERB_SWEEP, "got steal amount %i", stolen_amount);
     kissat_custom_message (solver, V3_VVERB_SWEEP, "stole %i", stolen_amount);
@@ -3013,7 +3015,7 @@ void shweep_print_all_clauses(kissat *solver) {
 
 bool kissat_sweep (kissat *solver) {
   if (GET_OPTION (mallob_is_shweeper)) {
-    assert(kissat_custom_assert_message (solver, "SWEEP ERROR/Error: Shweeper accidentally got into original sweeping code"));
+    assert(kissat_custom_assert_message (solver, "SWEEP ERROR/Error: Distributed Shweeper accidentally got into original sequential sweeping code"));
     return false;
   }
   if (!GET_OPTION (sweep))
@@ -3141,13 +3143,20 @@ bool kissat_sweep (kissat *solver) {
 int kissat_pure_sequential_sweeping(kissat *solver) {
   assert(GET_OPTION (puresweep) || kissat_custom_assert_message (solver, "Kissat ERROR : entered pure sweeping without the flag set"));
   solver->probing=true;
+
+  if (!kissat_initially_propagate (solver)) {
+    assert (solver->inconsistent);
+    return 20;
+  }
   kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP Start Pure Sweeping");
   for (int i=1; i<=GET_OPTION (puresweep_iterations); i++) {
-    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP round %i start  %i active ", i, solver->active);
+    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP %i.round %i active ", i, solver->active);
+    kissat_congruence (solver);
+    kissat_substitute (solver, true);
     kissat_sweep(solver);
 
     kissat_substitute(solver, true);
-    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP round %i end    %i active ", i, solver->active);
+    // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP round %i end    %i active ", i, solver->active);
   }
   // kissat_substitute (solver, true);
   kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP end    %i active ", solver->active);
@@ -3384,6 +3393,8 @@ int mallob_shweep_single_iteration(kissat *solver) {
   uint64_t equivalences = statistics->sweep_equivalences;
   uint64_t units = statistics->sweep_units;
   sweeper sweeper;
+
+  //added some additional code to init for the distributed case
   init_sweeper (solver, &sweeper);
 
   // shweep_print_var_stats (solver, V1_INFO_SWEEP);
@@ -3511,7 +3522,7 @@ void representative_report_finished_iteration(kissat *solver) {
 }
 
 
-int kissat_mallob_shweep_iterations(kissat *solver) {
+int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start main");
   solver->probing = true;
   solver->shweep.vars_formally_orig = solver->vars;

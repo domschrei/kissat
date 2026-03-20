@@ -183,7 +183,6 @@ add_executable(kissat
         src/smooth.h
         src/sort.c
         src/sort.h
-        src/stack.c
         src/stack.h
         src/statistics.c
         src/statistics.h
