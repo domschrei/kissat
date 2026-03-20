@@ -4116,7 +4116,7 @@ static void find_units (closure *closure) {
   assert (EMPTY_STACK (*marked));
 #ifndef QUIET
   kissat_very_verbose (solver, "found %zu units", units);
-  kissat_custom_message (solver, 2, "congruence found %zu units", units);
+  kissat_custom_message (solver, 2, "congruence %zu units", units);
 #else
   (void) units;
 #endif
@@ -4187,7 +4187,7 @@ static void find_equivalences (closure *closure) {
 #ifndef QUIET
   size_t found = SIZE_FIFO (closure->schedule);
   kissat_very_verbose (solver, "found %zu equivalences", found);
-  kissat_custom_message (solver, 2, "congruence found %zu equivalences", found);
+  kissat_custom_message (solver, 2, "congruence %zu equivalences", found);
 #endif
 }
 
@@ -4697,7 +4697,7 @@ void congruencer_import_equivalences(closure *closure) {
 
 
 bool kissat_congruence (kissat *solver) {
-  kissat_custom_message (solver, V2_INFO, "congruence");
+  // kissat_custom_message (solver, V2_INFO, "congruence");
   if (solver->inconsistent)
     return false;
   kissat_check_statistics (solver);
@@ -4725,7 +4725,7 @@ bool kissat_congruence (kissat *solver) {
     // congruencer_import_units (&closure);
     // congruencer_import_equivalences (&closure);
   // }
-  kissat_custom_message (solver, V2_INFO, "congruence run");
+  // kissat_custom_message (solver, V2_INFO, "congruence run");
   if (!solver->inconsistent && !TERMINATED (congruence_terminated_9)) {
     find_units (&closure);
     if (!solver->inconsistent && !TERMINATED (congruence_terminated_10)) {

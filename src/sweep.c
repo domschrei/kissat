@@ -3108,7 +3108,7 @@ bool kissat_sweep (kissat *solver) {
   unsigned inactive = release_sweeper (&sweeper);
 
   // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP round end    %i active ", solver->active);
-  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP this round: E %i, U %i, E+U %i   Cumulative: E %i, U %i, E+U %i ", equivalences, units, equivalences+units, statistics->sweep_equivalences, statistics->sweep_units, statistics->sweep_equivalences + statistics->sweep_units);
+  // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP this round: E %i, U %i, E+U %i   Cumulative: E %i, U %i, E+U %i ", equivalences, units, equivalences+units, statistics->sweep_equivalences, statistics->sweep_units, statistics->sweep_equivalences + statistics->sweep_units);
   // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP cumulative: ", );
 
   if (!solver->inconsistent) {
@@ -3139,6 +3139,17 @@ bool kissat_sweep (kissat *solver) {
   return eliminated;
 }
 
+// void smallreport(kissat *solver) {
+  // kissat_custom_message (solver, V2_VERB_SWEEP, "TIME_SEC %.2f", kissat_time(solver));
+// }
+
+static void kissat_puresweep_report(kissat *solver, const char *prefix) {
+  kissat_custom_message(solver, V2_VERB_SWEEP, "%s_TIME    %.2f", prefix, kissat_time(solver));
+  kissat_custom_message(solver, V2_VERB_SWEEP, "%s_FIXED   %i",   prefix, solver->vars - solver->active);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "%s_ACTIVE  %i",   prefix, solver->active);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "%s_CLAUSES %i",   prefix, CLAUSES);
+}
+
 
 int kissat_pure_sequential_sweeping(kissat *solver) {
   assert(GET_OPTION (puresweep) || kissat_custom_assert_message (solver, "Kissat ERROR : entered pure sweeping without the flag set"));
@@ -3148,19 +3159,41 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
     assert (solver->inconsistent);
     return 20;
   }
-  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP Start Pure Sweeping");
-  for (int i=1; i<=GET_OPTION (puresweep_iterations); i++) {
-    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP %i.round %i active ", i, solver->active);
-    kissat_congruence (solver);
-    kissat_substitute (solver, true);
-    kissat_sweep(solver);
 
+  kissat_puresweep_report (solver, "START");
+
+  // kissat_custom_message (solver, V2_VERB_SWEEP, "Congruence start");
+  if (kissat_congruence (solver)) {
+    kissat_substitute (solver, true);
+  }
+
+  kissat_puresweep_report (solver, "CONGR");
+
+  // kissat_custom_message("Congruence ")
+
+  unsigned active_before = solver->active;
+  // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP Sweep start");
+  for (int i=1; i<=GET_OPTION (puresweep_iterations); i++) {
+    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP start round %i ", i);
+    bool progress = kissat_sweep(solver);
     kissat_substitute(solver, true);
+
+    kissat_puresweep_report (solver, "SWEEP");
+
+    if (!progress) {
+      kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP stopped, no progress at all", i, solver->active);
+      break;
+    }
+
     // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP round %i end    %i active ", i, solver->active);
   }
   // kissat_substitute (solver, true);
-  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP end    %i active ", solver->active);
-  return solver->inconsistent ? 20 : 99; //the 99 is just a dummy value to skip all other steps after pure sweeping ends
+  // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP end", solver->active);
+  if (solver->inconsistent)
+    return 20;
+  if (solver->active < active_before)
+    return 40;
+  return 0;
 }
 
 
