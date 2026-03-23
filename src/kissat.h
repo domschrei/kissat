@@ -98,12 +98,12 @@ struct shweep_statistics {
   unsigned long progress_work_stepovers;
   unsigned long progress_unsched_resweeps;
   //info that already kissat tracks
-  unsigned long vars_active_orig, vars_formally_orig, units_orig; //active: actual #vars we still have to solve at the start of sweep. #formally: the formal number of variables, some of which might already be fixed
+  unsigned long start_active, orig_vars, start_units; //active: actual #vars we still have to solve at the start of sweep. #formally: the formal number of variables, some of which might already be fixed
   unsigned long sweep_eqs, sweep_units, units_new, units_end;
   unsigned long congr_eqs, congr_units;
   unsigned long vars_end, clauses_end;
-  unsigned long clauses, binirr, clauses_orig, binirr_orig;
-  unsigned long curr_iteration;
+  unsigned long clauses, binirr, start_clauses, start_binirr;
+  int curr_iteration; //-1 before any CEC algo is started , 0 in congruence, and 1...n in sweeping
   unsigned long curr_active, curr_units, curr_eliminated;
   unsigned long env_limit_depth, env_limit_vars, env_limit_clauses;
 };

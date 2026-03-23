@@ -2475,11 +2475,11 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     if (!flags->active) {
       already_fixed++;
     }
-    if (GET_OPTION (mallob_is_congruencer) && flags->eliminated) {
+    // if (GET_OPTION (mallob_is_congruencer) && flags->eliminated) {
       // kissat_custom_message(solver, V2_VERB_SWEEP,"CCC skips importing ilit(%i)/repr_ilit(%i), is already eliminated", ilit, repr_ilit);
-      solver->shweep.congr_eqs_skipped++;
-      return;
-    }
+      // solver->shweep.congr_eqs_skipped++;
+      // return;
+    // }
     assert(!flags->eliminated || kissat_custom_assert_message(solver,  "SWEEP ERROR/Error: imported an eq-literal ilit(%i) that is locally eliminated", ilit));
     repr_ilits[i]=repr_ilit;
   }
@@ -3169,6 +3169,7 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
 
   kissat_puresweep_report (solver, "CONGR");
 
+  //we continue even if congruence didnt find a single equivalence, because they might be too hidden for it
   // kissat_custom_message("Congruence ")
 
   unsigned active_before = solver->active;
@@ -3558,18 +3559,33 @@ void representative_report_finished_iteration(kissat *solver) {
 int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start main");
   solver->probing = true;
-  solver->shweep.vars_formally_orig = solver->vars;
-  solver->shweep.units_orig         = SIZE_STACK(solver->units);
-  solver->shweep.vars_active_orig   = solver->active;
-  solver->shweep.clauses_orig = CLAUSES;
-  solver->shweep.binirr_orig  = BINIRR_CLAUSES;
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig vars : %i", solver->shweep.vars_formally_orig);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig units: %i", solver->shweep.units_orig);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig activ: %i", solver->shweep.vars_active_orig);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig CLAUSES: %i", CLAUSES);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig BINIRR : %i", BINIRR_CLAUSES);
-  //report a zero-baseline before starting
+  solver->shweep.orig_vars = solver->vars;
+  solver->shweep.start_units   = SIZE_STACK(solver->units);
+  solver->shweep.start_active  = solver->active;
+  solver->shweep.start_clauses = CLAUSES;
+  solver->shweep.start_binirr  = BINIRR_CLAUSES;
+  solver->shweep_curr_iteration = -1; //-1 before any CEC algos started, 0 in congruence, 1..n in sweep
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig vars : %i", solver->shweep.orig_vars);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start units: %i", solver->shweep.start_units);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start activ: %i", solver->shweep.start_active);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start CLAUSES: %i", CLAUSES);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start BINIRR : %i", BINIRR_CLAUSES);
+
+  //a baseline report to know the metrics exactly before starting sweeping
   representative_report_finished_iteration (solver);
+
+  //Congruence can be either done on a single solver, and then all results need to be exported and imported into other solvers
+  //Or Congruence is run on every solver redundantly, but can skip all the export/import business.
+  //we count congruence as the first "sweep" iteration to get combined CEC progress plots
+  solver->shweep_curr_iteration++;
+
+
+  if (GET_OPTION (mallob_initial_congruence)) {
+    if (kissat_congruence (solver)) {
+      kissat_substitute (solver, true);
+    }
+    representative_report_finished_iteration (solver);
+  }
 
   while (!solver->shweep_end_job_signal) {
     solver->shweep_curr_iteration++;

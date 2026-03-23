@@ -826,16 +826,16 @@ static bool learn_congruence_unit (closure *closure, unsigned unit, bool importi
   LOG ("learning congruence unit %s", LOGLIT (unit));
   kissat_learned_unit (solver, unit);
 
-  if (GET_OPTION (mallob_is_congruencer)) {
-    if (importing) {
+  // if (GET_OPTION (mallob_is_congruencer)) {
+    // if (importing) {
       // kissat_custom_message(solver, V4_VVERB, "CCC Importing unit %i", unit);
-      solver->shweep.units_useful++;
-    } else {
-      shweep_export_unit (solver, unit) ;
+      // solver->shweep.units_useful++;
+    // } else {
+      // shweep_export_unit (solver, unit) ;
       // kissat_custom_message(solver, V2_INFO, "CCC exporting unit %i", unit);
-      solver->shweep.congr_units++;
-    }
-  }
+      // solver->shweep.congr_units++;
+    // }
+  // }
 
   clause *conflict = kissat_probing_propagate (solver, 0, false);
   if (!conflict)
@@ -977,16 +977,16 @@ static bool merge_literals (closure *closure, unsigned lit,
   add_binary_clause (closure, larger, not_smaller);
   schedule_literal (closure, larger);
   INC (congruent);
-  if (GET_OPTION (mallob_is_congruencer)) {
-    if (importing) {
+  // if (GET_OPTION (mallob_is_congruencer)) {
+    // if (importing) {
       // kissat_custom_message (solver, V3_VERB, "CCC importing eq ilit(%i)==ilit(%i)", smaller, larger);
-      solver->shweep.eqs_useful++;
-    } else {
-      shweep_export_equivalence(solver, smaller, larger);
+      // solver->shweep.eqs_useful++;
+    // } else {
+      // shweep_export_equivalence(solver, smaller, larger);
       // kissat_custom_message (solver, V2_INFO, "CCC exporting eq ilit(%i)==ilit(%i)", smaller, larger);
-      solver->shweep.congr_eqs++;
-    }
-  }
+      // solver->shweep.congr_eqs++;
+    // }
+  // }
   return true;
 }
 

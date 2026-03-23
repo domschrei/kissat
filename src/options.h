@@ -80,13 +80,13 @@
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
   OPTION (mallob_custom_sweep_verbosity, 0, 0, 4, "the verbosity of the kissat_custom_message messages") \
   OPTION (mallob_individual_sweepiters, 1, 0, 1, "start a new sweeper for every iteration. Closer to the sequential model and allows cleaner substitute calls between iterations") \
-  OPTION (mallob_is_congruencer, 0, 0, 1, "do only congruence closure for the Mallob Sweep App") \
+  OPTION (mallob_initial_congruence, 0, 0, 1, "do only congruence closure for the Mallob Sweep App") \
   OPTION (mallob_is_root, 0, 0, 1, "the hosting MPI process is the root rank") \
   OPTION (mallob_is_shweeper, 0, 0, 1, "do only equivalence sweeping for the Mallob Sweep App") \
   OPTION (mallob_local_id, 0, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
   OPTION (mallob_rank, 0, 0, 1e6, "the rank of the hosting MPI process") \
   OPTION (mallob_resweep_chance, 1e4, 0, 1e4, "chance to resweep on a variable in an equivalence (per mille)") \
-  OPTION (mallob_sequential_stats, 0, 0, 1, "report sequential kissat stats on sweeping. Nothing to do with mallob, but keep here to remind that its one of our options") \
+  OPTION (mallob_sequential_stats, 0, 0, 1, "report sequential kissat stats on sweeping. Nothing to do with mallob, but keep here close to our options") \
   OPTION (mallob_staggered_logs, 0, 0, 1, "print custom sweep messages spatially staggered, instead of all aligned to start of the line") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \
   OPTION (minimize, 1, 0, 1, "learned clause minimization") \
