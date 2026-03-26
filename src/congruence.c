@@ -4116,7 +4116,7 @@ static void find_units (closure *closure) {
   assert (EMPTY_STACK (*marked));
 #ifndef QUIET
   kissat_very_verbose (solver, "found %zu units", units);
-  kissat_custom_message (solver, 2, "congruence %zu units", units);
+  // kissat_custom_message (solver, 2, "congruence %zu units", units);
 #else
   (void) units;
 #endif
@@ -4187,7 +4187,7 @@ static void find_equivalences (closure *closure) {
 #ifndef QUIET
   size_t found = SIZE_FIFO (closure->schedule);
   kissat_very_verbose (solver, "found %zu equivalences", found);
-  kissat_custom_message (solver, 2, "congruence %zu equivalences", found);
+  // kissat_custom_message (solver, 2, "congruence %zu equivalences", found);
 #endif
 }
 

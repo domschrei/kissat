@@ -3409,8 +3409,10 @@ int shweep_get_curr_iteration(kissat *solver) {
 
 int mallob_shweep_single_iteration(kissat *solver) {
   kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER Start new iteration %i", solver->shweep_curr_iteration);
-  if (!GET_OPTION (mallob_is_shweeper))
+  if (!GET_OPTION (mallob_is_shweeper)) {
+    kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER WARN : mallob_is_shweeper is false, but are in shweep_single_iteration");
     return false;
+  }
   if (solver->inconsistent) {
     kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER directly UNSAT. not even starting loop");
     return false;
@@ -3588,7 +3590,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
     representative_report_finished_iteration (solver);
   }
 
-  while (!solver->shweep_end_job_signal) {
+  while (!solver->shweep_end_job_signal && !solver->inconsistent) {
     solver->shweep_curr_iteration++;
     mallob_shweep_single_iteration (solver);
     kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER substituting");
@@ -3599,7 +3601,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   }
 
   //now we trigger the termination, only after the last substitute. The only remaining function is report_dimacs, which does not test for termination
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER now triggering own termination");
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER ENDED, now triggering own termination");
   kissat_terminate (solver);
   return solver->inconsistent ? 20 : 0 ;
 
