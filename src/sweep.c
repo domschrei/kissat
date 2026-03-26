@@ -3153,7 +3153,6 @@ static void kissat_puresweep_report(kissat *solver, const char *prefix) {
 
 int kissat_pure_sequential_sweeping(kissat *solver) {
   assert(GET_OPTION (puresweep) || kissat_custom_assert_message (solver, "Kissat ERROR : entered pure sweeping without the flag set"));
-  solver->probing=true;
 
   if (!kissat_initially_propagate (solver)) {
     assert (solver->inconsistent);
@@ -3161,6 +3160,8 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
   }
 
   kissat_puresweep_report (solver, "START");
+
+  solver->probing=true;
 
   // kissat_custom_message (solver, V2_VERB_SWEEP, "Congruence start");
   if (kissat_congruence (solver)) {
