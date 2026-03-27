@@ -32,6 +32,9 @@ const int V3_VVERB_SWEEP = 3;
 const int V4_UVERB_SWEEP = 4;
 const int V5_XVERB_SWEEP = 5;
 
+const int PURESWEEP_START_PROGRESS_CHECK = 10000;
+const double PURESWEEP_MIN_REQUIRED_PROGRESS = 0.001; //same as default sweeping
+
 struct sweeper {
   kissat *solver;
   unsigned *depths;
@@ -239,7 +242,6 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
 
     sweeper->singlethread_debugging_provided_work=false;
     sweeper->max_work_after_steal=0;
-
 
     //allow only now stealing, after everything else has been set up (especially work_head=0 and work_end=0) preventing any
     solver->shweeper_allows_stealing = true;
@@ -3035,21 +3037,12 @@ bool kissat_sweep (kissat *solver) {
   uint64_t units = statistics->sweep_units;
   sweeper sweeper;
 
-  // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP round start, %i active ", solver->active);
-  // double sweep_start_time = kissat_wall_clock_time ();
-
-  // if (solver->report_preprocess_state || GET_OPTION (mallob_local_id)==3333) {
-    //only print this when preprocessing, not in later search-only run
-    // printf(" sweep-start-time: %f \n", sweep_start_time);
-  // }
-
   // kissat_custom_message(solver,V1_INFO_SWEEP, "--starting kissat_sweep--");
   init_sweeper (solver, &sweeper);
 
-
   /*
-    * Set up the variables to sweep over and their order
-    */
+   * Set up the variables to sweep over and their order
+   */
   const unsigned scheduled = schedule_sweeping (&sweeper);
   uint64_t swept = 0, limit = 10;
 
@@ -3066,6 +3059,17 @@ bool kissat_sweep (kissat *solver) {
       break;
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks)
       break;
+    if (GET_OPTION (puresweep)) {
+      if (swept >= PURESWEEP_START_PROGRESS_CHECK) {
+        uint64_t new_eqs = statistics->sweep_equivalences - equivalences;
+        uint64_t new_units = solver->statistics.sweep_units - units;
+        uint64_t eliminated = new_eqs + new_units;
+        if (((double)eliminated)/(double)swept < 0.001) {
+          kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper exit iteration early, not enough progress (%zu / %zu, threshhold %.3f)", eliminated, swept, PURESWEEP_MIN_REQUIRED_PROGRESS);
+          break;
+        }
+      }
+    }
     /*
      * Get the next root-variable "idx" to sweep around
      */
@@ -3073,7 +3077,6 @@ bool kissat_sweep (kissat *solver) {
     if (idx == INVALID_IDX)
       break;
     FLAGS (idx)->sweep = false; //remember that we sweept this variable now
-    // kissat_custom_message(solver, V3_VVERB_SWEEP, "Sw %i (e%i)", idx, kissat_export_literal (solver, LIT (idx)));
 #ifndef QUIET
     const char *res =
 #endif
@@ -3116,8 +3119,6 @@ bool kissat_sweep (kissat *solver) {
     kissat_probing_propagate (solver, 0, true);
   }
 
-  // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP round end    %i active ", solver->active);
-
   uint64_t eliminated = equivalences + units;
 #ifndef QUIET
   assert (solver->active >= inactive);
@@ -3132,10 +3133,6 @@ bool kissat_sweep (kissat *solver) {
   else
     REDUCE_DELAY (sweep);
   STOP (sweep);
-  // if (GET_OPTION (mallob_sequential_stats)) {
-    // double sweep_end_time = kissat_wall_clock_time ();
-    // printf("Kissat sequential sweep round %lu (sweepcompletes %lu): %lu Eqs, %lu sweep-units, time %f sec\n", statistics->sweep, statistics->sweep_completed, equivalences, units, sweep_end_time - sweep_start_time);
-  // }
   return eliminated;
 }
 
@@ -3143,12 +3140,17 @@ bool kissat_sweep (kissat *solver) {
   // kissat_custom_message (solver, V2_VERB_SWEEP, "TIME_SEC %.2f", kissat_time(solver));
 // }
 
-static void kissat_puresweep_report(kissat *solver, const char *prefix) {
+static void kissat_puresweep_report(kissat *solver, const char *prefix, unsigned active_before) {
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_TIME    %.2f", prefix, kissat_time(solver));
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_FIXED   %i",   prefix, solver->vars - solver->active);
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_ACTIVE  %i",   prefix, solver->active);
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_CLAUSES %i",   prefix, CLAUSES);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "%s new fixed variables: %i",   prefix, active_before - solver->active);
 }
+
+
+
+
 
 
 int kissat_pure_sequential_sweeping(kissat *solver) {
@@ -3159,28 +3161,25 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
     return 20;
   }
 
-  kissat_puresweep_report (solver, "START");
+  kissat_puresweep_report (solver, "START", VARS);
 
   solver->probing=true;
+  unsigned active_start = solver->active;
 
   // kissat_custom_message (solver, V2_VERB_SWEEP, "Congruence start");
   if (kissat_congruence (solver)) {
     kissat_substitute (solver, true);
   }
 
-  kissat_puresweep_report (solver, "CONGR");
+  kissat_puresweep_report (solver, "CONGR", active_start);
 
-  //we continue even if congruence didnt find a single equivalence, because they might be too hidden for it
-  // kissat_custom_message("Congruence ")
-
-  unsigned active_before = solver->active;
-  // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP Sweep start");
+  //we try at least one semantic sweep round since it might find more than syntactic congruence closure
   for (int i=1; i<=GET_OPTION (puresweep_iterations); i++) {
-    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP start round %i ", i);
+    unsigned active_before_iter = solver->active;
+    kissat_custom_message (solver, V2_VERB_SWEEP, "start iteration %i ", i);
     bool progress = kissat_sweep(solver);
     kissat_substitute(solver, true);
-
-    kissat_puresweep_report (solver, "SWEEP");
+    kissat_puresweep_report (solver, "SWEEP", active_before_iter);
 
     if (!progress) {
       kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP stopped, no progress at all", i, solver->active);
@@ -3189,13 +3188,15 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
 
     // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP round %i end    %i active ", i, solver->active);
   }
-  // kissat_substitute (solver, true);
-  // kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEP end", solver->active);
+
+  //Pure sweeping is finished, now leaving the binary, doing nothing else.
+  //Achieved by reporting any non-zero result.
+
   if (solver->inconsistent)
     return 20;
-  if (solver->active < active_before)
+  if (solver->active < active_start)
     return 40;
-  return 0;
+  return 10;
 }
 
 
@@ -3561,6 +3562,13 @@ void representative_report_finished_iteration(kissat *solver) {
 
 int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start main");
+
+  if (!kissat_initially_propagate (solver)) {
+    assert (solver->inconsistent);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER found directly UNSAT in initial propagation");
+    return 20;
+  }
+
   solver->probing = true;
   solver->shweep.orig_vars = solver->vars;
   solver->shweep.start_units   = SIZE_STACK(solver->units);
@@ -3581,7 +3589,6 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   //Or Congruence is run on every solver redundantly, but can skip all the export/import business.
   //we count congruence as the first "sweep" iteration to get combined CEC progress plots
   solver->shweep_curr_iteration++;
-
 
   if (GET_OPTION (mallob_initial_congruence)) {
     if (kissat_congruence (solver)) {
