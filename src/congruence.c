@@ -4625,6 +4625,7 @@ static void forward_subsume_matching_clauses (closure *closure) {
 }
 
 
+/*
 void congruencer_import_units(closure *closure) {
   kissat *solver = closure->solver;
   if (!solver->shweep_import_SweepJob_eq_callback)
@@ -4632,8 +4633,6 @@ void congruencer_import_units(closure *closure) {
 
   unsigned long seen = solver->shweep.units_seen;
   unsigned long useful = solver->shweep.units_useful;
-
-  //todo: just pass on the normal localID, is treated by mallob just as another sweeper, same interface
 
   for (;;) {
     unsigned ilit = INVALID_LIT;
@@ -4646,7 +4645,7 @@ void congruencer_import_units(closure *closure) {
   }
 
   unsigned long new_seen = solver->shweep.units_seen - seen;
-  unsigned long new_useful = solver->shweep.units_useful - useful;
+  // unsigned long new_useful = solver->shweep.units_useful - useful;
   if (new_seen>0) {
     // kissat_custom_message(solver, V2_INFO, "CCC Imported %i / %i units ", new_useful, new_seen);
   }
@@ -4694,7 +4693,7 @@ void congruencer_import_equivalences(closure *closure) {
   }
 
 }
-
+*/
 
 bool kissat_congruence (kissat *solver) {
   // kissat_custom_message (solver, V2_INFO, "congruence");
@@ -4768,6 +4767,9 @@ bool kissat_congruence (kissat *solver) {
   return equivalent;
 }
 
+
+
+/*
 int kissat_mallob_congruencer(kissat *solver) {
   // int equivalent = 0;
   kissat_custom_message (solver, V1_WARN, "CONGRUENCER CCC START");
@@ -4928,3 +4930,4 @@ bool kissat_mallob_tightloop_congruence(kissat *solver) {
   return equivalent;
 
 }
+*/

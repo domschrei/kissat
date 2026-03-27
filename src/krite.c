@@ -173,7 +173,7 @@ void kissat_report_dimacs (kissat *solver) {
         // kissat_custom_message (solver, 3, "DATABASE ilit %s \n", buf);
     }
   if (num_units == 0) return;
-  unsigned now_num_units = gather_units(solver, true);
+  // unsigned now_num_units = gather_units(solver, true);
   assert(now_num_units == num_units);
   kissat_custom_message (solver, 1, "SWEEPER DIMACS REPORT FINISHED");
 }

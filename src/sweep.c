@@ -539,7 +539,7 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
     //directly assign this detected unit here in place
     kissat_assign_unit (solver, detected_unit, "stumbled while kitten-copying");
      /* Catch for Mallob to share */
-    int elit = kissat_export_literal (solver, detected_unit);
+    // int elit = kissat_export_literal (solver, detected_unit);
     // kissat_custom_message(solver,V2_VERB_SWEEP, " stumble-U idx(%u)/lit(%u), elit(%i)", IDX(detected_unit),detected_unit, elit);
     shweep_export_unit(solver, detected_unit);
     INC (sweep_units);
@@ -1800,8 +1800,8 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
 
   //Export this equivalence to mallob, to share it with other sweepers
   if (GET_OPTION (mallob_is_shweeper)) {
-    unsigned idx_lit = IDX(lit);
-    unsigned idx_other = IDX(other);
+    // unsigned idx_lit = IDX(lit);
+    // unsigned idx_other = IDX(other);
 
     // int elit = kissat_export_literal (solver, lit);
     // int eother = kissat_export_literal (solver, other);
