@@ -3071,7 +3071,7 @@ bool kissat_sweep (kissat *solver) {
         }
       }
       //check for timeout only once in a while, to reduce calls to kissat_time
-      if (swept%64==0) {
+      if (swept%64==0 && GET_OPTION (puresweep_timelim)>0) {
         if (kissat_time (solver) > GET_OPTION (puresweep_timelim) - PURESWEEP_TIMLIM_BUFFER_SEC) {
           kissat_custom_message (solver, V1_INFO_SWEEP, "Puresweep exit iteration early due to time limit %zu, with buffer %zu", GET_OPTION (puresweep_timelim), PURESWEEP_TIMLIM_BUFFER_SEC);
           break;
