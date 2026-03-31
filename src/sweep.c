@@ -3060,7 +3060,7 @@ bool kissat_sweep (kissat *solver) {
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks)
       break;
     if (GET_OPTION (puresweep)) {
-      if (swept >= GET_OPTION (puresweep_earlyExitThresh)) {
+      if (swept >= GET_OPTION (puresweep_minExit)) {
         uint64_t new_eqs = statistics->sweep_equivalences - equivalences;
         uint64_t new_units = solver->statistics.sweep_units - units;
         uint64_t eliminated = new_eqs + new_units;
