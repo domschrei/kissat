@@ -112,6 +112,7 @@
   OPTION (profile, 2, 0, 4, "profile level") \
   OPTION (promote, 1, 0, 1, "promote clauses") \
   OPTION (puresweep, 0, 0, 1, "just doing sequential sweeping and nothing else") \
+  OPTION (puresweep_timelim, 0, 0, INT_MAX, "enforce time limit on pure sweeping") \
   OPTION (puresweep_iterations, 3, 0, 100, "number of iterations of pure sweeping") \
   OPTION (puresweep_minExit, 10000, 1, INT_MAX, "minimum number of swept literals after which puresweep starts to check for an early exit") \
   OPTION (puresweep_maxEnvGrowth, 0, 0, 100, "the max number of completed rounds that should affect sweep environment growth") \
