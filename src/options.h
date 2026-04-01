@@ -113,7 +113,7 @@
   OPTION (promote, 1, 0, 1, "promote clauses") \
   OPTION (puresweep, 0, 0, 1, "just doing sequential sweeping and nothing else") \
   OPTION (puresweep_iterations, 3, 0, 100, "number of iterations of pure sweeping") \
-  OPTION (puresweep_minExit, 10000, 1, INT_MAX, "minimum number of swept literals after which puresweep starts to check for an early exit") \
+  OPTION (puresweep_minExitSwept, 40000, 0, INT_MAX, "minimum number of swept literals to check for early exit. 0=deactivate.") \
   OPTION (puresweep_maxEnvGrowth, 0, 0, 100, "the max number of completed rounds that should affect sweep environment growth") \
   OPTION (puresweep_timelim, 0, 0, INT_MAX, "enforce time limit on pure sweeping") \
   NQTOPT (quiet, 0, 0, 1, "disable all messages") \
