@@ -172,13 +172,6 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
   if (completed > max_completed)
     completed = max_completed;
 
-  //Limit for sequential pure sweeping
-  if (GET_OPTION (puresweep_maxEnvGrowth) > 0 ) {
-    if (completed > GET_OPTION (puresweep_maxEnvGrowth)) {
-      completed = GET_OPTION (puresweep_maxEnvGrowth);
-    }
-  }
-
   uint64_t vars_limit = GET_OPTION (sweepvars);
   vars_limit <<= completed;
   const unsigned max_vars_limit = GET_OPTION (sweepmaxvars);
@@ -216,8 +209,9 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
   set_kitten_ticks_limit (sweeper);
 
 
-  if (GET_OPTION (mallob_is_shweeper)) {
-
+  //Adjust (and report) environment sizes identically for sequential puresweep and parallel Mallob Sweep
+  if (GET_OPTION (mallob_is_shweeper) || GET_OPTION (puresweep)) {
+    //if we don't go to depth 4, at least increase the other two bounds a bit more, otherwise the change from iter 2 to iter 3 would only be marginal
     if (completed>=2 && sweeper->limit.depth==3) {
       sweeper->limit.clauses *=2;
       sweeper->limit.vars *=2;
@@ -229,8 +223,9 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) variable limit %u", completed, sweeper->limit.vars);
     kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) depth    limit %u", completed, sweeper->limit.depth);
     kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) clause   limit %u", completed, sweeper->limit.clauses);
+  }
 
-
+  if (GET_OPTION (mallob_is_shweeper)) {
     //Datastructures and heads of the sweeper
     //the array sweeper->work is NOT created here, instead it will be allocated by C++/Mallob and only passed down as a pointer, and we operate on the provided memory range
     INIT_STACK (sweeper->RESWEEP);
@@ -3061,7 +3056,7 @@ bool kissat_sweep (kissat *solver) {
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks)
       break;
     if (GET_OPTION (puresweep)) {
-      if (GET_OPTION (puresweep_minExitSwept)!=0 && swept >= GET_OPTION (puresweep_minExitSwept)) {
+      if (!GET_OPTION (puresweep_forceAllIters) && GET_OPTION (puresweep_minExitSwept)!=0 && swept >= GET_OPTION (puresweep_minExitSwept)) {
         uint64_t new_eqs = statistics->sweep_equivalences - equivalences;
         uint64_t new_units = solver->statistics.sweep_units - units;
         uint64_t eliminated = new_eqs + new_units;
@@ -3189,7 +3184,7 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
     kissat_substitute(solver, true);
     kissat_puresweep_report (solver, "SWEEP", active_before_iter);
 
-    if (!progress) {
+    if (!progress && !GET_OPTION (puresweep_forceAllIters)) {
       kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP stopped, no progress at all", i, solver->active);
       break;
     }
