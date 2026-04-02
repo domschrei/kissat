@@ -3056,7 +3056,7 @@ bool kissat_sweep (kissat *solver) {
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks)
       break;
     if (GET_OPTION (puresweep)) {
-      if (!GET_OPTION (puresweep_forceAllIters) && GET_OPTION (puresweep_minExitSwept)!=0 && swept >= GET_OPTION (puresweep_minExitSwept)) {
+      if (GET_OPTION (puresweep_minExitSwept)!=0 && swept >= GET_OPTION (puresweep_minExitSwept)) {
         uint64_t new_eqs = statistics->sweep_equivalences - equivalences;
         uint64_t new_units = solver->statistics.sweep_units - units;
         uint64_t eliminated = new_eqs + new_units;
@@ -3184,7 +3184,7 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
     kissat_substitute(solver, true);
     kissat_puresweep_report (solver, "SWEEP", active_before_iter);
 
-    if (!progress && !GET_OPTION (puresweep_forceAllIters)) {
+    if (!progress && GET_OPTION (puresweep_termNoProgress)) {
       kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP stopped, no progress at all", i, solver->active);
       break;
     }

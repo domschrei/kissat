@@ -112,7 +112,7 @@
   OPTION (profile, 2, 0, 4, "profile level") \
   OPTION (promote, 1, 0, 1, "promote clauses") \
   OPTION (puresweep, 0, 0, 1, "just doing sequential sweeping and nothing else") \
-  OPTION (puresweep_forceAllIters, 0, 0, 1, "force puresweep through all iterations") \
+  OPTION (puresweep_termNoProgress, 1, 0, 1, "terminate when an iteration makes no progress at all") \
   OPTION (puresweep_iterations, 3, 0, 100, "number of iterations of pure sweeping") \
   OPTION (puresweep_minExitSwept, 40000, 0, INT_MAX, "minimum number of swept literals before checking for early exit. 0 = deactivate") \
   OPTION (puresweep_timelim, 0, 0, INT_MAX, "enforce time limit on pure sweeping. 0 = deactivate") \
