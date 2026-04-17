@@ -189,8 +189,8 @@ int kissat_search (kissat *solver) {
     res = kissat_pure_sequential_sweeping(solver);
   if (!res && GET_OPTION (mallob_is_shweeper) && GET_OPTION (mallob_individual_sweepiters))
     res = kissat_mallob_distributed_sweep_multiple_iterations (solver);
-  if (!res && GET_OPTION (mallob_is_shweeper) && !GET_OPTION (mallob_individual_sweepiters))
-    res = kissat_mallob_shweep(solver);
+  // if (!res && GET_OPTION (mallob_is_shweeper) && !GET_OPTION (mallob_individual_sweepiters))
+    // res = kissat_mallob_shweep(solver);
   if (!res && GET_OPTION (luckyearly))
     res = kissat_lucky (solver);
   if (!res && kissat_preprocessing (solver))

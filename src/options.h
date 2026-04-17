@@ -116,6 +116,7 @@
   OPTION (puresweep_minExitSwept, 40000, 0, INT_MAX, "minimum number of swept literals before checking for early exit. 0 = deactivate") \
   OPTION (puresweep_termNoProgress, 1, 0, 1, "terminate when an iteration makes no progress at all") \
   OPTION (puresweep_timelim, 0, 0, INT_MAX, "enforce time limit on pure sweeping. 0 = deactivate") \
+  OPTION (puresweep_tocompletion, 1, 0, 1, "sweep indefinitely until completion or timeout") \
   NQTOPT (quiet, 0, 0, 1, "disable all messages") \
   OPTION (randec, 1, 0, 1, "random decisions") \
   OPTION (randecfocused, 1, 0, 1, "random decisions in focused mode") \

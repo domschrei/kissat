@@ -81,10 +81,11 @@ unsigned shweep_get_num_vars (kissat *solver);
 
 void shweep_terminate(kissat *solver);
 void shweep_set_end_iteration_signal(kissat *solver);
-void shweep_set_end_job_signal(kissat *solver);
 bool shweep_get_end_iteration_signal(kissat *solver);
+void shweep_set_end_job_signal(kissat *solver);
 bool shweep_get_end_job_signal(kissat *solver);
 int shweep_get_curr_iteration(kissat *solver);
+void shweep_set_env_completions(kissat *solver, int env_completions);
 
 bool kissat_is_inconsistent (kissat *solver);
 
@@ -106,6 +107,7 @@ struct shweep_statistics {
   int curr_iteration; //-1 before any CEC algo is started , 0 in congruence, and 1...n in sweeping
   unsigned long curr_active, curr_units, curr_eliminated;
   unsigned long env_limit_depth, env_limit_vars, env_limit_clauses;
+  unsigned long env_completions;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
 
