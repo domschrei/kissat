@@ -1,6 +1,7 @@
 #include "internal.h"
 #include "inline.h"
 #include "utilities.h"
+#include "print.h"
 
 void kissat_export_redundant_clause (kissat * solver, unsigned glue, unsigned size, unsigned *lits) {
   if (!solver->consume_clause) return;
@@ -23,14 +24,26 @@ void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
   if (!solver->shweep_export_eq_callback) return;
   //Dont have any variable deletion/addition/renaming in shweep,
   //so we can directly work with internal literals, no need to convert to external representation
-  solver->shweep_export_eq_buffer[0] = lit;
-  solver->shweep_export_eq_buffer[1] = other;
-  solver->shweep_export_eq_callback (solver->shweep_mallob_KissatState);
+  //  Update: Now switche to externalizing literals because we need this generality for Cross-Job-Communication
+  int elit = kissat_export_literal (solver, lit);
+  int eother = kissat_export_literal (solver, other);
+  //bring all equivalences in a normal form (smaller index first), to allow stricter assertions and easier duplicate detection
+  if (abs(elit) > abs(eother)) {
+    int tmp = elit;
+    elit = eother;
+    eother = tmp;
+  }
+  assert(abs(elit)<abs(eother) || kissat_custom_assert_message ("ERROR in Sweep Export: Invariant abs(elit)<abs(eother) violated. %i , %i\n",abs(elit),abs(eother)));
 
+  // kissat_custom_message (solver, 1, "export: i(%i,%i) -> e{%i,%i}",lit,other,elit,eother);
+  solver->shweep_export_eq_buffer[0] = elit;
+  solver->shweep_export_eq_buffer[1] = eother;
+  solver->shweep_export_eq_callback (solver->shweep_mallob_KissatState);
 }
 
 void shweep_export_unit(kissat *solver, unsigned lit) {
   if (!solver->shweep_export_unit_callback) return;
-  solver->shweep_export_unit_callback (solver->shweep_mallob_KissatState, lit);
-
+  int elit = kissat_export_literal (solver, lit);
+  // kissat_custom_message (solver, 1, "export: i(%i) -> e{%i}",lit,elit);
+  solver->shweep_export_unit_callback (solver->shweep_mallob_KissatState, elit);
 }

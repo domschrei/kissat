@@ -1806,19 +1806,14 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
 
   //Export this equivalence to mallob, to share it with other sweepers
   if (GET_OPTION (mallob_is_shweeper)) {
-    // unsigned idx_lit = IDX(lit);
-    // unsigned idx_other = IDX(other);
-
-    // int elit = kissat_export_literal (solver, lit);
-    // int eother = kissat_export_literal (solver, other);
-
-    if (lit < other) {
-      shweep_export_equivalence(solver, lit, other);
+    shweep_export_equivalence(solver, lit, other);
+    // if (lit < other) {
+      // shweep_export_equivalence(solver, lit, other);
       // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_lit, idx_other, lit, other);
-    } else {
-      shweep_export_equivalence(solver, other, lit);
+    // } else {
+      // shweep_export_equivalence(solver, other, lit);
       // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_other, idx_lit, other, lit);
-    }
+    // }
   }
 
    /*
@@ -2531,8 +2526,8 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   //todo: maybe need also to add these two binary clauses? are added by original sweep_equivalence_candidates, for the cores...
   // add_binary (solver, lit,     not_other);
   // add_binary (solver, not_lit, other);
+  // Update 17.03: added these two binaries, reflecting kissats own equivalence integration
 
-  //Update 17.03: added these two binaries, reflecting kissats own equivalence integration
   add_binary (solver, lit, not_other);
   add_binary (solver, not_lit, other);
 
@@ -2544,9 +2539,11 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   substitute_connected_clauses (sweeper, other, lit);
   substitute_connected_clauses (sweeper, not_other, not_lit);
 
-  //Update 17.03: added this remove, reflecting kissats own equivalence integration
+  //Update 17.03: tried adding this remove, reflecting kissats own equivalence integration
   // sweep_remove (sweeper, other);
   // this remove caused immediate crash of the sweepers, so I uncommented it again...
+
+  kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i,%i) ~ repr(%i,%i) useful", ilit1, ilit2, lit, other);
   solver->shweep.eqs_useful++;
   INC (sweep_equivalences);
 }
@@ -2556,23 +2553,24 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   if (!solver->shweep_import_SweepJob_eq_callback)
     return;
 
-  unsigned long seen = solver->shweep.units_seen;
-  unsigned long useful = solver->shweep.units_useful;
+  // unsigned long seen = solver->shweep.units_seen;
+  // unsigned long useful = solver->shweep.units_useful;
 
   for (;;) {
-    unsigned ilit = INVALID_LIT;
-    solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &ilit, sweeper->localId); //the semantic format is always unsigned, but the function signature is int to keep it simple for the outside
-    if (ilit==INVALID_LIT)
+    int elit = 0;
+    solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &elit, sweeper->localId);
+    if (elit==0)
       break;
-    // while (ilit != INVALID_LIT) {
+    unsigned ilit = kissat_import_literal (solver, elit);
+    // kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i) <- e{%i}",ilit,elit);
     shweep_import_single_unit (sweeper, ilit);
   }
 
-  unsigned long new_seen = solver->shweep.units_seen - seen;
-  unsigned long new_useful = solver->shweep.units_useful - useful;
-  if (new_seen>0) {
+  // unsigned long new_seen = solver->shweep.units_seen - seen;
+  // unsigned long new_useful = solver->shweep.units_useful - useful;
+  // if (new_seen>0) {
     // kissat_custom_message(solver, V2_VERB_SWEEP,  "Imported %i / %i units ", new_useful, new_seen);
-  }
+  // }
 
 }
 
@@ -2581,28 +2579,30 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   if (!solver->shweep_import_SweepJob_eq_callback)
     return;
 
-  unsigned long seen = solver->shweep.eqs_seen;
-  unsigned long useful = solver->shweep.eqs_useful;
+  // unsigned long seen = solver->shweep.eqs_seen;
+  // unsigned long useful = solver->shweep.eqs_useful;
   //Note: We share literals globally already in *internal* representation (i.e. unsigned), since during Sweeping no deletions/additions/renamings of variables happens
   //so we  skip the work of transforming every literal between internal and external representation during exports and imports
   //However, to keep this more transparent to the Mallob side and not mix unsigned and int too much in external signatures, we still pass the internal literals as int's instead of unsigned's
+  // Update: Now changed to externalizing lits because need this generality for example for Cross-Job-Communication
 
   for (;;) {
-    unsigned ilit1 = INVALID_LIT; //Mallob will leave them untouched if there is no equivalence to provide
-    unsigned ilit2 = INVALID_LIT;
-    // kissat_custom_message(solver, V2_VERB_SWEEP,  "calling eq callback ");
-    solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &ilit1, &ilit2, sweeper->localId);
-    // kissat_custom_message(solver, V2_VERB_SWEEP,  "called eq callback and got %i, %i ", ilit1, ilit2);
-    if (ilit1 == INVALID_LIT && ilit2 == INVALID_LIT)
+    int elit1 = 0; //Mallob will leave them untouched if there is no equivalence to provide
+    int elit2 = 0;
+    solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &elit1, &elit2, sweeper->localId);
+    if (elit1 == 0 || elit2 == 0)
       break;
+    unsigned ilit1 = kissat_import_literal (solver, elit1);
+    unsigned ilit2 = kissat_import_literal (solver, elit2);
+    // kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i,%i) <- e{%i,%i} ", ilit1, ilit2, elit1, elit2);
     shweep_import_single_equivalence (sweeper, ilit1, ilit2);
   }
 
-  unsigned long new_seen = solver->shweep.eqs_seen - seen;
-  unsigned long new_useful = solver->shweep.eqs_useful - useful;
-  if (new_seen > 0) {
+  // unsigned long new_seen = solver->shweep.eqs_seen - seen;
+  // unsigned long new_useful = solver->shweep.eqs_useful - useful;
+  // if (new_seen > 0) {
     // kissat_custom_message(solver, V3_VVERB_SWEEP,  "Imported %i / %i eqs ", new_useful, new_seen);
-  }
+  // }
 
 }
 
@@ -2893,10 +2893,9 @@ bool is_localid_nonzero(kissat *solver) {
 }
 
 void shweep_print_import_statistics(kissat *solver) {
-  if (is_localid_nonzero (solver))
-    return;
+  // if (is_localid_nonzero (solver))
+    // return;
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
-  // kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT Final stats: Equivalences:");
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Useful     %i / %i ", solver->shweep.eqs_useful, solver->shweep.eqs_seen);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Unitprop   %i", solver->shweep.eqs_unitprop);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Doublefixd %i", solver->shweep.eqs_skipped_doublefixed);
@@ -2905,7 +2904,6 @@ void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Useful     %i / %i", solver->shweep.units_useful, solver->shweep.units_seen);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Fixed      %i", solver->shweep.units_skipped_fixed);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Transitive %i", solver->shweep.units_transitive);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Stumbled   %i", solver->sweeper->stumbled_units);
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
 }
 
@@ -3315,7 +3313,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
 
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSAT!\n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSAT! (in sweep work loop)\n");
       break;
     }
     if (TERMINATED (sweep_terminated_8)) {
@@ -3423,7 +3421,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
     // REDUCE_DELAY (sweep);
   STOP (sweep);
   if (solver->inconsistent)
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER found UNSAT!");
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER found UNSAT! (exit single iter method)");
 
   return eliminated;
 
@@ -3482,6 +3480,8 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
     representative_report_finished_iteration (solver);
     INC(sweep_completed); //this counter increases the environment size of the next iteration
   }
+
+  shweep_print_import_statistics(solver);
 
   //now we trigger the termination, only after the last substitute. The only remaining function is report_dimacs, which does not test for termination
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER ENDED, now triggering own termination");
