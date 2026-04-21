@@ -2478,11 +2478,6 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     if (!flags->active) {
       already_fixed++;
     }
-    // if (GET_OPTION (mallob_is_congruencer) && flags->eliminated) {
-      // kissat_custom_message(solver, V2_VERB_SWEEP,"CCC skips importing ilit(%i)/repr_ilit(%i), is already eliminated", ilit, repr_ilit);
-      // solver->shweep.congr_eqs_skipped++;
-      // return;
-    // }
     assert(!flags->eliminated || kissat_custom_assert_message(solver,  "SWEEP ERROR/Error: imported an eq-literal ilit(%i) that is locally eliminated", ilit));
     repr_ilits[i]=repr_ilit;
   }
@@ -2543,7 +2538,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   // sweep_remove (sweeper, other);
   // this remove caused immediate crash of the sweepers, so I uncommented it again...
 
-  kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i,%i) ~ repr(%i,%i) useful", ilit1, ilit2, lit, other);
+  // kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i,%i) ~ repr(%i,%i) useful", ilit1, ilit2, lit, other);
   solver->shweep.eqs_useful++;
   INC (sweep_equivalences);
 }
