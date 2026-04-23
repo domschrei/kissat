@@ -2432,26 +2432,29 @@ bool shweep_var_still_open(sweeper *sweeper, unsigned idx) {
 
 
 void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
-    kissat *solver = sweeper->solver;
-    const unsigned repr_ilit = sweep_repr (sweeper, ilit);
-    solver->shweep.units_seen++;
-    assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported invalid unit lit %u", ilit));
-    assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported invalid repr_unit lit %u from imported lit %u", repr_ilit, ilit ));
+  kissat *solver = sweeper->solver;
+  const unsigned repr_ilit = sweep_repr (sweeper, ilit);
+  solver->shweep.units_seen++;
+  assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported invalid unit lit %u", ilit));
+  assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported invalid repr_unit lit %u from imported lit %u", repr_ilit, ilit ));
 
-    const unsigned repr_idx = IDX (repr_ilit);
-    flags *flags = FLAGS (repr_idx);
-    if (!flags->active) {
-      solver->shweep.units_skipped_fixed++;
-      return;
-    }
-    assert(!flags->eliminated || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported eliminated unit %u", ilit));
-    if (ilit != repr_ilit) {
-      solver->shweep.units_transitive++;
-    }
-    // kissat_custom_message(solver, V4_UVERB_SWEEP," importing idx(%i),lit(%i) as repr_lit(%i)", IDX(repr_ilit), ilit, repr_ilit);
-    kissat_assign_unit (solver, repr_ilit, "shweep imported unit");
-    solver->shweep.units_useful++;
-    INC (sweep_units);
+  const unsigned repr_idx = IDX (repr_ilit);
+  flags *flags = FLAGS (repr_idx);
+  if (!flags->active) {
+    solver->shweep.units_skipped_fixed++;
+    return;
+  }
+  assert(!flags->eliminated || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported eliminated unit %u", ilit));
+  if (ilit != repr_ilit) {
+    solver->shweep.units_transitive++;
+  }
+  // kissat_custom_message(solver, V4_UVERB_SWEEP," importing idx(%i),lit(%i) as repr_lit(%i)", IDX(repr_ilit), ilit, repr_ilit);
+
+  assert (!values[repr_ilit]       || kissat_custom_assert_message ("Sweep ERROR : assigning repr_ilit %i (original lit %i), but already has a value %i", repr_ilit, ilit, values[repr_ilit]));
+  assert (!values[NOT(repr_ilit)]  || kissat_custom_assert_message ("Sweep ERROR : assigning not_repr_ilit %i, but already has a value %i", NOT(repr_ilit), values[NOT(repr_ilit)]));
+  kissat_assign_unit (solver, repr_ilit, "shweep imported unit");
+  solver->shweep.units_useful++;
+  INC (sweep_units);
 }
 
 
@@ -2545,7 +2548,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
 
 void shweep_import_SweepJob_units(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
-  if (!solver->shweep_import_SweepJob_eq_callback)
+  if (!solver->shweep_import_SweepJob_unit_callback)
     return;
 
   // unsigned long seen = solver->shweep.units_seen;
@@ -2556,6 +2559,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
     solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &elit, sweeper->localId);
     if (elit==0)
       break;
+
     unsigned ilit = kissat_import_literal (solver, elit);
     // kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i) <- e{%i}",ilit,elit);
     shweep_import_single_unit (sweeper, ilit);
@@ -2769,6 +2773,7 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
   return true;
 }
 
+/**
 void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWorkVar) {
   kissat *solver = sweeper->solver;
 
@@ -2792,7 +2797,6 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   // shweep_check_new_environment_limits (sweeper);
 
   kissat_custom_message(solver,V3_VVERB_SWEEP, "sweeping idx %u [%i=head, %i max left]", idx, sweeper->work_head, sweeper->max_work_after_steal);
-
 
   //Variabls can be either swept because it is their turn in the work schedule (worksweep) or because they were part of a recent found equivalence and we want to make further progress around them(resweep)
   //When resweeping, we can further differentiate whether the new variable happens to also be in our work schedule anyways (resweeps_in)
@@ -2823,6 +2827,52 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
     shweep_sweep_variable_with_prop (sweeper, resweep_idx, false);
   }
 }
+*/
+
+
+void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWorkVar) {
+  kissat *solver = sweeper->solver;
+  bool is_work_var = isWorkVar;
+
+  //Recurse immediately on resweep variables, but implemented in iterative stack instead of nested function call recursion
+  for (;;) {
+    if (solver->shweep_end_iteration_signal) break;
+    if (solver->shweep_end_job_signal)       break;
+    if (solver->termination.flagged)          break;
+    if (solver->inconsistent)                 break;
+
+    if (shweep_sweepable_variable(sweeper, idx)) {
+      shweep_import_SweepJob_units(sweeper);
+      shweep_import_SweepJob_equivalences(sweeper);
+
+      kissat_custom_message(solver, V3_VVERB_SWEEP,
+                            "sweeping idx %u [%i=head, %i max left]",
+                            idx, sweeper->work_head, sweeper->max_work_after_steal);
+
+      //Variabls can be swept either because it is their turn in the work schedule (worksweep) or because they were part of a recent found equivalence and we want to make further progress around them (resweep)
+      if (is_work_var) {
+        assert(FLAGS(idx)->sweep || kissat_custom_assert_message(solver, "SWEEPER ERROR: scheduled work-var whose but its flag is already sweep==false \n"));
+        solver->shweep.progress_work_sweeps++;
+      } else {
+        if (FLAGS(idx)->sweep)
+          solver->shweep.progress_work_sweeps++;
+        else
+          solver->shweep.progress_unsched_resweeps++;
+      }
+      FLAGS(idx)->sweep = false;
+      sweep_variable(sweeper, idx);
+    }
+
+    if (EMPTY_STACK(sweeper->RESWEEP))
+      break;
+    idx         = POP_STACK(sweeper->RESWEEP);
+    is_work_var = false;
+  }
+}
+
+
+
+
 
 unsigned shweep_next_scheduled(sweeper *sweeper) {
   unsigned *work = sweeper->work;
