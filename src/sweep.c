@@ -2451,8 +2451,8 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
   }
   // kissat_custom_message(solver, V4_UVERB_SWEEP," importing idx(%i),lit(%i) as repr_lit(%i)", IDX(repr_ilit), ilit, repr_ilit);
 
-  assert (!values[repr_ilit]       || kissat_custom_assert_message ("Sweep ERROR : assigning repr_ilit %u (original lit %i), but already has a value %i", repr_ilit, ilit, values[repr_ilit]));
-  assert (!values[NOT(repr_ilit)]  || kissat_custom_assert_message ("Sweep ERROR : assigning not_repr_ilit %u, but already has a value %i", NOT(repr_ilit), values[NOT(repr_ilit)]));
+  assert (!solver->values[repr_ilit]       || kissat_custom_assert_message ("Sweep ERROR : assigning repr_ilit %u (original lit %i), but already has a value %i", repr_ilit, ilit, solver->values[repr_ilit]));
+  assert (!solver->values[NOT(repr_ilit)]  || kissat_custom_assert_message ("Sweep ERROR : assigning not_repr_ilit %u, but already has a value %i", NOT(repr_ilit), solver->values[NOT(repr_ilit)]));
   kissat_assign_unit (solver, repr_ilit, "shweep imported unit");
   solver->shweep.units_useful++;
   INC (sweep_units);
@@ -2554,6 +2554,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
 
   // unsigned long seen = solver->shweep.units_seen;
   // unsigned long useful = solver->shweep.units_useful;
+  int count = 0;
 
   for (;;) {
     int elit = 0;
@@ -2561,16 +2562,18 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
     if (elit==0)
       break;
 
+    count++;
+    assert(VALID_EXTERNAL_LITERAL (elit) || kissat_custom_assert_message ("Sweeper ERROR : imported invalid external elit %i ", elit));
     unsigned ilit = kissat_import_literal (solver, elit);
-    kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i) <- e[%i]",ilit,elit);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%u) <- e[%i]",ilit,elit);
     shweep_import_single_unit (sweeper, ilit);
   }
 
   // unsigned long new_seen = solver->shweep.units_seen - seen;
   // unsigned long new_useful = solver->shweep.units_useful - useful;
-  // if (new_seen>0) {
-    // kissat_custom_message(solver, V2_VERB_SWEEP,  "Imported %i / %i units ", new_useful, new_seen);
-  // }
+  if (count>0) {
+    kissat_custom_message(solver, V1_INFO_SWEEP ,  "Import saw %i units", count);
+  }
 
 }
 

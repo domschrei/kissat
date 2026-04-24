@@ -44,7 +44,7 @@ static inline unsigned import_literal (kissat *solver, int elit,
   adjust_imports_for_external_literal (solver, eidx);
   struct import *import = &PEEK_STACK (solver->import, eidx);
   if (import->eliminated) {
-    // kissat_custom_message (solver, 2, "import: elit=%i is internally eliminated", elit);
+    kissat_custom_message (solver, 2, "import: elit=%i already internally eliminated", elit);
     return INVALID_LIT;
   }
   unsigned ilit;
