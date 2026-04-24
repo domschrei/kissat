@@ -2566,7 +2566,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
     assert(VALID_EXTERNAL_LITERAL (elit) || kissat_custom_assert_message (solver, "Sweeper ERROR : imported invalid external elit %i ", elit));
     unsigned ilit = kissat_import_literal (solver, elit);
     if (ilit==INVALID_LIT) {
-      kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%u) <- e[%i] skipped - is already eliminated locally ",ilit,elit);
+      kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%u) <- e[%i] skipped - is already locally eliminated ",ilit,elit);
       continue;
     }
     kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%u) <- e[%i]",ilit,elit);
@@ -2576,7 +2576,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   // unsigned long new_seen = solver->shweep.units_seen - seen;
   // unsigned long new_useful = solver->shweep.units_useful - useful;
   if (count>0) {
-    kissat_custom_message(solver, V1_INFO_SWEEP ,  "Import saw %i units", count);
+    kissat_custom_message(solver, V1_INFO_SWEEP ,  "UnitImport saw %i units", count);
   }
 
 }
@@ -2592,6 +2592,7 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   //so we  skip the work of transforming every literal between internal and external representation during exports and imports
   //However, to keep this more transparent to the Mallob side and not mix unsigned and int too much in external signatures, we still pass the internal literals as int's instead of unsigned's
   // Update: Now changed to externalizing lits because need this generality for example for Cross-Job-Communication
+  int count = 0;
 
   for (;;) {
     int elit1 = 0; //Mallob will leave them untouched if there is no equivalence to provide
@@ -2599,17 +2600,30 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
     solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &elit1, &elit2, sweeper->localId);
     if (elit1 == 0 || elit2 == 0)
       break;
+
+    count++;
+
+    assert(VALID_EXTERNAL_LITERAL (elit1) || kissat_custom_assert_message (solver, "Sweeper ERROR : imported invalid external elit1 %i ", elit1));
+    assert(VALID_EXTERNAL_LITERAL (elit2) || kissat_custom_assert_message (solver, "Sweeper ERROR : imported invalid external elit2 %i ", elit2));
+
     unsigned ilit1 = kissat_import_literal (solver, elit1);
     unsigned ilit2 = kissat_import_literal (solver, elit2);
-    // kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i,%i) <- e{%i,%i} ", ilit1, ilit2, elit1, elit2);
+
+    if (ilit1==INVALID_LIT || ilit2==INVALID_LIT) {
+      // kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%u) <- e[%i] skipped - is already eliminated locally ",ilit,elit);
+      kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i,%i) <- e[%i,%i]  skipped - at least one already locally eliminated", ilit1, ilit2, elit1, elit2);
+      continue;
+    }
+
+    kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i,%i) <- e{%i,%i} ", ilit1, ilit2, elit1, elit2);
     shweep_import_single_equivalence (sweeper, ilit1, ilit2);
   }
 
   // unsigned long new_seen = solver->shweep.eqs_seen - seen;
   // unsigned long new_useful = solver->shweep.eqs_useful - useful;
-  // if (new_seen > 0) {
-    // kissat_custom_message(solver, V3_VVERB_SWEEP,  "Imported %i / %i eqs ", new_useful, new_seen);
-  // }
+  if (count > 0) {
+    kissat_custom_message(solver, V1_INFO_SWEEP,  "EqImport saw %i eqs", count);
+  }
 
 }
 
