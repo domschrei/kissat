@@ -2433,10 +2433,11 @@ bool shweep_var_still_open(sweeper *sweeper, unsigned idx) {
 
 void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
   kissat *solver = sweeper->solver;
+  assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported invalid unit ilit %u", ilit));
+
   const unsigned repr_ilit = sweep_repr (sweeper, ilit);
   solver->shweep.units_seen++;
-  assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported invalid unit lit %u", ilit));
-  assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: imported invalid repr_unit lit %u from imported lit %u", repr_ilit, ilit ));
+  assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message (solver, "SWEEP ERROR/Error: got invalid repr_unit ilit %u from imported ilit %u", repr_ilit, ilit));
 
   const unsigned repr_idx = IDX (repr_ilit);
   flags *flags = FLAGS (repr_idx);
@@ -2450,8 +2451,8 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
   }
   // kissat_custom_message(solver, V4_UVERB_SWEEP," importing idx(%i),lit(%i) as repr_lit(%i)", IDX(repr_ilit), ilit, repr_ilit);
 
-  assert (!values[repr_ilit]       || kissat_custom_assert_message ("Sweep ERROR : assigning repr_ilit %i (original lit %i), but already has a value %i", repr_ilit, ilit, values[repr_ilit]));
-  assert (!values[NOT(repr_ilit)]  || kissat_custom_assert_message ("Sweep ERROR : assigning not_repr_ilit %i, but already has a value %i", NOT(repr_ilit), values[NOT(repr_ilit)]));
+  assert (!values[repr_ilit]       || kissat_custom_assert_message ("Sweep ERROR : assigning repr_ilit %u (original lit %i), but already has a value %i", repr_ilit, ilit, values[repr_ilit]));
+  assert (!values[NOT(repr_ilit)]  || kissat_custom_assert_message ("Sweep ERROR : assigning not_repr_ilit %u, but already has a value %i", NOT(repr_ilit), values[NOT(repr_ilit)]));
   kissat_assign_unit (solver, repr_ilit, "shweep imported unit");
   solver->shweep.units_useful++;
   INC (sweep_units);
@@ -2468,10 +2469,10 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   int already_fixed = 0;
   for (int i=0; i<2; i++) {
     const unsigned ilit = imported_ilits[i];
-    const unsigned repr_ilit = sweep_repr(sweeper, ilit); //We might have some other internal representative literal for this imported literal
+    assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message(solver, "SWEEP ERROR/Error: imported ilit %u not valid internal literal", ilit));
 
-    assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message(solver, "SWEEP ERROR/Error: ilit %i not valid internal literal", ilit));
-    assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message(solver, "SWEEP ERROR/Error: repr_ilit %i not valid internal literal", repr_ilit));
+    const unsigned repr_ilit = sweep_repr(sweeper, ilit); //We might have some other internal representative literal for this imported literal
+    assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message(solver, "SWEEP ERROR/Error: repr_ilit %u not valid internal literal", repr_ilit));
 
     if (ilit != repr_ilit)
       is_transitive = true;
@@ -2481,7 +2482,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     if (!flags->active) {
       already_fixed++;
     }
-    assert(!flags->eliminated || kissat_custom_assert_message(solver,  "SWEEP ERROR/Error: imported an eq-literal ilit(%i) that is locally eliminated", ilit));
+    assert(!flags->eliminated || kissat_custom_assert_message(solver,  "SWEEP ERROR/Error: imported an eq-literal ilit(%u) that is locally eliminated", ilit));
     repr_ilits[i]=repr_ilit;
   }
 
@@ -2561,7 +2562,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
       break;
 
     unsigned ilit = kissat_import_literal (solver, elit);
-    // kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i) <- e{%i}",ilit,elit);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i) <- e[%i]",ilit,elit);
     shweep_import_single_unit (sweeper, ilit);
   }
 
