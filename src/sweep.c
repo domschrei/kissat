@@ -64,7 +64,7 @@ struct sweeper {
   int sweep_iteration; //receives the current sweep iteration, externally by Mallob
 
   //some statistics
-  unsigned stumbled_units;
+  // unsigned stumbled_units;
 
   bool singlethread_debugging_provided_work; //for single-threaded debugging runs only
   int rank;
@@ -241,7 +241,7 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     INIT_STACK (sweeper->RESWEEP);
     sweeper->work_head=0;
     sweeper->work_end=0;
-    sweeper->stumbled_units=0;
+    // sweeper->stumbled_units=0;
 
     sweeper->rank = GET_OPTION (mallob_rank);
     sweeper->localId = GET_OPTION (mallob_local_id);
@@ -399,19 +399,22 @@ static bool stumbled_unit_in_binary(kissat *solver, unsigned lit, unsigned other
     if (values[lit]==1) //already satisfied
       return true;
     if (values[lit]==-1) {
-      //NEW: directly assign this detected unit here in place
-      kissat_assign_unit (solver, other, "stumbled while kitten-copying");
-      /* Catch for Mallob Sharing */
-      if (GET_OPTION (mallob_is_shweeper)) {
-        //    remove elit after debugging!
-        //    int elit = kissat_export_literal (solver, other);
-        //    kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u) elit(%i)", IDX(other),other, elit);
-        // kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u)", IDX(other),other);
-        shweep_export_unit(solver, other);
+      assert(values[other]!=-1);
+      if (values[other]==0) {
+        //NEW: directly assign this detected unit here in place
+        kissat_assign_unit (solver, other, "stumbled while kitten-copying");
+        /* Catch for Mallob Sharing */
+        if (GET_OPTION (mallob_is_shweeper)) {
+          //    remove elit after debugging!
+          //    int elit = kissat_export_literal (solver, other);
+          //    kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u) elit(%i)", IDX(other),other, elit);
+          // kissat_custom_message(solver,V3_VVERB_SWEEP, " binary-stumble-U idx(%u)/lit(%u)", IDX(other),other);
+          shweep_export_unit(solver, other);
+        }
+        INC (sweep_units);
+        solver->shweep.stumbled_units++;
+        return true;
       }
-      INC (sweep_units);
-      solver->sweeper->stumbled_units++;
-      return true;
     }
   }
   return false;
@@ -438,8 +441,14 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
   //Mallob Addition: It can happen that we stumble only here upon a unit clause that has not been detected yet,
   //due to some interactions with unit/equivalence imports that dont trigger such full unit propagations..
   //Current solution: Assign the unit right now on the spot
-  if (stumbled_unit_in_binary (solver, lit, other))
+  //Update: skip this clause entirely. Need to do something, because otherwise the next original assert will trigger
+
+  if (GET_OPTION (mallob_is_shweeper) && values[lit]!=0) {
+    solver->shweep.stumbled_units++;
     return;
+  }
+  // if (stumbled_unit_in_binary (solver, lit, other))
+    // return;
 
 
 
@@ -461,8 +470,12 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
   }
 
 
-  if (stumbled_unit_in_binary (solver, other, lit))
+  if (GET_OPTION (mallob_is_shweeper) && other_value!=0) {
+    solver->shweep.stumbled_units++;
     return;
+  }
+  // if (stumbled_unit_in_binary (solver, other, lit))
+    // return;
 
 
   assert (!other_value);
@@ -521,15 +534,22 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
   PUSH_STACK (sweeper->refs, ref); //remember that we swept this clause
   c->swept = true;
 
-  //Special behaviour when doing shared sweeping via Mallob:
+  //Special behaviour when doing shared sweeping via Mallob
   //It can happen that we stumble here upon a unit-clause that has been undetected up to now -- because there is (apparently?) no unit-propagation in sweep
-  //In sequential kissat a size 1 clause can not happen, as evidenced by the SIZE>1 assertion, that we changed here into an equivalent new assertion
-  //but apparently here with importing units/equivalences size 1 can occasionally happen
-  //So I just decide to treat size 1 clauses here as new found unit clauses, and call it a day
-  //Alternatively, maybe one could properly call a propagate function, which might spot this unit in a more canonical way...
+  //In sequential kissat a size 1 clause can not happen (as evidenced by the SIZE>1 assertion)
   if (SIZE_STACK(sweeper->clause)==1) {
-    assert(GET_OPTION(mallob_is_shweeper)); //make sure that sequential kissat still asserts a size==1 clause here
+    assert(GET_OPTION(mallob_is_shweeper));
+    //Update: we are more conservative now and just skip this unit clause, instead of assigning it
+    //Assigning/propagating it now *should* be allowed, but if we do it wrong it could cause logical problems, whereas ignoring it here just minimally degrades performance
+    CLEAR_STACK (sweeper->clause);
+    solver->shweep.stumbled_units++;
+    return;
 
+
+    //Old approach:
+    //So I just decide to treat size 1 clauses here as new found unit clauses
+    //Alternatively, maybe one could properly call a propagate function, which might spot this unit in a more canonical way...
+    /*
     kissat_custom_message (solver, V3_VVERB_SWEEP, "Sweeper detected a clause size 1, clause ref %i. "
                                                   "We just declare this a unit and carry on, but note that units do not occur in this spot in original sweeping. "
                                                   "Maybe due to importing it can happen here now", ref);
@@ -544,14 +564,15 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
     }
     //directly assign this detected unit here in place
     kissat_assign_unit (solver, detected_unit, "stumbled while kitten-copying");
-     /* Catch for Mallob to share */
+    // Catch for Mallob to share
     // int elit = kissat_export_literal (solver, detected_unit);
     // kissat_custom_message(solver,V2_VERB_SWEEP, " stumble-U idx(%u)/lit(%u), elit(%i)", IDX(detected_unit),detected_unit, elit);
     shweep_export_unit(solver, detected_unit);
     INC (sweep_units);
     CLEAR_STACK (sweeper->clause); //usually done by sweep_clause, but we skip that here
-    sweeper->stumbled_units++;
+    solver->shweep.stumbled_units++;
     return; //clause doesnt exist anymore, nothing left to pipe to kitten, return immediately
+    */
   }
 
   sweep_clause (sweeper, depth);
@@ -2566,17 +2587,17 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
     assert(VALID_EXTERNAL_LITERAL (elit) || kissat_custom_assert_message (solver, "Sweeper ERROR : imported invalid external elit %i ", elit));
     unsigned ilit = kissat_import_literal (solver, elit);
     if (ilit==INVALID_LIT) {
-      kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%u) <- e[%i] skipped - is already locally eliminated ",ilit,elit);
+      kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%u) <- e[%i] skipped - is already locally eliminated ",ilit,elit);
       continue;
     }
-    kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%u) <- e[%i]",ilit,elit);
+    kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%u) <- e[%i]",ilit,elit);
     shweep_import_single_unit (sweeper, ilit);
   }
 
   // unsigned long new_seen = solver->shweep.units_seen - seen;
   // unsigned long new_useful = solver->shweep.units_useful - useful;
   if (count>0) {
-    kissat_custom_message(solver, V1_INFO_SWEEP ,  "UnitImport saw %i units", count);
+    kissat_custom_message(solver, V3_VVERB_SWEEP,  "UnitImport saw %i units", count);
   }
 
 }
@@ -2611,18 +2632,18 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
 
     if (ilit1==INVALID_LIT || ilit2==INVALID_LIT) {
       // kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%u) <- e[%i] skipped - is already eliminated locally ",ilit,elit);
-      kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i,%i) <- e[%i,%i]  skipped - at least one already locally eliminated", ilit1, ilit2, elit1, elit2);
+      kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%i,%i) <- e[%i,%i]  skipped - at least one already locally eliminated", ilit1, ilit2, elit1, elit2);
       continue;
     }
 
-    kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%i,%i) <- e{%i,%i} ", ilit1, ilit2, elit1, elit2);
+    kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%i,%i) <- e{%i,%i} ", ilit1, ilit2, elit1, elit2);
     shweep_import_single_equivalence (sweeper, ilit1, ilit2);
   }
 
   // unsigned long new_seen = solver->shweep.eqs_seen - seen;
   // unsigned long new_useful = solver->shweep.eqs_useful - useful;
   if (count > 0) {
-    kissat_custom_message(solver, V1_INFO_SWEEP,  "EqImport saw %i eqs", count);
+    kissat_custom_message(solver, V3_VVERB_SWEEP,  "EqImport saw %i eqs", count);
   }
 
 }
@@ -2972,6 +2993,7 @@ void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Fixed      %i", solver->shweep.units_skipped_fixed);
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Transitive %i", solver->shweep.units_transitive);
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
+  kissat_custom_message(solver, V1_INFO_SWEEP, "Stumbled Units          %i", solver->shweep.stumbled_units);
 }
 
 void shweep_print_var_stats(kissat *solver, int verb) {
