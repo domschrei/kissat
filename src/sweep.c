@@ -32,7 +32,7 @@ const int V3_VVERB_SWEEP = 3;
 const int V4_UVERB_SWEEP = 4;
 const int V5_XVERB_SWEEP = 5;
 
-const int PURESWEEP_ENDSUBSTITUTE_BUFFER = 5; //end sweeping 5 seconds earlier than the time limit to have enough time to finish substitution
+const int PURESWEEP_ENDSUBSTITUTE_BUFFER = 15; //end sweeping 5 seconds earlier than the time limit to have enough time to finish substitution
 const int PURESWEEP_START_PROGRESS_CHECK = 10000;
 const double PURESWEEP_MIN_REQUIRED_PROGRESS = 0.001; //same as default sweeping
 
@@ -3209,9 +3209,9 @@ bool kissat_sweep (kissat *solver) {
         }
       }
       //check for timeout only once in a while, to reduce calls to kissat_time
-      if (swept%64==0 && GET_OPTION (puresweep_timelim)>0) {
-        if (kissat_time (solver) > GET_OPTION (puresweep_timelim) - PURESWEEP_ENDSUBSTITUTE_BUFFER) {
-          kissat_custom_message (solver, V1_INFO_SWEEP, "Puresweep exit iteration early due to time limit %zu, with buffer %zu", GET_OPTION (puresweep_timelim), PURESWEEP_ENDSUBSTITUTE_BUFFER);
+      if (GET_OPTION (puresweep_timelim)>0) {
+        if (kissat_time (solver) > GET_OPTION (puresweep_timelim)) {
+          kissat_custom_message (solver, V1_INFO_SWEEP, "Puresweep exit iteration due to time limit %zu, with buffer %zu", GET_OPTION (puresweep_timelim), PURESWEEP_ENDSUBSTITUTE_BUFFER);
           break;
         }
       }
@@ -3366,7 +3366,7 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
     }
 
     if (GET_OPTION (puresweep_timelim)!=0) {
-      if (kissat_time (solver) > GET_OPTION (puresweep_timelim) - PURESWEEP_ENDSUBSTITUTE_BUFFER) {
+      if (kissat_time (solver) > GET_OPTION (puresweep_timelim)) {
         kissat_custom_message (solver, V1_INFO_SWEEP, "Puresweep exit global loop due to time limit %zu", GET_OPTION (puresweep_timelim));
         break;
       }
