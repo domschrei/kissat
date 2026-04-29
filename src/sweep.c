@@ -1825,17 +1825,6 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   clear_core (sweeper, 1);
 
 
-  //Export this equivalence to mallob, to share it with other sweepers
-  if (GET_OPTION (mallob_is_shweeper)) {
-    shweep_export_equivalence(solver, lit, other);
-    // if (lit < other) {
-      // shweep_export_equivalence(solver, lit, other);
-      // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_lit, idx_other, lit, other);
-    // } else {
-      // shweep_export_equivalence(solver, other, lit);
-      // kissat_custom_message(solver,V3_VVERB_SWEEP, "found eq idx(%u)=idx(%u) [lit(%u)==lit(%u)])", idx_other, idx_lit, other, lit);
-    // }
-  }
 
    /*
     *  Now replace globally in the whole clause database the literals (other gets replaced by lit)
@@ -1863,6 +1852,12 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     substitute_connected_clauses (sweeper, lit, other);
     substitute_connected_clauses (sweeper, not_lit, not_other);
     sweep_remove (sweeper, lit);
+  }
+
+  //Export this equivalence to mallob, to share it with other sweepers
+  //do this export only _after_ we substituted clauses, such that if an UNSAT result is found, we know it already here and can prevent the export
+  if (GET_OPTION (mallob_is_shweeper)) {
+    shweep_export_equivalence(solver, lit, other);
   }
 
  /*

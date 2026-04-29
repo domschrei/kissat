@@ -23,7 +23,7 @@ void kissat_export_redundant_clause (kissat * solver, unsigned glue, unsigned si
 void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
   if (!solver->shweep_export_eq_callback) return;
   if (solver->inconsistent) {
-    kissat_custom_message (solver, 1, "Sweeper: Prevented eq export after solver was already UNSAT");
+    kissat_custom_message (solver, 1, "Sweeper: Prevented eq export after having found UNSAT");
     return;
   }
   //Dont have any variable deletion/addition/renaming in shweep,
@@ -48,7 +48,7 @@ void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
 void shweep_export_unit(kissat *solver, unsigned lit) {
   if (!solver->shweep_export_unit_callback) return;
   if (solver->inconsistent) {
-    kissat_custom_message (solver, 1, "Sweeper: Prevented unit export after solver was already UNSAT");
+    kissat_custom_message (solver, 1, "Sweeper: Prevented unit export after having found UNSAT");
     return;
   }
   int elit = kissat_export_literal (solver, lit);
