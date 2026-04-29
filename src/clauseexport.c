@@ -22,6 +22,10 @@ void kissat_export_redundant_clause (kissat * solver, unsigned glue, unsigned si
 
 void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
   if (!solver->shweep_export_eq_callback) return;
+  if (solver->inconsistent) {
+    kissat_custom_message (solver, 1, "Sweeper: Prevented eq export after solver was already UNSAT");
+    return;
+  }
   //Dont have any variable deletion/addition/renaming in shweep,
   //so we can directly work with internal literals, no need to convert to external representation
   //  Update: Now switche to externalizing literals because we need this generality for Cross-Job-Communication
@@ -43,6 +47,10 @@ void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
 
 void shweep_export_unit(kissat *solver, unsigned lit) {
   if (!solver->shweep_export_unit_callback) return;
+  if (solver->inconsistent) {
+    kissat_custom_message (solver, 1, "Sweeper: Prevented unit export after solver was already UNSAT");
+    return;
+  }
   int elit = kissat_export_literal (solver, lit);
   // kissat_custom_message (solver, 1, "export: i(%i) -> e{%i}",lit,elit);
   solver->shweep_export_unit_callback (solver->shweep_mallob_KissatState, elit);
