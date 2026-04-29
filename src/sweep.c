@@ -2502,6 +2502,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     flags *flags = FLAGS (repr_idx);
     if (!flags->active) {
       already_fixed++;
+      assert(solver->values[repr_ilit]!=0 || kissat_custom_assert_message(solver,  "SWEEP ERROR/Error: eq-imported lit not active , but also no value set. ilit/repr_ilit %i/%i  val %i", ilit, repr_ilit, solver->values[repr_ilit]));
     }
     assert(!flags->eliminated || kissat_custom_assert_message(solver,  "SWEEP ERROR/Error: imported an eq-literal ilit(%u) that is locally eliminated", ilit));
     repr_ilits[i]=repr_ilit;
@@ -2518,7 +2519,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   if (already_fixed==2) {
     //We learned about a new equivalence, but both values happen to be already locally fixed independently of each other. So for consistency they better also be set to the same value
     assert((solver->values[lit] == solver->values[other]) ||
-      kissat_custom_assert_message (solver, "Sweep ERROR : imported eq, but lits locally already fixed differently! value[ilit1(%u)reprlit1(%u)]=%i, value[ilit2(%u)reprlit2(%u)=%i", ilit1, lit, solver->values[lit], ilit2, other, solver->values[other] ));
+      kissat_custom_assert_message (solver, "Sweep ERROR : imported eq, but lits locally already fixed differently! ilit/repr_ilit/value  %u,%u,%i   %u,%u,%i ", ilit1, lit, solver->values[lit], ilit2, other, solver->values[other]));
     solver->shweep.eqs_skipped_doublefixed++;
     return;
   }
@@ -2571,9 +2572,13 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
 
 void shweep_import_SweepJob_units(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
-  if (!solver->shweep_import_SweepJob_unit_callback)
+  if (!solver->shweep_import_SweepJob_unit_callback) {
     return;
+  }
 
+  if (solver->inconsistent) {
+    return;
+  }
   // unsigned long seen = solver->shweep.units_seen;
   // unsigned long useful = solver->shweep.units_useful;
   int count = 0;
@@ -2581,8 +2586,10 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   for (;;) {
     int elit = 0;
     solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &elit, sweeper->localId);
-    if (elit==0)
+    if (elit==0) {
       break;
+    }
+
 
     count++;
     assert(VALID_EXTERNAL_LITERAL (elit) || kissat_custom_assert_message (solver, "Sweeper ERROR : imported invalid external elit %i ", elit));
@@ -2593,6 +2600,12 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
     }
     kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%u) <- e[%i]",ilit,elit);
     shweep_import_single_unit (sweeper, ilit);
+
+    if (solver->inconsistent) {
+      //exit imports entirely
+      kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP found UNSAT while importing units!");
+      return;
+    }
   }
 
   // unsigned long new_seen = solver->shweep.units_seen - seen;
@@ -2605,8 +2618,14 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
 
 void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   kissat *solver = sweeper->solver;
-  if (!solver->shweep_import_SweepJob_eq_callback)
+  if (!solver->shweep_import_SweepJob_eq_callback) {
     return;
+  }
+
+  if (solver->inconsistent) {
+    //important! otherwise the import can crash with the wonky local database that is already in UNSAT
+    return;
+  }
 
   // unsigned long seen = solver->shweep.eqs_seen;
   // unsigned long useful = solver->shweep.eqs_useful;
@@ -2620,8 +2639,13 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
     int elit1 = 0; //Mallob will leave them untouched if there is no equivalence to provide
     int elit2 = 0;
     solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &elit1, &elit2, sweeper->localId);
-    if (elit1 == 0 || elit2 == 0)
+    if (elit1 == 0 || elit2 == 0) {
       break;
+    }
+
+    if (solver->inconsistent) {
+      return;
+    }
 
     count++;
 
@@ -2639,6 +2663,13 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
 
     kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%i,%i) <- e{%i,%i} ", ilit1, ilit2, elit1, elit2);
     shweep_import_single_equivalence (sweeper, ilit1, ilit2);
+
+
+    if (solver->inconsistent) {
+      //exit imports entirely
+      kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP found UNSAT while importing equivalences!");
+      return;
+    }
   }
 
   // unsigned long new_seen = solver->shweep.eqs_seen - seen;
@@ -3351,7 +3382,7 @@ void shweep_set_env_completions(kissat *solver, int env_completions) {
 
 void shweep_set_end_iteration_signal(kissat *solver) {
   solver->shweep_end_iteration_signal = true;
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER received end_iteration signal!");
+  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER received end_iteration signal!");
 }
 
 void shweep_set_end_job_signal(kissat *solver) {
@@ -3373,7 +3404,7 @@ int shweep_get_curr_iteration(kissat *solver) {
 
 
 int mallob_shweep_single_iteration(kissat *solver) {
-  kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER Start new iteration %i", solver->shweep_curr_iteration);
+  kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER Start new iteration %i", solver->shweep_curr_iteration);
   if (!GET_OPTION (mallob_is_shweeper)) {
     kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER WARN : mallob_is_shweeper is false, but are in shweep_single_iteration");
     return false;
@@ -3415,7 +3446,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
       break;
     }
     if (solver->shweep_end_iteration_signal) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting sweeping loop, saw end_iteration \n");
+      kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER exiting sweeping loop, saw end_iteration \n");
       break;
     }
     if (solver->shweep_end_job_signal) {
@@ -3438,11 +3469,11 @@ int mallob_shweep_single_iteration(kissat *solver) {
           break;
         }
         if (solver->shweep_end_iteration_signal) {
-          kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting stealing loop, saw end_iteration\n");
+          kissat_custom_message(solver,V2_VERB_SWEEP, "Sweeper : exiting stealing loop, saw end_iteration\n");
           break;
         }
         if (solver->shweep_end_job_signal) {
-          kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting stealing loop, saw end_sweepjob\n");
+          kissat_custom_message(solver,V2_VERB_SWEEP, "Sweeper : exiting stealing loop, saw end_sweepjob\n");
           break;
         }
         //We now interleave eq/unit importing with worksteal attempts, because it happened before that the solver was stuck for so long in workstealing that multiple sharing rounds were missed
@@ -3469,7 +3500,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
   solver->shweep.progress_work_stepovers=0;
   solver->shweep.progress_unsched_resweeps=0;
 
-  kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper END single iteration loop");
+  kissat_custom_message (solver, V2_VERB_SWEEP, "Sweeper END single iteration loop");
   // sweeper.allow_stealing=false; //if we landed here due to external termination or some error in the loop, and still have work>0, this flag prevents that other solvers try to steal from us while we (and our datastructures) are shutting down
 
   //soon this sweeper will deallocate itself and we don't want to segfault right into it with an external steal
