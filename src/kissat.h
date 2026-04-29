@@ -95,6 +95,7 @@ struct shweep_statistics {
   unsigned long units_seen, units_useful, units_skipped_fixed, units_transitive;
   unsigned long congr_eqs_skipped;
   unsigned long stumbled_units;
+  unsigned long detected_early_unsat;
   //how often did we sweep due to schedule vs. resweep due to recent equivalence
   unsigned long progress_work_sweeps;
   unsigned long progress_work_stepovers;

@@ -1825,6 +1825,13 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   clear_core (sweeper, 1);
 
 
+  //Export this equivalence to mallob, to share it with other sweepers
+  //do this export only _after_ we substituted clauses, such that if an UNSAT result is found, we know it already here and can prevent the export
+  //update: we actually may want this to happen _before_ substituting, because otherwise the kissat_export might be tainted...?
+  //update2: probably irrelevant, given how simple  kissat_export_literal is...
+  if (GET_OPTION (mallob_is_shweeper)) {
+    shweep_export_equivalence(solver, lit, other);
+  }
 
    /*
     *  Now replace globally in the whole clause database the literals (other gets replaced by lit)
@@ -1854,11 +1861,6 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     sweep_remove (sweeper, lit);
   }
 
-  //Export this equivalence to mallob, to share it with other sweepers
-  //do this export only _after_ we substituted clauses, such that if an UNSAT result is found, we know it already here and can prevent the export
-  if (GET_OPTION (mallob_is_shweeper)) {
-    shweep_export_equivalence(solver, lit, other);
-  }
 
  /*
   *L.9
@@ -2458,6 +2460,10 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
   const unsigned repr_idx = IDX (repr_ilit);
   flags *flags = FLAGS (repr_idx);
   if (!flags->active) {
+    if (solver->values[repr_ilit] != 1) {
+      kissat_custom_message (solver, 1, "Sweeper detected an inconsistent Unit-import, expect official un-sat result soon.");
+      solver->shweep.detected_early_unsat++;
+    }
     solver->shweep.units_skipped_fixed++;
     return;
   }
@@ -2512,9 +2518,16 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   }
 
   if (already_fixed==2) {
-    //We learned about a new equivalence, but both values happen to be already locally fixed independently of each other. So for consistency they better also be set to the same value
-    assert((solver->values[lit] == solver->values[other]) ||
-      kissat_custom_assert_message (solver, "Sweep ERROR : imported eq, but lits locally already fixed differently! ilit/repr_ilit/value  %u,%u,%i   %u,%u,%i  Most likely because some other solver already found UNSAT", ilit1, lit, solver->values[lit], ilit2, other, solver->values[other]));
+    //We learned about a new equivalence, but both values happen to be already locally fixed independently of each other.
+    if (solver->values[lit] != solver->values[other]) {
+      //Found UNSAT! The imported equivalence is inconsistent with the local clause database.
+      //We _could_ officially claim UNSAT to Mallob at this point. However, it feels rather shaky to do this through our own custom import function.
+      //Rather, we wait until some solver finds UNSAT through normal sweeping, which by our experience happens almost immediately after the first solvers notice this import discrepancy here. So we don't loose anything by not triggering here.
+      kissat_custom_message (solver, 1, "Sweeper detected an inconsistent Equality-import, expect official un-sat result soon.");
+      solver->shweep.detected_early_unsat++;
+    }
+    // assert((solver->values[lit] == solver->values[other]) ||
+      // kissat_custom_assert_message (solver, "Sweep ERROR : imported eq, but lits locally already fixed differently! ilit/repr_ilit/value  %u,%u,%i   %u,%u,%i  Most likely because some other solver already found UNSAT", ilit1, lit, solver->values[lit], ilit2, other, solver->values[other]));
     solver->shweep.eqs_skipped_doublefixed++;
     return;
   }
@@ -3021,6 +3034,7 @@ void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Transitive %i", solver->shweep.units_transitive);
   kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
   kissat_custom_message(solver, V1_INFO_SWEEP, "Stumbled Units          %i", solver->shweep.stumbled_units);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "Detected early un-sat   %i", solver->shweep.detected_early_unsat);
 }
 
 void shweep_print_var_stats(kissat *solver, int verb) {
@@ -3543,6 +3557,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
 
 }
 
+//Report to Mallob about the current Solver state (vars active, vars fixed, clauses, ...)
 void representative_report_finished_iteration(kissat *solver) {
   if (solver->shweep_report_finished_iteration_callback) { //only the representative solver at the root node reports this
     solver->shweep_report_finished_iteration_callback (solver->shweep_mallob_SweepJobState, GET_OPTION (mallob_local_id));
@@ -3590,7 +3605,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   while (!solver->shweep_end_job_signal && !solver->inconsistent) {
     solver->shweep_curr_iteration++;
     mallob_shweep_single_iteration (solver);
-    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER substituting");
+    kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER substituting");
     kissat_substitute(solver, true);
     //after substitution cleaned up the database we can properly report the metrics of this round
     representative_report_finished_iteration (solver);
