@@ -171,12 +171,12 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
 
   if (GET_OPTION (puresweep_tocompletion)) {
     completed = solver->shweep.env_completions;
-    kissat_custom_message(solver, V1_INFO_SWEEP, "sweeper: iters %i, completed %i, env-completions %i ", solver->shweep_curr_iteration, solver->statistics.sweep_completed, solver->shweep.env_completions);
+    kissat_custom_message(solver, V1_INFO_SWEEP, "sweeper: iter %i, sweepp-completed %i, env-completions %i ", solver->shweep_curr_iteration, solver->statistics.sweep_completed, solver->shweep.env_completions);
   }
 
-  if (solver->shweep.desired_depth>2) {
-    completed = solver->shweep.desired_depth-2;
-  }
+  // if (solver->shweep.desired_depth>2) {
+    // completed = solver->shweep.desired_depth-2;
+  // }
 
   const unsigned max_completed = 32;
   if (completed > max_completed)
@@ -193,6 +193,9 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
                             sweeper->limit.vars);
 
   uint64_t depth_limit = solver->statistics.sweep_completed;
+  if (GET_OPTION (puresweep_tocompletion)) {
+    depth_limit = solver->shweep.env_completions;
+  }
   depth_limit += GET_OPTION (sweepdepth);
   const unsigned max_depth = GET_OPTION (sweepmaxdepth);
   if (depth_limit > max_depth)
@@ -235,9 +238,9 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     solver->shweep.env_limit_vars    = sweeper->limit.vars;
     solver->shweep.env_limit_depth   = sweeper->limit.depth;
     solver->shweep.env_limit_clauses = sweeper->limit.clauses;
-    kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) variable limit %u", completed, sweeper->limit.vars);
-    kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) depth    limit %u", completed, sweeper->limit.depth);
-    kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) clause   limit %u", completed, sweeper->limit.clauses);
+    kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) variables %u", completed, sweeper->limit.vars);
+    kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) depth     %u", completed, sweeper->limit.depth);
+    kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) clauses   %u", completed, sweeper->limit.clauses);
   }
 
   if (GET_OPTION (mallob_is_shweeper)) {
@@ -3345,6 +3348,7 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
 
   //we try at least one semantic sweep round since it might find more than syntactic congruence closure
   for (int i=1; i<=GET_OPTION (puresweep_iterations) || GET_OPTION (puresweep_tocompletion); i++) {
+    solver->shweep_curr_iteration++;
     unsigned active_vars_before_iter = solver->active;
     kissat_custom_message (solver, V2_VERB_SWEEP, "start iteration %i ", i);
     bool progress = kissat_sweep(solver);
