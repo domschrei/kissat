@@ -2517,7 +2517,8 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
 
   if (already_fixed==2) {
     //We learned about a new equivalence, but both values happen to be already locally fixed independently of each other. So for consistency they better also be set to the same value
-    assert(solver->values[repr_ilits[0]] == solver->values[repr_ilits[1]]);
+    assert((solver->values[lit] == solver->values[other]) ||
+      kissat_custom_assert_message (solver, "Sweep ERROR : imported eq, but lits locally already fixed differently! value[ilit1(%u)reprlit1(%u)]=%i, value[ilit2(%u)reprlit2(%u)=%i", ilit1, lit, solver->values[lit], ilit2, other, solver->values[other] ));
     solver->shweep.eqs_skipped_doublefixed++;
     return;
   }
