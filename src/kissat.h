@@ -86,6 +86,7 @@ void shweep_set_end_job_signal(kissat *solver);
 bool shweep_get_end_job_signal(kissat *solver);
 int shweep_get_curr_iteration(kissat *solver);
 void shweep_set_env_completions(kissat *solver, int env_completions);
+void shweep_set_desired_depth(kissat *solver, int depth);
 
 bool kissat_is_inconsistent (kissat *solver);
 
@@ -110,6 +111,7 @@ struct shweep_statistics {
   unsigned long curr_active, curr_units, curr_eliminated;
   unsigned long env_limit_depth, env_limit_vars, env_limit_clauses;
   unsigned long env_completions;
+  unsigned long desired_depth;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
 

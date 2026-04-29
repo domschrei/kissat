@@ -174,6 +174,10 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     kissat_custom_message(solver, V1_INFO_SWEEP, "sweeper: iters %i, completed %i, env-completions %i ", solver->shweep_curr_iteration, solver->statistics.sweep_completed, solver->shweep.env_completions);
   }
 
+  if (solver->shweep.desired_depth>2) {
+    completed = solver->shweep.desired_depth-2;
+  }
+
   const unsigned max_completed = 32;
   if (completed > max_completed)
     completed = max_completed;
@@ -216,16 +220,17 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
   set_kitten_ticks_limit (sweeper);
 
 
+
   //Adjust (and report) environment sizes identically for sequential puresweep and parallel Mallob Sweep
   if (GET_OPTION (mallob_is_shweeper) || GET_OPTION (puresweep)) {
     //if we don't go to depth 4, at least increase the other two bounds a bit more, otherwise the change from iter 2 to iter 3 would only be marginal
 
-    if (!GET_OPTION (puresweep_tocompletion)) {
-      if (completed>=2 && sweeper->limit.depth==3) {
-        sweeper->limit.clauses *=2;
-        sweeper->limit.vars *=2;
-      }
-    }
+    // if (!GET_OPTION (puresweep_tocompletion)) {
+      // if (completed>=2 && sweeper->limit.depth==3) {
+        // sweeper->limit.clauses *=2;
+        // sweeper->limit.vars *=2;
+      // }
+    // }
 
     solver->shweep.env_limit_vars    = sweeper->limit.vars;
     solver->shweep.env_limit_depth   = sweeper->limit.depth;
@@ -3281,7 +3286,8 @@ bool kissat_sweep (kissat *solver) {
   // kissat_custom_message (solver, V2_VERB_SWEEP, "TIME_SEC %.2f", kissat_time(solver));
 // }
 
-static void kissat_puresweep_report(kissat *solver, const char *prefix, unsigned active_before) {
+static void kissat_puresweep_report(kissat *solver, const char *prefix, unsigned active_before, int iteration) {
+  kissat_custom_message(solver, V2_VERB_SWEEP, "%s_ITER    %i", prefix, iteration);
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_TIME    %.2f", prefix, kissat_time(solver));
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_FIXED   %i",   prefix, solver->vars - solver->active);
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_ACTIVE  %i",   prefix, solver->active);
@@ -3322,7 +3328,7 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
     return 20;
   }
 
-  kissat_puresweep_report (solver, "START", VARS);
+  kissat_puresweep_report (solver, "START", VARS, -1);
 
   solver->probing=true;
   unsigned active_start = solver->active;
@@ -3332,17 +3338,18 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
     kissat_substitute (solver, true);
   }
 
-  kissat_puresweep_report (solver, "CONGR", active_start);
+  kissat_puresweep_report (solver, "CONGR", active_start, 0);
 
   solver->shweep.env_completions=0;
+  solver->shweep.desired_depth=0;
 
   //we try at least one semantic sweep round since it might find more than syntactic congruence closure
   for (int i=1; i<=GET_OPTION (puresweep_iterations) || GET_OPTION (puresweep_tocompletion); i++) {
-    unsigned active_before_iter = solver->active;
+    unsigned active_vars_before_iter = solver->active;
     kissat_custom_message (solver, V2_VERB_SWEEP, "start iteration %i ", i);
     bool progress = kissat_sweep(solver);
     kissat_substitute(solver, true);
-    kissat_puresweep_report (solver, "SWEEP", active_before_iter);
+    kissat_puresweep_report (solver, "SWEEP", active_vars_before_iter, i);
 
     if (solver->inconsistent) {
       kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP found UNSAT !", i, solver->active);
@@ -3358,7 +3365,7 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
       solver->shweep.env_completions++;
     }
 
-    if (GET_OPTION (puresweep_timelim)>0) {
+    if (GET_OPTION (puresweep_timelim)!=0) {
       if (kissat_time (solver) > GET_OPTION (puresweep_timelim) - PURESWEEP_ENDSUBSTITUTE_BUFFER) {
         kissat_custom_message (solver, V1_INFO_SWEEP, "Puresweep exit global loop due to time limit %zu", GET_OPTION (puresweep_timelim));
         break;
@@ -3378,12 +3385,9 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
 
 
 
-
-
-
-
-
-
+void shweep_set_desired_depth(kissat *solver, int depth) {
+  solver->shweep.desired_depth = depth;
+}
 
 void shweep_set_env_completions(kissat *solver, int env_completions) {
   solver->shweep.env_completions = env_completions;
@@ -3581,6 +3585,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   solver->shweep.start_clauses = CLAUSES;
   solver->shweep.start_binirr  = BINIRR_CLAUSES;
   solver->shweep_curr_iteration = -1; //-1 before any CEC algos started, 0 in congruence, 1..n in sweep
+  solver->shweep.desired_depth =0;
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig vars : %i", solver->shweep.orig_vars);
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start units: %i", solver->shweep.start_units);
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start activ: %i", solver->shweep.start_active);
@@ -3609,7 +3614,8 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
     kissat_substitute(solver, true);
     //after substitution cleaned up the database we can properly report the metrics of this round
     representative_report_finished_iteration (solver);
-    INC(sweep_completed); //this counter increases the environment size of the next iteration
+    //this counter here increases the
+    INC(sweep_completed);
   }
 
   shweep_print_import_statistics(solver);
