@@ -3463,7 +3463,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
       break;
     }
     if (solver->shweep_end_iteration_signal) {
-      kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER exiting sweeping loop, saw end_iteration \n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting sweeping loop, saw end_iteration \n");
       break;
     }
     if (solver->shweep_end_job_signal) {
@@ -3486,11 +3486,11 @@ int mallob_shweep_single_iteration(kissat *solver) {
           break;
         }
         if (solver->shweep_end_iteration_signal) {
-          kissat_custom_message(solver,V2_VERB_SWEEP, "Sweeper : exiting stealing loop, saw end_iteration\n");
+          kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting stealing loop, saw end_iteration\n");
           break;
         }
         if (solver->shweep_end_job_signal) {
-          kissat_custom_message(solver,V2_VERB_SWEEP, "Sweeper : exiting stealing loop, saw end_sweepjob\n");
+          kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting stealing loop, saw end_sweepjob\n");
           break;
         }
         //We now interleave eq/unit importing with worksteal attempts, because it happened before that the solver was stuck for so long in workstealing that multiple sharing rounds were missed
@@ -3590,11 +3590,11 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   solver->shweep.start_binirr  = BINIRR_CLAUSES;
   solver->shweep_curr_iteration = -1; //-1 before any CEC algos started, 0 in congruence, 1..n in sweep
   solver->shweep.desired_depth =0;
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig vars : %i", solver->shweep.orig_vars);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start units: %i", solver->shweep.start_units);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start activ: %i", solver->shweep.start_active);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start CLAUSES: %i", CLAUSES);
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start BINIRR : %i", BINIRR_CLAUSES);
+  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER orig vars : %i", solver->shweep.orig_vars);
+  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER start units: %i", solver->shweep.start_units);
+  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER start activ: %i", solver->shweep.start_active);
+  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER start CLAUSES: %i", CLAUSES);
+  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER start BINIRR : %i", BINIRR_CLAUSES);
 
   //a baseline report to know the metrics exactly before starting sweeping
   representative_report_finished_iteration (solver);
@@ -3628,5 +3628,4 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER ENDED, now triggering own termination");
   kissat_terminate (solver);
   return solver->inconsistent ? 20 : 0 ;
-
 }
