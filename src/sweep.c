@@ -3031,18 +3031,19 @@ bool is_localid_nonzero(kissat *solver) {
 void shweep_print_import_statistics(kissat *solver) {
   // if (is_localid_nonzero (solver))
     // return;
-  kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Useful     %i / %i ", solver->shweep.eqs_useful, solver->shweep.eqs_seen);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Unitprop   %i", solver->shweep.eqs_unitprop);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Doublefixd %i", solver->shweep.eqs_skipped_doublefixed);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT EQS Known      %i", solver->shweep.eqs_skipped_known);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Useful     %i / %i", solver->shweep.units_useful, solver->shweep.units_seen);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Fixed      %i", solver->shweep.units_skipped_fixed);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "IMPORT UNITS Transitive %i", solver->shweep.units_transitive);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "--------------");
-  kissat_custom_message(solver, V1_INFO_SWEEP, "Stumbled Units          %i", solver->shweep.stumbled_units);
-  kissat_custom_message(solver, V1_INFO_SWEEP, "Detected early un-sat   %i", solver->shweep.detected_early_unsat);
+  #define VX_STATS V2_VERB_SWEEP
+  kissat_custom_message(solver, VX_STATS, "--------------");
+  kissat_custom_message(solver, VX_STATS, "IMPORT EQS Useful     %i / %i ", solver->shweep.eqs_useful, solver->shweep.eqs_seen);
+  kissat_custom_message(solver, VX_STATS, "IMPORT EQS Unitprop   %i", solver->shweep.eqs_unitprop);
+  kissat_custom_message(solver, VX_STATS, "IMPORT EQS Doublefixd %i", solver->shweep.eqs_skipped_doublefixed);
+  kissat_custom_message(solver, VX_STATS, "IMPORT EQS Known      %i", solver->shweep.eqs_skipped_known);
+  kissat_custom_message(solver, VX_STATS, "--------------");
+  kissat_custom_message(solver, VX_STATS, "IMPORT UNITS Useful     %i / %i", solver->shweep.units_useful, solver->shweep.units_seen);
+  kissat_custom_message(solver, VX_STATS, "IMPORT UNITS Fixed      %i", solver->shweep.units_skipped_fixed);
+  kissat_custom_message(solver, VX_STATS, "IMPORT UNITS Transitive %i", solver->shweep.units_transitive);
+  kissat_custom_message(solver, VX_STATS, "--------------");
+  kissat_custom_message(solver, VX_STATS, "Stumbled Units          %i", solver->shweep.stumbled_units);
+  kissat_custom_message(solver, VX_STATS, "Detected early un-sat   %i", solver->shweep.detected_early_unsat);
 }
 
 void shweep_print_var_stats(kissat *solver, int verb) {
