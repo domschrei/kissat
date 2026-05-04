@@ -3388,6 +3388,10 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
 }
 
 
+void shweep_check_EU_imports(kissat *solver) {
+    shweep_import_SweepJob_units (solver->sweeper);
+    shweep_import_SweepJob_equivalences (solver->sweeper);
+}
 
 void shweep_set_desired_depth(kissat *solver, int depth) {
   solver->shweep.desired_depth = depth;
@@ -3475,6 +3479,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
 
     if (idx == INVALID_IDX) {
       //we have no more work, try to steal from somebody else
+      /*
       while (true) {
         unsigned stolen = shweep_search_work_from_others (&sweeper);
         if (stolen>0) {
@@ -3497,12 +3502,12 @@ int mallob_shweep_single_iteration(kissat *solver) {
         shweep_import_SweepJob_units (&sweeper);
         shweep_import_SweepJob_equivalences (&sweeper);
         //continue searching
-      }
+      }*/
+      shweep_search_work_from_others (&sweeper);
     }
     else {
       shweep_sweep_variable_with_prop (&sweeper, idx, true);
     }
-
   }
 
   // assert(solver->end_sweep_iteration || kissat_custom_assert_message (solver, "Sweeper ERROR : left sweeping loop without end_iteration signal "));
