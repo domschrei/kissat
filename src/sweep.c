@@ -3097,6 +3097,7 @@ void shweep_print_import_statistics(kissat *solver) {
   kissat_custom_message(solver, VX_STATS, "--------------");
   kissat_custom_message(solver, VX_STATS, "Stumbled Units          %i", solver->shweep.stumbled_units);
   kissat_custom_message(solver, VX_STATS, "Detected early un-sat   %i", solver->shweep.detected_early_unsat);
+  kissat_custom_message(solver, V1_INFO_SWEEP, "Aborted kittens   %i", solver->shweep.aborted_kittens);
 }
 
 void shweep_print_var_stats(kissat *solver, int verb) {
@@ -3680,6 +3681,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   }
 
   solver->shweep_loc=LOC_START;
+  solver->shweep.aborted_kittens=0;
 
   solver->probing = true;
   solver->shweep.orig_vars = solver->vars;

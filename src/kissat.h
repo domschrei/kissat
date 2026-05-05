@@ -119,6 +119,7 @@ struct shweep_statistics {
   unsigned long env_limit_depth, env_limit_vars, env_limit_clauses;
   unsigned long env_completions;
   unsigned long desired_depth;
+  unsigned long aborted_kittens;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
 

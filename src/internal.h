@@ -273,6 +273,7 @@ struct kissat {
   double shweep_t0;
   int shweep_loc;
   int shweep_reps_debug;
+  // int shweep_aborted_kittens;
 
   //there exist time-windows in between the sweep iterations where no (accessible) sweeper object exists, we track on the permanent solver-level whether a sweeper exists and is accessible to steal right now
   volatile bool shweeper_allows_stealing;
