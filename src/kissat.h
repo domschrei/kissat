@@ -91,6 +91,7 @@ void shweep_do_EU_imports(kissat *solver);
 void shweep_set_wallclock_offset(kissat *solver, double offset);
 double shweep_wallclock(kissat *solver);
 int shweep_get_code_location(kissat *solver);
+const char *shweep_get_profilename(kissat *solver);
 
 bool kissat_is_inconsistent (kissat *solver);
 

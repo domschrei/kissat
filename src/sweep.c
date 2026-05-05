@@ -49,6 +49,8 @@ const int LOC_SEARCHINGWORK=10;
 const int LOC_EXITING_SINGLEITER=11;
 const int LOC_TERM=12;
 
+const int LOC_FIRSTMODEL=13;
+
 struct sweeper {
   kissat *solver;
   unsigned *depths;
@@ -2010,6 +2012,8 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
     }
     expand++;
   }
+
+  solver->shweep_loc=LOC_FIRSTMODEL;
   /*
    *L.3
    *Environment around idx is now collected and kitten knows all its clauses
@@ -3428,6 +3432,11 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
 
 int shweep_get_code_location(kissat *solver) {
   return solver->shweep_loc;
+}
+
+const char *shweep_get_profilename(kissat *solver) {
+  //not mutex safe, but we only use it for debugging now...
+  return TOP_STACK(solver->profiles.stack)->name;
 }
 
 double shweep_wallclock(kissat *solver) {
