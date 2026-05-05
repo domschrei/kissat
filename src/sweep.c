@@ -473,7 +473,7 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
 
   if (GET_OPTION (mallob_is_shweeper) && values[lit]!=0) {
     solver->shweep.stumbled_units++;
-    kissat_custom_message (solver, V0_CRIT_SWEEP, "stumbled in sweep_binary @ %.3f", shweep_wallclock (solver));
+    // kissat_custom_message (solver, V0_CRIT_SWEEP, "stumbled in sweep_binary @ %.3f", shweep_wallclock (solver));
     return;
   }
   // if (stumbled_unit_in_binary (solver, lit, other))
@@ -501,7 +501,7 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
 
   if (GET_OPTION (mallob_is_shweeper) && other_value!=0) {
     solver->shweep.stumbled_units++;
-    kissat_custom_message (solver, V0_CRIT_SWEEP, "stumbled in sweep_binary @ %.3f", shweep_wallclock (solver));
+    // kissat_custom_message (solver, V0_CRIT_SWEEP, "stumbled in sweep_binary @ %.3f", shweep_wallclock (solver));
     return;
   }
   // if (stumbled_unit_in_binary (solver, other, lit))
@@ -573,7 +573,7 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
     //Assigning/propagating it now *should* be allowed, but if we do it wrong it could cause logical problems, whereas ignoring it here just minimally degrades performance
     CLEAR_STACK (sweeper->clause);
     solver->shweep.stumbled_units++;
-    kissat_custom_message (solver, V0_CRIT_SWEEP, "stumbled in sweep_reference @ %.3f", shweep_wallclock (solver));
+    // kissat_custom_message (solver, V0_CRIT_SWEEP, "stumbled in sweep_reference @ %.3f", shweep_wallclock (solver));
     return;
 
 
@@ -3441,6 +3441,9 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
   return 10;
 }
 
+int shweep_kitten_propagations(kissat *solver) {
+  return solver->statistics.kitten_propagations;
+}
 
 int shweep_get_reps_debug(kissat *solver) {
   return solver->shweep_reps_debug;
