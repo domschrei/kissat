@@ -2935,10 +2935,12 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
     if (solver->termination.flagged)          break;
     if (solver->inconsistent)                 break;
 
-    if (shweep_sweepable_variable(sweeper, idx)) {
+    for (int i=0; i<2;i++) {
       shweep_import_SweepJob_units(sweeper);
       shweep_import_SweepJob_equivalences(sweeper);
+    }
 
+    if (shweep_sweepable_variable(sweeper, idx)) {
       kissat_custom_message(solver, V3_VVERB_SWEEP,
                             "sweeping idx %u [%i=head, %i max left]",
                             idx, sweeper->work_head, sweeper->max_work_after_steal);
