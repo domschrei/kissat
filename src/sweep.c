@@ -48,8 +48,9 @@ const int LOC_NEXTSCHED=9;
 const int LOC_SEARCHINGWORK=10;
 const int LOC_EXITING_SINGLEITER=11;
 const int LOC_TERM=12;
-
 const int LOC_FIRSTMODEL=13;
+const int LOC_EQPAIRLOOP=14;
+const int LOC_KITTEN=15;
 
 struct sweeper {
   kissat *solver;
@@ -91,6 +92,7 @@ typedef struct sweeper sweeper;
 static int sweep_solve (sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   kitten *kitten = solver->kitten;
+  solver->shweep_loc=LOC_KITTEN;
   kitten_randomize_phases (kitten);
   INC (sweep_solved);
   int res = kitten_solve (kitten);
@@ -2103,9 +2105,11 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
      * All backbone-variables have been propagated
      * All non-backbone variables are partitioned into potential equivalence classes
       */
+
     solver->shweep_reps_debug=0;
     START (sweepequivalences);
     while (!EMPTY_STACK (sweeper->partition)) {
+      solver->shweep_loc=LOC_EQPAIRLOOP;
       solver->shweep_reps_debug++;
       // kissat_custom_message(solver, V4_UVERB_SWEEP, "    P(%i)", SIZE_STACK(sweeper->partition));
       if (solver->inconsistent || TERMINATED (sweep_terminated_5) ||
