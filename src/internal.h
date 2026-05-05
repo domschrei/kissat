@@ -275,6 +275,9 @@ struct kissat {
   //there exist time-windows in between the sweep iterations where no (accessible) sweeper object exists, we track on the permanent solver-level whether a sweeper exists and is accessible to steal right now
   volatile bool shweeper_allows_stealing;
 
+  double shweep_last_workestimate_timestamp;
+  int shweep_last_workestimate;
+
   int *shweep_export_eq_buffer;
   void (*shweep_export_eq_callback) (void *state); //Export to own Mallob::Kissat object
   void (*shweep_export_unit_callback) (void *state, int lit); //Export to own Mallob::Kissat object

@@ -2929,7 +2929,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   for (;;) {
     if (solver->shweep_end_iteration_signal) break;
     if (solver->shweep_end_job_signal) {
-      kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper break out of sweep_with_prop (endjob signal) @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
+      kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper break out of sweep_with_prop (endjob signal) @ %.3f", shweep_wallclock(solver));
       break;
     }
     if (solver->termination.flagged)          break;
@@ -3391,6 +3391,11 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
   return 10;
 }
 
+
+double shweep_wallclock(kissat *solver) {
+  return kissat_wall_clock_time () - solver->shweep_t0;
+}
+
 void shweep_set_wallclock_offset(kissat *solver, double offset) {
   solver->shweep_t0 = offset;
 }
@@ -3415,7 +3420,7 @@ void shweep_set_end_iteration_signal(kissat *solver) {
 
 void shweep_set_end_job_signal(kissat *solver) {
   solver->shweep_end_job_signal = true;
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER received end_sweepjob signal! @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER received end_sweepjob signal! @ %.3f", shweep_wallclock (solver));
 }
 
 bool shweep_get_end_iteration_signal(kissat *solver) {
@@ -3474,18 +3479,27 @@ int mallob_shweep_single_iteration(kissat *solver) {
       break;
     }
     if (solver->shweep_end_job_signal) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting sweeping loop (endjob) @ %.3f",kissat_wall_clock_time () - solver->shweep_t0);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting sweeping loop (endjob) @ %.3f",shweep_wallclock (solver));
       break;
     }
     if (solver->shweep_end_iteration_signal) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting sweeping loop (enditer) @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting sweeping loop (enditer) @ %.3f", shweep_wallclock (solver));
       break;
     }
 
     unsigned idx = shweep_next_scheduled (&sweeper);
 
     if (solver->shweep_end_job_signal) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : got next scheduled (while endjob) @ %.3f",kissat_wall_clock_time () - solver->shweep_t0);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : got next scheduled (while endjob) @ %.3f",shweep_wallclock (solver));
+    }
+    int work_estimate = shweep_get_work_estimate (solver);
+    if (work_estimate != solver->shweep_last_workestimate) {
+      solver->shweep_last_workestimate = work_estimate;
+      solver->shweep_last_workestimate_timestamp = shweep_wallclock (solver);
+    }
+    const float WARN_NOWORKPROGRESS_SEC = 3;
+    if (solver->shweep_last_workestimate_timestamp + WARN_NOWORKPROGRESS_SEC < shweep_wallclock (solver) ) {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper WARN : no progress in workestimate! head %i, end %i  @ %.3f", sweeper.work_head, sweeper.work_end, shweep_wallclock (solver));
     }
 
     if (idx == INVALID_IDX) {
@@ -3516,7 +3530,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
       }*/
       shweep_search_work_from_others (&sweeper);
       if (solver->shweep_end_job_signal) {
-        kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exit search work (while endjob) @ %.3f",kissat_wall_clock_time () - solver->shweep_t0);
+        kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exit search work (while endjob) @ %.3f", shweep_wallclock (solver));
       }
 
     }
@@ -3650,7 +3664,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   shweep_print_import_statistics(solver);
 
   //now we trigger the termination, only after the last substitute. The only remaining function is report_dimacs, which does not test for termination
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER ENDED, now triggering own termination @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER ENDED, now triggering own termination @ %.3f", shweep_wallclock (solver));
   kissat_terminate (solver);
   return solver->inconsistent ? 20 : 0 ;
 }
