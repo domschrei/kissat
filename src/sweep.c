@@ -3388,6 +3388,9 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
   return 10;
 }
 
+void shweep_set_wallclock_offset(kissat *solver, double offset) {
+  solver->shweep_t0 = offset;
+}
 
 void shweep_check_EU_imports(kissat *solver) {
     shweep_import_SweepJob_units (solver->sweeper);
@@ -3456,7 +3459,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
 
   for (;;) {
     if (solver->inconsistent) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSAT! (in sweep work loop)\n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSAT! (in sweep work loop)");
       break;
     }
     if (TERMINATED (sweep_terminated_8)) {
@@ -3464,15 +3467,15 @@ int mallob_shweep_single_iteration(kissat *solver) {
       break;
     }
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER ran into Kitten Tick limit timeout \n");
-      break;
-    }
-    if (solver->shweep_end_iteration_signal) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting sweeping loop, saw end_iteration \n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "WARN: SWEEPER ran into Kitten Tick limit timeout");
       break;
     }
     if (solver->shweep_end_job_signal) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting sweeping loop, saw end_sweepjob\n");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting sweeping loop, saw end_sweepjob @ %.3f",kissat_wall_clock_time () - solver->shweep_t0);
+      break;
+    }
+    if (solver->shweep_end_iteration_signal) {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting sweeping loop, saw end_iteration @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
       break;
     }
 
@@ -3516,6 +3519,9 @@ int mallob_shweep_single_iteration(kissat *solver) {
   //immediately reset the flag to prevent that it lingers and we interpret it again also at the start of the next iteration
   solver->shweep_end_iteration_signal = false;
 
+  // if (solver->shweep_end_job_signal) {
+    // kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper END single iteration @ %d", kissat_wall_clock_time ());
+  // }
 
   //immediately reset these to prevent them leaking into the now upcoming sharing round of the next iteration. Which can be initialized by the root node while here we might still be in substitute()
   //Ok to reset them here because these individual values are not read by the iteration-report callback
@@ -3524,6 +3530,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
   solver->shweep.progress_unsched_resweeps=0;
 
   kissat_custom_message (solver, V2_VERB_SWEEP, "Sweeper END single iteration loop");
+
   // sweeper.allow_stealing=false; //if we landed here due to external termination or some error in the loop, and still have work>0, this flag prevents that other solvers try to steal from us while we (and our datastructures) are shutting down
 
   //soon this sweeper will deallocate itself and we don't want to segfault right into it with an external steal
@@ -3581,6 +3588,7 @@ void representative_report_finished_iteration(kissat *solver) {
 
 int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start main");
+  solver->shweep_t0 += kissat_wall_clock_time ();
 
   if (!kissat_initially_propagate (solver)) {
     assert (solver->inconsistent);
@@ -3631,7 +3639,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   shweep_print_import_statistics(solver);
 
   //now we trigger the termination, only after the last substitute. The only remaining function is report_dimacs, which does not test for termination
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER ENDED, now triggering own termination");
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER ENDED, now triggering own termination @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
   kissat_terminate (solver);
   return solver->inconsistent ? 20 : 0 ;
 }

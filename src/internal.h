@@ -270,6 +270,7 @@ struct kissat {
   volatile int shweep_curr_iteration;
   volatile bool shweep_end_iteration_signal;
   volatile bool shweep_end_job_signal;
+  double shweep_t0;
 
   //there exist time-windows in between the sweep iterations where no (accessible) sweeper object exists, we track on the permanent solver-level whether a sweeper exists and is accessible to steal right now
   volatile bool shweeper_allows_stealing;

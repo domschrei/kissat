@@ -127,9 +127,9 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
 void kissat_custom_message_va(kissat *solver, const char *fmt, va_list ap) {
   uint64_t mallob_local_id = GET_OPTION(mallob_local_id);
   uint64_t mallob_rank     = GET_OPTION(mallob_rank);
-  uint64_t num_spaces = 20 * mallob_rank + 5 * mallob_local_id;
+  uint64_t num_spaces = 20 * mallob_rank + 2 * mallob_local_id;
 
-  if (!GET_OPTION(mallob_staggered_logs) || mallob_rank >3 || mallob_local_id > 3) { //Separate logs spacially only for very small scales
+  if (!GET_OPTION(mallob_staggered_logs) || mallob_rank >3) { //Separate logs spacially only for very small scales
     num_spaces=0;
   }
 
