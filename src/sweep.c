@@ -2611,10 +2611,10 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
     assert(VALID_EXTERNAL_LITERAL (elit) || kissat_custom_assert_message (solver, "Sweeper ERROR : imported invalid external elit %i ", elit));
     unsigned ilit = kissat_import_literal (solver, elit);
     if (ilit==INVALID_LIT) {
-      kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%u) <- e[%i] skipped - is already locally eliminated ",ilit,elit);
+      kissat_custom_message (solver, V4_UVERB_SWEEP, "import:  i(%u) <- e[%i] skipped - is already locally eliminated ",ilit,elit);
       continue;
     }
-    kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%u) <- e[%i]",ilit,elit);
+    kissat_custom_message (solver, V4_UVERB_SWEEP, "import:  i(%u) <- e[%i]",ilit,elit);
     shweep_import_single_unit (sweeper, ilit);
 
     if (solver->inconsistent) {
@@ -2673,11 +2673,11 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
 
     if (ilit1==INVALID_LIT || ilit2==INVALID_LIT) {
       // kissat_custom_message (solver, V1_INFO_SWEEP, "import:  i(%u) <- e[%i] skipped - is already eliminated locally ",ilit,elit);
-      kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%i,%i) <- e[%i,%i]  skipped - at least one already locally eliminated", ilit1, ilit2, elit1, elit2);
+      kissat_custom_message (solver, V4_UVERB_SWEEP, "import:  i(%i,%i) <- e[%i,%i]  skipped - at least one already locally eliminated", ilit1, ilit2, elit1, elit2);
       continue;
     }
 
-    kissat_custom_message (solver, V3_VVERB_SWEEP, "import:  i(%i,%i) <- e{%i,%i} ", ilit1, ilit2, elit1, elit2);
+    kissat_custom_message (solver, V4_UVERB_SWEEP, "import:  i(%i,%i) <- e{%i,%i} ", ilit1, ilit2, elit1, elit2);
     shweep_import_single_equivalence (sweeper, ilit1, ilit2);
 
 
