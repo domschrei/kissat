@@ -1923,7 +1923,7 @@ int kitten_solve (kitten *kitten) {
 
   //This code will not compile in debug mode, because STAND_ALONE_KISSAT will be defined.
   const uint64_t propagations_before = kitten->kissat->statistics.kitten_propagations;
-  const uint64_t SHWEEP_MAX_KITTEN_PROPAGATIONS = 3000000;
+  const uint64_t SHWEEP_MAX_KITTEN_PROPAGATIONS = 1000000;
   statistics *solverstats = &(kitten->kissat->statistics);
 
   int res = propagate_units (kitten);
@@ -1938,7 +1938,7 @@ int kitten_solve (kitten *kitten) {
       }
     } else
      if (solverstats->kitten_propagations - propagations_before > SHWEEP_MAX_KITTEN_PROPAGATIONS) {
-       kitten->kissat->shweep.aborted_kittens++;
+       kitten->kissat->shweep.maxxed_kittens++;
        break;
      } else
 #ifdef STAND_ALONE_KITTEN
