@@ -90,6 +90,7 @@ void shweep_set_desired_depth(kissat *solver, int depth);
 void shweep_do_EU_imports(kissat *solver);
 void shweep_set_wallclock_offset(kissat *solver, double offset);
 double shweep_wallclock(kissat *solver);
+int shweep_get_code_location(kissat *solver);
 
 bool kissat_is_inconsistent (kissat *solver);
 

@@ -36,6 +36,19 @@ const int PURESWEEP_ENDSUBSTITUTE_BUFFER = 15; //end sweeping 5 seconds earlier 
 const int PURESWEEP_START_PROGRESS_CHECK = 10000;
 const double PURESWEEP_MIN_REQUIRED_PROGRESS = 0.001; //same as default sweeping
 
+const int LOC_START=1;
+const int LOC_SWEEP_VAR=2;
+const int LOC_SUBSTITUTING=3;
+const int LOC_RESWEEP_LOOP=4;
+const int LOC_IMPORTING=5;
+const int LOC_CONGR=6;
+const int LOC_SINGLEITER_START=7;
+const int LOC_SINGLEITER_LOOP=8;
+const int LOC_NEXTSCHED=9;
+const int LOC_SEARCHINGWORK=10;
+const int LOC_EXITING_SINGLEITER=11;
+const int LOC_TERM=12;
+
 struct sweeper {
   kissat *solver;
   unsigned *depths;
@@ -2928,6 +2941,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
 
   //Recurse immediately on resweep variables, but implemented in iterative stack instead of nested function call recursion
   for (;;) {
+    solver->shweep_loc=LOC_RESWEEP_LOOP;
     if (solver->shweep_end_job_signal) {
       kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper break out of sweep_with_prop (endjob) @ %.3f", shweep_wallclock(solver));
       break;
@@ -2957,7 +2971,10 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
           solver->shweep.progress_unsched_resweeps++;
       }
       FLAGS(idx)->sweep = false;
+
+      solver->shweep_loc=LOC_SWEEP_VAR;
       sweep_variable(sweeper, idx);
+      solver->shweep_loc=LOC_RESWEEP_LOOP;
     }
 
     if (EMPTY_STACK(sweeper->RESWEEP))
@@ -3409,6 +3426,9 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
   return 10;
 }
 
+int shweep_get_code_location(kissat *solver) {
+  return solver->shweep_loc;
+}
 
 double shweep_wallclock(kissat *solver) {
   return kissat_wall_clock_time () - solver->shweep_t0;
@@ -3419,10 +3439,13 @@ void shweep_set_wallclock_offset(kissat *solver, double offset) {
 }
 
 void shweep_do_EU_imports(kissat *solver) {
+  int lastloc = solver->shweep_loc;
+  solver->shweep_loc = LOC_IMPORTING;
   for (int i=0; i<5;i++) {
     shweep_import_SweepJob_units (solver->sweeper);
     shweep_import_SweepJob_equivalences (solver->sweeper);
   }
+  solver->shweep_loc = lastloc;
 }
 
 void shweep_set_desired_depth(kissat *solver, int depth) {
@@ -3489,6 +3512,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
   // shweep_print_var_stats (solver, V1_INFO_SWEEP);
 
   for (;;) {
+    solver->shweep_loc=LOC_SINGLEITER_LOOP;
     if (solver->inconsistent) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER found UNSAT! (in sweep work loop)");
       break;
@@ -3510,6 +3534,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
       break;
     }
 
+    solver->shweep_loc=LOC_NEXTSCHED;
     unsigned idx = shweep_next_scheduled (&sweeper);
 
     if (solver->shweep_end_job_signal) {
@@ -3529,6 +3554,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
 
     if (idx == INVALID_IDX) {
       //we have no more work, try to steal from somebody else
+      solver->shweep_loc=LOC_SEARCHINGWORK;
       shweep_search_work_from_others (&sweeper);
       if (solver->shweep_end_job_signal) {
         kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exit search work (while endjob) @ %.3f", shweep_wallclock (solver));
@@ -3540,6 +3566,8 @@ int mallob_shweep_single_iteration(kissat *solver) {
     }
   }
 
+
+  solver->shweep_loc=LOC_EXITING_SINGLEITER;
   // assert(solver->end_sweep_iteration || kissat_custom_assert_message (solver, "Sweeper ERROR : left sweeping loop without end_iteration signal "));
 
   //immediately reset the flag to prevent that it lingers and we interpret it again also at the start of the next iteration
@@ -3619,6 +3647,8 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
     return 20;
   }
 
+  solver->shweep_loc=LOC_START;
+
   solver->probing = true;
   solver->shweep.orig_vars = solver->vars;
   solver->shweep.start_units   = SIZE_STACK(solver->units);
@@ -3642,6 +3672,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   solver->shweep_curr_iteration++;
 
   if (GET_OPTION (mallob_initial_congruence)) {
+    solver->shweep_loc=LOC_CONGR;
     if (kissat_congruence (solver)) {
       kissat_substitute (solver, true);
     }
@@ -3650,8 +3681,10 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
 
   while (!solver->shweep_end_job_signal && !solver->inconsistent) {
     solver->shweep_curr_iteration++;
+    solver->shweep_loc=LOC_SINGLEITER_START;
     mallob_shweep_single_iteration (solver);
     kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER substituting");
+    solver->shweep_loc=LOC_SUBSTITUTING;
     kissat_substitute(solver, true);
     //after substitution cleaned up the database we can properly report the metrics of this round
     representative_report_finished_iteration (solver);
@@ -3659,6 +3692,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
     INC(sweep_completed);
   }
 
+  solver->shweep_loc=LOC_TERM;
   shweep_print_import_statistics(solver);
 
   //now we trigger the termination, only after the last substitute. The only remaining function is report_dimacs, which does not test for termination
