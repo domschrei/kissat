@@ -2818,7 +2818,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
     sweeper->singlethread_debugging_provided_work=true;
   }
 
-  assert(stolen_amount>=0 || kissat_custom_assert_message (solver, "ERROR: stolen amount %i is negative \n", stolen_amount));
+  assert((stolen_amount>=0 && stolen_amount <= 2*VARS) || kissat_custom_assert_message (solver, "ERROR: stolen amount %i is negative or too big \n", stolen_amount));
   if (stolen_amount>0) {
     // kissat_custom_message (solver, V3_VVERB_SWEEP, "got steal amount %i", stolen_amount);
     kissat_custom_message (solver, V3_VVERB_SWEEP, "stole %i", stolen_amount);
@@ -3484,6 +3484,10 @@ int mallob_shweep_single_iteration(kissat *solver) {
 
     unsigned idx = shweep_next_scheduled (&sweeper);
 
+    if (solver->shweep_end_job_signal) {
+      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : got next scheduled (while endjob) @ %.3f",kissat_wall_clock_time () - solver->shweep_t0);
+    }
+
     if (idx == INVALID_IDX) {
       //we have no more work, try to steal from somebody else
       /*
@@ -3511,6 +3515,10 @@ int mallob_shweep_single_iteration(kissat *solver) {
         //continue searching
       }*/
       shweep_search_work_from_others (&sweeper);
+      if (solver->shweep_end_job_signal) {
+        kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exit search work (while endjob) @ %.3f",kissat_wall_clock_time () - solver->shweep_t0);
+      }
+
     }
     else {
       shweep_sweep_variable_with_prop (&sweeper, idx, true);
