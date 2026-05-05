@@ -2935,7 +2935,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
     if (solver->termination.flagged)          break;
     if (solver->inconsistent)                 break;
 
-    for (int i=0; i<2;i++) {
+    for (int i=0; i<5;i++) {
       shweep_import_SweepJob_units(sweeper);
       shweep_import_SweepJob_equivalences(sweeper);
     }
@@ -3403,8 +3403,10 @@ void shweep_set_wallclock_offset(kissat *solver, double offset) {
 }
 
 void shweep_check_EU_imports(kissat *solver) {
+  for (int i=0; i<5;i++) {
     shweep_import_SweepJob_units (solver->sweeper);
     shweep_import_SweepJob_equivalences (solver->sweeper);
+  }
 }
 
 void shweep_set_desired_depth(kissat *solver, int depth) {
@@ -3502,6 +3504,11 @@ int mallob_shweep_single_iteration(kissat *solver) {
     const float WARN_NOWORKPROGRESS_SEC = 3;
     if (solver->shweep_last_workestimate_timestamp + WARN_NOWORKPROGRESS_SEC < shweep_wallclock (solver) ) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper WARN : no progress in workestimate! head %i, end %i  @ %.3f", sweeper.work_head, sweeper.work_end, shweep_wallclock (solver));
+    }
+
+    for (int i=0; i<5;i++) {
+      shweep_import_SweepJob_units(&sweeper);
+      shweep_import_SweepJob_equivalences(&sweeper);
     }
 
     if (idx == INVALID_IDX) {
