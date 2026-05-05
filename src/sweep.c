@@ -2103,8 +2103,10 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
      * All backbone-variables have been propagated
      * All non-backbone variables are partitioned into potential equivalence classes
       */
+    solver->shweep_reps_debug=0;
     START (sweepequivalences);
     while (!EMPTY_STACK (sweeper->partition)) {
+      solver->shweep_reps_debug++;
       // kissat_custom_message(solver, V4_UVERB_SWEEP, "    P(%i)", SIZE_STACK(sweeper->partition));
       if (solver->inconsistent || TERMINATED (sweep_terminated_5) ||
           kitten_ticks_limit_hit (sweeper, "partition refinement")) {
@@ -3347,20 +3349,20 @@ static void kissat_puresweep_report(kissat *solver, const char *prefix, unsigned
 }
 
 
-int kissat_mallob_shweep_just_import(kissat *solver) {
-  sweeper sweeper;
-  init_sweeper (solver, &sweeper);
-  int units = solver->statistics.sweep_units;
-  int eqs   = solver->statistics.sweep_equivalences;
-  shweep_import_SweepJob_units (&sweeper);
-  shweep_import_SweepJob_equivalences (&sweeper);
-  release_sweeper (&sweeper);
-  units = solver->statistics.sweep_units - units;
-  eqs   = solver->statistics.sweep_equivalences - eqs;
-  kissat_custom_message (solver, V2_VERB_SWEEP, "CCC/SWEEP Import: %i eqs, %i units", eqs, units);
-  kissat_substitute (solver, true);
-  return 0;
-}
+// int kissat_mallob_shweep_just_import(kissat *solver) {
+  // sweeper sweeper;
+  // init_sweeper (solver, &sweeper);
+  // int units = solver->statistics.sweep_units;
+  // int eqs   = solver->statistics.sweep_equivalences;
+  // shweep_import_SweepJob_units (&sweeper);
+  // shweep_import_SweepJob_equivalences (&sweeper);
+  // release_sweeper (&sweeper);
+  // units = solver->statistics.sweep_units - units;
+  // eqs   = solver->statistics.sweep_equivalences - eqs;
+  // kissat_custom_message (solver, V2_VERB_SWEEP, "CCC/SWEEP Import: %i eqs, %i units", eqs, units);
+  // kissat_substitute (solver, true);
+  // return 0;
+// }
 
 
 
@@ -3435,6 +3437,11 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
   return 10;
 }
 
+
+int shweep_get_reps_debug(kissat *solver) {
+  return solver->shweep_reps_debug;
+}
+
 int shweep_get_code_location(kissat *solver) {
   return solver->shweep_loc;
 }
@@ -3453,6 +3460,10 @@ void shweep_set_wallclock_offset(kissat *solver, double offset) {
 }
 
 void shweep_do_EU_imports(kissat *solver) {
+  //Skip importing anything if the job already terminated and we are not the representative solver
+  if (solver->shweep_end_job_signal && !solver->shweep_report_finished_iteration_callback) {
+    return;
+  }
   int lastloc = solver->shweep_loc;
   solver->shweep_loc = LOC_IMPORTING;
   for (int i=0; i<5;i++) {

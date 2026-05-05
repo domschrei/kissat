@@ -8,7 +8,7 @@ bool kissat_sweep (struct kissat *);
 
 int kissat_mallob_shweep(struct kissat *);
 
-int kissat_mallob_shweep_just_import(struct kissat *);
+// int kissat_mallob_shweep_just_import(struct kissat *);
 
 int kissat_pure_sequential_sweeping(struct kissat *);
 
