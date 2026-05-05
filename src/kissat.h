@@ -87,7 +87,7 @@ bool shweep_get_end_job_signal(kissat *solver);
 int shweep_get_curr_iteration(kissat *solver);
 void shweep_set_env_completions(kissat *solver, int env_completions);
 void shweep_set_desired_depth(kissat *solver, int depth);
-void shweep_check_EU_imports(kissat *solver);
+void shweep_do_EU_imports(kissat *solver);
 void shweep_set_wallclock_offset(kissat *solver, double offset);
 double shweep_wallclock(kissat *solver);
 

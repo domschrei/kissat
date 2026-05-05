@@ -2939,12 +2939,9 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
     if (solver->termination.flagged)          break;
     if (solver->inconsistent)                 break;
 
-    for (int i=0; i<5;i++) {
-      shweep_import_SweepJob_units(sweeper);
-      shweep_import_SweepJob_equivalences(sweeper);
-    }
-
+    shweep_do_EU_imports (solver);
     if (shweep_sweepable_variable(sweeper, idx)) {
+      shweep_do_EU_imports (solver);
       kissat_custom_message(solver, V3_VVERB_SWEEP,
                             "sweeping idx %u [%i=head, %i max left]",
                             idx, sweeper->work_head, sweeper->max_work_after_steal);
@@ -3421,7 +3418,7 @@ void shweep_set_wallclock_offset(kissat *solver, double offset) {
   solver->shweep_t0 = offset;
 }
 
-void shweep_check_EU_imports(kissat *solver) {
+void shweep_do_EU_imports(kissat *solver) {
   for (int i=0; i<5;i++) {
     shweep_import_SweepJob_units (solver->sweeper);
     shweep_import_SweepJob_equivalences (solver->sweeper);
@@ -3528,10 +3525,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper WARN : no progress in workestimate! head %i, end %i  @ %.3f", sweeper.work_head, sweeper.work_end, shweep_wallclock (solver));
     }
 
-    for (int i=0; i<5;i++) {
-      shweep_import_SweepJob_units(&sweeper);
-      shweep_import_SweepJob_equivalences(&sweeper);
-    }
+    shweep_do_EU_imports (solver);
 
     if (idx == INVALID_IDX) {
       //we have no more work, try to steal from somebody else
@@ -3569,10 +3563,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
   solver->shweeper_allows_stealing = false;
 
   //at the very end of a job there is one additional import round that could be missed if we didn't do multiple import attempts here, since for every distinct round a new attempt is needed
-  for (int i=0; i<3; i++) {
-    shweep_import_SweepJob_units (&sweeper);
-    shweep_import_SweepJob_equivalences (&sweeper);
-  }
+  shweep_do_EU_imports (solver);
 
   equivalences = statistics->sweep_equivalences - equivalences,
   units = solver->statistics.sweep_units - units;
