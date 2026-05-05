@@ -2929,7 +2929,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
   for (;;) {
     if (solver->shweep_end_iteration_signal) break;
     if (solver->shweep_end_job_signal) {
-      kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper break out of sweep_with_prop (due to endjob signal) @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
+      kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper break out of sweep_with_prop (endjob signal) @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
       break;
     }
     if (solver->termination.flagged)          break;
@@ -3474,11 +3474,11 @@ int mallob_shweep_single_iteration(kissat *solver) {
       break;
     }
     if (solver->shweep_end_job_signal) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting sweeping loop, saw end_sweepjob @ %.3f",kissat_wall_clock_time () - solver->shweep_t0);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting sweeping loop (endjob) @ %.3f",kissat_wall_clock_time () - solver->shweep_t0);
       break;
     }
     if (solver->shweep_end_iteration_signal) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting sweeping loop, saw end_iteration @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
+      kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER exiting sweeping loop (enditer) @ %.3f", kissat_wall_clock_time () - solver->shweep_t0);
       break;
     }
 
