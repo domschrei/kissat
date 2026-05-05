@@ -417,6 +417,7 @@ static void sweep_clause (sweeper *sweeper, unsigned depth) {
 
 
 
+/*
 static bool stumbled_unit_in_binary(kissat *solver, unsigned lit, unsigned other) {
   value *values = solver->values;
   if (values[lit]) {
@@ -427,7 +428,7 @@ static bool stumbled_unit_in_binary(kissat *solver, unsigned lit, unsigned other
       if (values[other]==0) {
         //NEW: directly assign this detected unit here in place
         kissat_assign_unit (solver, other, "stumbled while kitten-copying");
-        /* Catch for Mallob Sharing */
+        //Catch for Mallob Sharing
         if (GET_OPTION (mallob_is_shweeper)) {
           //    remove elit after debugging!
           //    int elit = kissat_export_literal (solver, other);
@@ -443,6 +444,7 @@ static bool stumbled_unit_in_binary(kissat *solver, unsigned lit, unsigned other
   }
   return false;
 }
+**/
 
 
 
@@ -469,6 +471,7 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
 
   if (GET_OPTION (mallob_is_shweeper) && values[lit]!=0) {
     solver->shweep.stumbled_units++;
+    kissat_custom_message (solver, V0_CRIT_SWEEP, "stumbled in sweep_binary @ %.3f", shweep_wallclock (solver));
     return;
   }
   // if (stumbled_unit_in_binary (solver, lit, other))
@@ -496,6 +499,7 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
 
   if (GET_OPTION (mallob_is_shweeper) && other_value!=0) {
     solver->shweep.stumbled_units++;
+    kissat_custom_message (solver, V0_CRIT_SWEEP, "stumbled in sweep_binary @ %.3f", shweep_wallclock (solver));
     return;
   }
   // if (stumbled_unit_in_binary (solver, other, lit))
@@ -567,6 +571,7 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
     //Assigning/propagating it now *should* be allowed, but if we do it wrong it could cause logical problems, whereas ignoring it here just minimally degrades performance
     CLEAR_STACK (sweeper->clause);
     solver->shweep.stumbled_units++;
+    kissat_custom_message (solver, V0_CRIT_SWEEP, "stumbled in sweep_reference @ %.3f", shweep_wallclock (solver));
     return;
 
 
