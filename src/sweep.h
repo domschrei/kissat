@@ -14,4 +14,7 @@ int kissat_pure_sequential_sweeping(struct kissat *);
 
 int kissat_mallob_distributed_sweep_multiple_iterations(struct kissat *);
 
+
+bool shweep_exit_from_inner(struct kissat *);
+
 #endif

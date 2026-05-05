@@ -220,6 +220,7 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     SET_EFFORT_LIMIT (ticks_limit, sweep, kitten_ticks);
     sweeper->limit.ticks = ticks_limit;
   }
+
   set_kitten_ticks_limit (sweeper);
 
 
@@ -2927,9 +2928,12 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
 
   //Recurse immediately on resweep variables, but implemented in iterative stack instead of nested function call recursion
   for (;;) {
-    if (solver->shweep_end_iteration_signal) break;
     if (solver->shweep_end_job_signal) {
-      kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper break out of sweep_with_prop (endjob signal) @ %.3f", shweep_wallclock(solver));
+      kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper break out of sweep_with_prop (endjob) @ %.3f", shweep_wallclock(solver));
+      break;
+    }
+    if (solver->shweep_end_iteration_signal) {
+      kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper break out of sweep_with_prop (enditer) @ %.3f", shweep_wallclock(solver));
       break;
     }
     if (solver->termination.flagged)          break;
@@ -3007,6 +3011,21 @@ unsigned shweep_get_num_vars(kissat *solver) {
   return solver->vars;
 }
 
+
+bool shweep_exit_from_inner(kissat *solver) {
+  if (!GET_OPTION (mallob_is_shweeper)) {
+    return false;
+  }
+  if (solver->shweep_end_job_signal) {
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper exiting due to (endjob) @ %.3f", shweep_wallclock(solver));
+    return true;
+  }
+  if (solver->shweep_end_iteration_signal) {
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Sweeper exiting due to (enditer) @ %.3f", shweep_wallclock(solver));
+    return true;
+  }
+  return false;
+}
 
 
 struct shweep_statistics shweep_get_statistics (kissat * solver) {
@@ -3424,7 +3443,10 @@ void shweep_set_end_iteration_signal(kissat *solver) {
 
 void shweep_set_end_job_signal(kissat *solver) {
   solver->shweep_end_job_signal = true;
-  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER received end_sweepjob signal! @ %.3f", shweep_wallclock (solver));
+  if (solver->sweeper) {
+    solver->sweeper->limit.ticks = 0; //Hijack this limit counter to immediately exit all nested sweep functions
+  }
+  kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER received end_sweepjob signal! limit.ticks=0. @ %.3f", shweep_wallclock (solver));
 }
 
 bool shweep_get_end_iteration_signal(kissat *solver) {
@@ -3513,30 +3535,6 @@ int mallob_shweep_single_iteration(kissat *solver) {
 
     if (idx == INVALID_IDX) {
       //we have no more work, try to steal from somebody else
-      /*
-      while (true) {
-        unsigned stolen = shweep_search_work_from_others (&sweeper);
-        if (stolen>0) {
-          //we found some new work, can continue sweeping it
-          break;
-        }
-        if (solver->termination.flagged) {
-          kissat_custom_message(solver,V0_CRIT_SWEEP, "Sweeper WARN : exiting iteration loop due to termination.flagged instead of end_iteration !!\n");
-          break;
-        }
-        if (solver->shweep_end_iteration_signal) {
-          kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting stealing loop, saw end_iteration\n");
-          break;
-        }
-        if (solver->shweep_end_job_signal) {
-          kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exiting stealing loop, saw end_sweepjob\n");
-          break;
-        }
-        //We now interleave eq/unit importing with worksteal attempts, because it happened before that the solver was stuck for so long in workstealing that multiple sharing rounds were missed
-        shweep_import_SweepJob_units (&sweeper);
-        shweep_import_SweepJob_equivalences (&sweeper);
-        //continue searching
-      }*/
       shweep_search_work_from_others (&sweeper);
       if (solver->shweep_end_job_signal) {
         kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : exit search work (while endjob) @ %.3f", shweep_wallclock (solver));
