@@ -3442,7 +3442,7 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
   return 10;
 }
 
-int shweep_kitten_propagations(kissat *solver) {
+unsigned long shweep_kitten_propagations(kissat *solver) {
   return solver->statistics.kitten_propagations;
 }
 
