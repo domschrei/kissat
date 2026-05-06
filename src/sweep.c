@@ -3350,6 +3350,7 @@ static void kissat_puresweep_report(kissat *solver, const char *prefix, unsigned
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_FIXED   %i",   prefix, solver->vars - solver->active);
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_ACTIVE  %i",   prefix, solver->active);
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s_CLAUSES %i",   prefix, CLAUSES);
+  kissat_custom_message(solver, V2_VERB_SWEEP, "%s maxxedKittens: %i",   prefix, solver->shweep.maxxed_kittens);
   kissat_custom_message(solver, V2_VERB_SWEEP, "%s new fixed variables: %i",   prefix, active_before - solver->active);
 }
 
@@ -3400,6 +3401,7 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
 
   solver->shweep.env_completions=0;
   solver->shweep.desired_depth=0;
+  solver->shweep.maxxed_kittens=0;
 
   //we try at least one semantic sweep round since it might find more than syntactic congruence closure
   for (int i=1; i<=GET_OPTION (puresweep_iterations) || GET_OPTION (puresweep_tocompletion); i++) {
