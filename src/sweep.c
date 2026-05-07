@@ -52,6 +52,8 @@ const int LOC_FIRSTMODEL=13;
 const int LOC_EQPAIRLOOP=14;
 const int LOC_KITTEN=15;
 
+const int INVALID_ELIT=INT32_MAX;
+
 struct sweeper {
   kissat *solver;
   unsigned *depths;
@@ -2631,8 +2633,13 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   for (;;) {
     int elit = 0;
     solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &elit, sweeper->localId);
-    if (elit==0) {
+    if (elit==INVALID_ELIT) {
+      //Mallob signals that there are no more units to import
       break;
+    }
+    if (elit==0) {
+      //Mallob signals that the current import round is fully imported, but there are additional ones waiting and ready, call import again
+      continue;
     }
 
 
@@ -2684,8 +2691,13 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
     int elit1 = 0; //Mallob will leave them untouched if there is no equivalence to provide
     int elit2 = 0;
     solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &elit1, &elit2, sweeper->localId);
-    if (elit1 == 0 || elit2 == 0) {
+    if (elit1 == INVALID_ELIT && elit2 == INVALID_ELIT) {
+      //there is nothing more to import, exit
       break;
+    }
+    if (elit1==0 && elit2 == 0) {
+      //there is more to import, call import again to get into the next import round
+      continue;
     }
 
     if (solver->inconsistent) {
@@ -3476,7 +3488,7 @@ void shweep_do_EU_imports(kissat *solver) {
   }
   int lastloc = solver->shweep_loc;
   solver->shweep_loc = LOC_IMPORTING;
-  for (int i=0; i<5;i++) {
+  for (int i=0; i<1;i++) {
     shweep_import_SweepJob_units (solver->sweeper);
     shweep_import_SweepJob_equivalences (solver->sweeper);
   }
