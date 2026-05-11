@@ -3743,6 +3743,7 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   solver->shweep_loc=LOC_TERM;
   shweep_print_import_statistics(solver);
 
+  //fmcad commit
   //now we trigger the termination, only after the last substitute. The only remaining function is report_dimacs, which does not test for termination
   kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER ENDED, now triggering own termination @ %.3f", shweep_wallclock (solver));
   kissat_terminate (solver);
