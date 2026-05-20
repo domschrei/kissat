@@ -249,7 +249,6 @@ struct kissat {
   void (*on_lrup_import)     (void* state, unsigned long id, const int* lits, int nbLits, const unsigned char* sigData);
   void (*on_drup_deletion)   (void* state, const int* lits, int nbLits);
 #endif
-
   // Clause export
   void *consume_clause_state;
   int *consume_clause_buffer;
@@ -262,20 +261,20 @@ struct kissat {
   void (*produce_clause) (void *state, int **clause, int *size, int *glue, unsigned long *id, unsigned char *sig);
   unsigned long num_conflicts_at_last_import;
 
-
   //--------------------------------------------------------------------------------
-  //For distributed equivalence sweeping, coordinated by Mallob
+  //MallobSweep
   sweeper *sweeper;
-  bool shweeper_in_congruence;
+  //These flags are stored on the solver-level,
+  //because individual sweeper-structs only live for one sweep iteration
   volatile int shweep_curr_iteration;
   volatile bool shweep_end_iteration_signal;
   volatile bool shweep_end_job_signal;
   double shweep_t0;
-  int shweep_loc;
-  int shweep_reps_debug;
-  // int shweep_aborted_kittens;
+  // int shweep_loc;
+  // int shweep_reps_debug;
 
-  //there exist time-windows in between the sweep iterations where no (accessible) sweeper object exists, we track on the permanent solver-level whether a sweeper exists and is accessible to steal right now
+  //there exist time-windows inbetween the sweep iterations where no (accessible) sweeper object exists.
+  //we track on the solver-level (permanently avialable) whether such a sweeper exists and is accessible for stealing right now
   volatile bool shweeper_allows_stealing;
 
   double shweep_last_workestimate_timestamp;

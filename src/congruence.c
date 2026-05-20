@@ -1,6 +1,4 @@
 #include "congruence.h"
-
-#include "backtrack.h"
 #include "dense.h"
 #include "fifo.h"
 #include "inline.h"
@@ -17,22 +15,9 @@
 #include "trail.h"
 #include "utilities.h"
 
-#include "clauseexport.h"
-#include "reduce.h"
-#include "substitute.h" //for Mallob Congruencer
-#include "transitive.h"
-#include "sweep.h" //to import units and equivalences
-
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
-
-
-#define V0_CRIT 0
-#define V1_WARN 1
-#define V2_INFO 2
-#define V3_VERB 3
-#define V4_VVERB 4
 
 // #define INDEX_LARGE_CLAUSES
 // #define INDEX_BINARY_CLAUSES
@@ -153,8 +138,6 @@ struct closure {
 #ifndef NDEBUG
   unsigneds implied;
 #endif
-  //Mallob
-  int localId;
 };
 
 typedef struct closure closure;
@@ -190,7 +173,6 @@ static void init_closure (kissat *solver, closure *closure) {
 #ifndef NDEBUG
   INIT_STACK (closure->implied);
 #endif
-  closure->localId = GET_OPTION (mallob_local_id);
 }
 
 static size_t bytes_gate (size_t arity) {
@@ -809,7 +791,7 @@ static clause *find_ternary_clause (kissat *solver, unsigned a, unsigned b,
 
 #endif
 
-static bool learn_congruence_unit (closure *closure, unsigned unit, bool importing) {
+static bool learn_congruence_unit (closure *closure, unsigned unit) {
   kissat *const solver = closure->solver;
   assert (!solver->inconsistent);
   const value value = solver->values[unit];
@@ -825,18 +807,6 @@ static bool learn_congruence_unit (closure *closure, unsigned unit, bool importi
   }
   LOG ("learning congruence unit %s", LOGLIT (unit));
   kissat_learned_unit (solver, unit);
-
-  // if (GET_OPTION (mallob_is_congruencer)) {
-    // if (importing) {
-      // kissat_custom_message(solver, V4_VVERB, "CCC Importing unit %i", unit);
-      // solver->shweep.units_useful++;
-    // } else {
-      // shweep_export_unit (solver, unit) ;
-      // kissat_custom_message(solver, V2_INFO, "CCC exporting unit %i", unit);
-      // solver->shweep.congr_units++;
-    // }
-  // }
-
   clause *conflict = kissat_probing_propagate (solver, 0, false);
   if (!conflict)
     return true;
@@ -865,7 +835,7 @@ static void add_binary_clause (closure *closure, unsigned a, unsigned b) {
   else if (!a_value && b_value < 0)
     unit = a;
   if (unit != INVALID_LIT) {
-    (void) !learn_congruence_unit (closure, unit,false);
+    (void) !learn_congruence_unit (closure, unit);
     return;
   }
   assert (!a_value), assert (!b_value);
@@ -905,8 +875,7 @@ static unsigned dequeue_next_scheduled_literal (closure *closure) {
 }
 
 static bool merge_literals (closure *closure, unsigned lit,
-                            unsigned other,
-                            bool importing) {
+                            unsigned other) {
   kissat *const solver = closure->solver;
   assert (!solver->inconsistent);
   unsigned repr_lit = find_repr (closure, lit);
@@ -940,14 +909,14 @@ static bool merge_literals (closure *closure, unsigned lit,
     LOG ("merging assigned %s and unassigned %s", LOGREPR (lit, repr),
          LOGREPR (other, repr));
     const unsigned unit = (lit_value < 0) ? NOT (other) : other;
-    (void) learn_congruence_unit (closure, unit,false);
+    (void) learn_congruence_unit (closure, unit);
     return false;
   }
   if (!lit_value && other_value) {
     LOG ("merging unassigned %s and assigned %s", LOGREPR (lit, repr),
          LOGREPR (other, repr));
     const unsigned unit = (other_value < 0) ? NOT (lit) : lit;
-    (void) learn_congruence_unit (closure, unit,false);
+    (void) learn_congruence_unit (closure, unit);
     return false;
   }
   unsigned smaller = repr_lit;
@@ -977,16 +946,6 @@ static bool merge_literals (closure *closure, unsigned lit,
   add_binary_clause (closure, larger, not_smaller);
   schedule_literal (closure, larger);
   INC (congruent);
-  // if (GET_OPTION (mallob_is_congruencer)) {
-    // if (importing) {
-      // kissat_custom_message (solver, V3_VERB, "CCC importing eq ilit(%i)==ilit(%i)", smaller, larger);
-      // solver->shweep.eqs_useful++;
-    // } else {
-      // shweep_export_equivalence(solver, smaller, larger);
-      // kissat_custom_message (solver, V2_INFO, "CCC exporting eq ilit(%i)==ilit(%i)", smaller, larger);
-      // solver->shweep.congr_eqs++;
-    // }
-  // }
   return true;
 }
 
@@ -1060,7 +1019,7 @@ static gate *new_and_gate (closure *closure, unsigned lhs) {
   unsigned hash;
   gate *g = find_and_lits (closure, &hash, arity, rhs_lits, 0);
   if (g) {
-    if (merge_literals (closure, g->lhs, lhs, false))
+    if (merge_literals (closure, g->lhs, lhs))
       INC (congruent_ands);
     return 0;
   }
@@ -1247,7 +1206,7 @@ static gate *new_xor_gate (closure *closure, unsigned lhs) {
   gate *g = find_xor_lits (closure, &hash, arity, rhs_lits, 0);
   if (g) {
     add_xor_matching_proof_chain (closure, g, g->lhs, lhs);
-    if (merge_literals (closure, g->lhs, lhs, false))
+    if (merge_literals (closure, g->lhs, lhs))
       INC (congruent_xors);
     if (!solver->inconsistent)
       delete_proof_chain (closure);
@@ -1403,7 +1362,7 @@ static gate *new_ite_gate (closure *closure, unsigned lhs, unsigned cond,
   if (else_lit == then_lit) {
     LOG ("found trivial ITE gate %s := %s ? %s : %s", LOGLIT (lhs),
          LOGLIT (cond), LOGLIT (then_lit), LOGLIT (else_lit));
-    if (merge_literals (closure, lhs, then_lit, false))
+    if (merge_literals (closure, lhs, then_lit))
       INC (congruent_trivial_ite);
     return 0;
   }
@@ -1422,7 +1381,7 @@ static gate *new_ite_gate (closure *closure, unsigned lhs, unsigned cond,
     if (negate_lhs)
       lhs = NOT (lhs);
     add_ite_matching_proof_chain (closure, g, g->lhs, lhs);
-    if (merge_literals (closure, g->lhs, lhs, false))
+    if (merge_literals (closure, g->lhs, lhs))
       INC (congruent_ites);
     if (!solver->inconsistent)
       delete_proof_chain (closure);
@@ -1527,14 +1486,14 @@ static void update_and_gate (closure *closure, gate *g, unsigned falsifies,
   bool garbage = true;
   kissat *const solver = closure->solver;
   if (falsifies != INVALID_LIT || clashing != INVALID_LIT)
-    (void) learn_congruence_unit (closure, NOT (g->lhs),false);
+    (void) learn_congruence_unit (closure, NOT (g->lhs));
   else if (g->arity == 1) {
     const value value_lhs = VALUE (g->lhs);
     if (value_lhs > 0)
-      (void) learn_congruence_unit (closure, g->rhs[0],false);
+      (void) learn_congruence_unit (closure, g->rhs[0]);
     else if (value_lhs < 0)
-      (void) learn_congruence_unit (closure, NOT (g->rhs[0]),false);
-    else if (merge_literals (closure, g->lhs, g->rhs[0], false)) {
+      (void) learn_congruence_unit (closure, NOT (g->rhs[0]));
+    else if (merge_literals (closure, g->lhs, g->rhs[0])) {
       INC (congruent_unary_ands);
       INC (congruent_unary);
     }
@@ -1543,7 +1502,7 @@ static void update_and_gate (closure *closure, gate *g, unsigned falsifies,
     gate *h = find_and_gate (closure, &hash, g);
     if (h) {
       assert (garbage);
-      if (merge_literals (closure, g->lhs, h->lhs, false))
+      if (merge_literals (closure, g->lhs, h->lhs))
         INC (congruent_ands);
     } else {
       remove_gate (closure, g);
@@ -1734,14 +1693,14 @@ static void update_xor_gate (closure *closure, gate *g) {
   kissat *const solver = closure->solver;
   bool garbage = true;
   if (g->arity == 0)
-    (void) learn_congruence_unit (closure, NOT (g->lhs),false);
+    (void) learn_congruence_unit (closure, NOT (g->lhs));
   else if (g->arity == 1) {
     const value value_lhs = VALUE (g->lhs);
     if (value_lhs > 0)
-      (void) learn_congruence_unit (closure, g->rhs[0],false);
+      (void) learn_congruence_unit (closure, g->rhs[0]);
     else if (value_lhs < 0)
-      (void) learn_congruence_unit (closure, NOT (g->rhs[0]),false);
-    else if (merge_literals (closure, g->lhs, g->rhs[0], false)) {
+      (void) learn_congruence_unit (closure, NOT (g->rhs[0]));
+    else if (merge_literals (closure, g->lhs, g->rhs[0])) {
       INC (congruent_unary_xors);
       INC (congruent_unary);
     }
@@ -1752,7 +1711,7 @@ static void update_xor_gate (closure *closure, gate *g) {
     if (h) {
       assert (garbage);
       add_xor_matching_proof_chain (closure, g, g->lhs, h->lhs);
-      if (merge_literals (closure, g->lhs, h->lhs, false))
+      if (merge_literals (closure, g->lhs, h->lhs))
         INC (congruent_xors);
       if (!solver->inconsistent)
         delete_proof_chain (closure);
@@ -1880,12 +1839,12 @@ static void simplify_ite_gate (closure *closure, gate *g) {
   const unsigned else_lit = rhs[2];
   const value cond_value = values[cond];
   if (cond_value > 0) {
-    if (merge_literals (closure, lhs, then_lit, false)) {
+    if (merge_literals (closure, lhs, then_lit)) {
       INC (congruent_unary_ites);
       INC (congruent_unary);
     }
   } else if (cond_value < 0) {
-    if (merge_literals (closure, lhs, else_lit, false)) {
+    if (merge_literals (closure, lhs, else_lit)) {
       INC (congruent_unary_ites);
       INC (congruent_unary);
     }
@@ -1895,17 +1854,17 @@ static void simplify_ite_gate (closure *closure, gate *g) {
     const unsigned not_lhs = NOT (lhs);
     assert (then_value || else_value);
     if (then_value > 0 && else_value > 0)
-      learn_congruence_unit (closure, lhs,false);
+      learn_congruence_unit (closure, lhs);
     else if (then_value < 0 && else_value < 0)
-      learn_congruence_unit (closure, not_lhs,false);
+      learn_congruence_unit (closure, not_lhs);
     else if (then_value > 0 && else_value < 0) {
-      if (merge_literals (closure, lhs, cond, false)) {
+      if (merge_literals (closure, lhs, cond)) {
         INC (congruent_unary_ites);
         INC (congruent_unary);
       }
     } else if (then_value < 0 && else_value > 0) {
       const unsigned not_cond = NOT (cond);
-      if (merge_literals (closure, lhs, not_cond, false)) {
+      if (merge_literals (closure, lhs, not_cond)) {
         INC (congruent_unary_ites);
         INC (congruent_unary);
       }
@@ -1946,7 +1905,7 @@ static void simplify_ite_gate (closure *closure, gate *g) {
       gate *h = find_and_gate (closure, &hash, g);
       if (h) {
         assert (garbage);
-        if (merge_literals (closure, g->lhs, h->lhs, false))
+        if (merge_literals (closure, g->lhs, h->lhs))
           INC (congruent_ands);
       } else {
         remove_gate (closure, g);
@@ -2041,7 +2000,7 @@ static void rewrite_ite_gate (closure *closure, gate *g, unsigned dst,
     } else if (dst == else_lit) {
       // cond ? else_lit : else_lit
       // else_lit
-      if (merge_literals (closure, lhs, else_lit, false)) {
+      if (merge_literals (closure, lhs, else_lit)) {
         INC (congruent_unary_ites);
         INC (congruent_unary);
       }
@@ -2077,7 +2036,7 @@ static void rewrite_ite_gate (closure *closure, gate *g, unsigned dst,
     } else if (dst == then_lit) {
       // cond ? then_lit : then_lit
       // then_lit
-      if (merge_literals (closure, lhs, then_lit, false)) {
+      if (merge_literals (closure, lhs, then_lit)) {
         INC (congruent_unary_ites);
         INC (congruent_unary);
       }
@@ -2136,7 +2095,7 @@ static void rewrite_ite_gate (closure *closure, gate *g, unsigned dst,
           add_xor_matching_proof_chain (closure, g, g->lhs, h->lhs);
         else
           add_ite_turned_and_binary_clauses (closure, g);
-        if (merge_literals (closure, g->lhs, h->lhs, false))
+        if (merge_literals (closure, g->lhs, h->lhs))
           INC (congruent_ands);
         if (!solver->inconsistent)
           delete_proof_chain (closure);
@@ -2172,7 +2131,7 @@ static void rewrite_ite_gate (closure *closure, gate *g, unsigned dst,
         garbage = true;
         unsigned normalized_lhs = negate_lhs ? not_lhs : lhs;
         add_ite_matching_proof_chain (closure, h, h->lhs, normalized_lhs);
-        if (merge_literals (closure, h->lhs, normalized_lhs, false))
+        if (merge_literals (closure, h->lhs, normalized_lhs))
           INC (congruent_ites);
         if (!solver->inconsistent)
           delete_proof_chain (closure);
@@ -4069,7 +4028,6 @@ static void extract_gates (closure *closure) {
 
 static void find_units (closure *closure) {
   kissat *const solver = closure->solver;
-  // kissat_custom_message(solver, V2_INFO, "CCC find units");
   assert (solver->watching);
   assert (!solver->inconsistent);
   assert (kissat_propagated (solver));
@@ -4098,7 +4056,7 @@ static void find_units (closure *closure) {
                LOGLIT (other), LOGLIT (lit), LOGLIT (not_other),
                LOGLIT (lit));
           units++;
-          bool failed = !learn_congruence_unit (closure, lit,false);
+          bool failed = !learn_congruence_unit (closure, lit);
           unmark_all (marked, marks);
           if (failed)
             return;
@@ -4116,7 +4074,6 @@ static void find_units (closure *closure) {
   assert (EMPTY_STACK (*marked));
 #ifndef QUIET
   kissat_very_verbose (solver, "found %zu units", units);
-  // kissat_custom_message (solver, 2, "congruence %zu units", units);
 #else
   (void) units;
 #endif
@@ -4124,7 +4081,6 @@ static void find_units (closure *closure) {
 
 static void find_equivalences (closure *closure) {
   kissat *const solver = closure->solver;
-  // kissat_custom_message(solver, V2_INFO, "CCC find eqs");
   assert (solver->watching);
   assert (!solver->inconsistent);
   unsigneds *const marked = &solver->analyzed;
@@ -4171,7 +4127,7 @@ static void find_equivalences (closure *closure) {
         unsigned lit_repr = find_repr (closure, lit);
         unsigned other_repr = find_repr (closure, other);
         if (lit_repr != other_repr) {
-          if (merge_literals (closure, lit, other, false))
+          if (merge_literals (closure, lit, other))
             INC (congruent_equivalences);
           unmark_all (marked, marks);
           if (solver->inconsistent)
@@ -4187,7 +4143,6 @@ static void find_equivalences (closure *closure) {
 #ifndef QUIET
   size_t found = SIZE_FIFO (closure->schedule);
   kissat_very_verbose (solver, "found %zu equivalences", found);
-  // kissat_custom_message (solver, 2, "congruence %zu equivalences", found);
 #endif
 }
 
@@ -4229,7 +4184,6 @@ static bool propagate_unit (closure *closure, unsigned lit) {
 
 static bool propagate_equivalence (closure *closure, unsigned lit) {
   kissat *const solver = closure->solver;
-  // kissat_custom_message(solver, V2_INFO, "CCC propagate eq");
   LOG ("propagation of congruence equivalence %s", CLOGREPR (lit));
   assert (!solver->inconsistent);
   if (VALUE (lit))
@@ -4245,7 +4199,6 @@ static bool propagate_equivalence (closure *closure, unsigned lit) {
 
 static bool propagate_units (closure *closure) {
   kissat *const solver = closure->solver;
-  // kissat_custom_message(solver, V2_INFO, "CCC propagate units");
   assert (!solver->inconsistent);
   const unsigned_array *const trail = &solver->trail;
   while (closure->units != trail->end)
@@ -4256,7 +4209,6 @@ static bool propagate_units (closure *closure) {
 
 static size_t propagate_units_and_equivalences (closure *closure) {
   kissat *const solver = closure->solver;
-  // kissat_custom_message(solver, V2_INFO, "CCC propagate u&e");
   assert (!solver->inconsistent);
   START (merge);
   unsigned_fifo *schedule = &closure->schedule;
@@ -4493,7 +4445,6 @@ static void sort_references_by_clause_size (kissat *solver,
 
 static void forward_subsume_matching_clauses (closure *closure) {
   kissat *const solver = closure->solver;
-  // kissat_custom_message(solver, V2_INFO, "CCC forward subsume");
   START (matching);
   reset_closure (closure);
   litpairs binaries;
@@ -4624,79 +4575,7 @@ static void forward_subsume_matching_clauses (closure *closure) {
   STOP (matching);
 }
 
-
-/*
-void congruencer_import_units(closure *closure) {
-  kissat *solver = closure->solver;
-  if (!solver->shweep_import_SweepJob_eq_callback)
-    return;
-
-  unsigned long seen = solver->shweep.units_seen;
-  unsigned long useful = solver->shweep.units_useful;
-
-  for (;;) {
-    unsigned ilit = INVALID_LIT;
-    solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &ilit, closure->localId); //the semantic format is always unsigned, but the function signature is int to keep it simple for the outside
-    if (ilit==INVALID_LIT)
-      break;
-    solver->shweep.units_seen++;
-    const unsigned repr_ilit = find_repr(closure, ilit);
-    learn_congruence_unit(closure, repr_ilit, true);
-  }
-
-  unsigned long new_seen = solver->shweep.units_seen - seen;
-  // unsigned long new_useful = solver->shweep.units_useful - useful;
-  if (new_seen>0) {
-    // kissat_custom_message(solver, V2_INFO, "CCC Imported %i / %i units ", new_useful, new_seen);
-  }
-
-}
-
-
-void congruencer_import_equivalences(closure *closure) {
-
-  kissat *solver = closure->solver;
-  if (!solver->shweep_import_SweepJob_eq_callback)
-    return;
-
-  unsigned long seen   = solver->shweep.eqs_seen;
-  unsigned long useful = solver->statistics.congruent;
-
-  //Note: We share literals globally already in *internal* representation (i.e. unsigned), since during Sweeping no deletions/additions/renamings of variables happens
-  //so we  skip the work of transforming every literal between internal and external representation during exports and imports
-  //However, to keep this more transparent to the Mallob side and not mix unsigned and int too much in external signatures, we still pass the internal literals as int's instead of unsigned's
-
-  for (;;) {
-    unsigned ilit1 = INVALID_LIT; //Mallob will leave them untouched if there is no more equivalence to provide
-    unsigned ilit2 = INVALID_LIT;
-    solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &ilit1, &ilit2, closure->localId);
-    // kissat_custom_message(solver, V2_VERB_SWEEP,  "called eq callback and got %i, %i ", ilit1, ilit2);
-    if (ilit1 == INVALID_LIT && ilit2 == INVALID_LIT)
-      break;
-
-    solver->shweep.eqs_seen++;
-    merge_literals(closure, ilit1, ilit2, true);
-    // if (merge_literals(closure, ilit1, ilit2, true)) {
-      // size_t propagated = propagate_units_and_equivalences (closure);
-      // if (propagated)
-        // kissat_custom_message (solver, "propagated %zu ", propagated);
-    // }
-
-
-  }
-
-  unsigned long new_seen = solver->shweep.eqs_seen - seen;
-  unsigned long new_useful = solver->statistics.congruent - useful;
-
-  if (new_seen > 0) {
-    // kissat_custom_message(solver, V2_INFO,  "CCC Imported %i / %i eqs ", new_useful, new_seen);
-  }
-
-}
-*/
-
 bool kissat_congruence (kissat *solver) {
-  // kissat_custom_message (solver, V2_INFO, "congruence");
   if (solver->inconsistent)
     return false;
   kissat_check_statistics (solver);
@@ -4720,11 +4599,6 @@ bool kissat_congruence (kissat *solver) {
   init_closure (solver, &closure);
   extract_gates (&closure);
   bool reset = false;
-  // if (GET_OPTION (mallob_is_congruencer)) { //maybe position it after find_units and find_equivalences?
-    // congruencer_import_units (&closure);
-    // congruencer_import_equivalences (&closure);
-  // }
-  // kissat_custom_message (solver, V2_INFO, "congruence run");
   if (!solver->inconsistent && !TERMINATED (congruence_terminated_9)) {
     find_units (&closure);
     if (!solver->inconsistent && !TERMINATED (congruence_terminated_10)) {
@@ -4735,11 +4609,6 @@ bool kissat_congruence (kissat *solver) {
             !TERMINATED (congruence_terminated_12)) {
           forward_subsume_matching_clauses (&closure);
           reset = true;
-
-          // if (GET_OPTION (mallob_is_congruencer)) { //maybe position it after find_units and find_equivalences?
-            // congruencer_import_units (&closure);
-            // congruencer_import_equivalences (&closure);
-          // }
         }
       }
     }
@@ -4750,7 +4619,6 @@ bool kissat_congruence (kissat *solver) {
   kissat_phase (solver, "congruence", GET (closures),
                 "merged %u equivalent variables %.2f%%", equivalent,
                 kissat_percent (equivalent, solver->active));
-  kissat_custom_message (solver, V2_INFO, "congruence merged %u equivalent variables", equivalent);
   assert (solver->active >= equivalent);
 #ifndef QUIET
   solver->active -= equivalent;
@@ -4766,168 +4634,3 @@ bool kissat_congruence (kissat *solver) {
   kissat_check_statistics (solver);
   return equivalent;
 }
-
-
-
-/*
-int kissat_mallob_congruencer(kissat *solver) {
-  // int equivalent = 0;
-  kissat_custom_message (solver, V1_WARN, "CONGRUENCER CCC START");
-  int round = 0;
-  int eqs_ex = 0;
-  int eqs_in = 0;
-  int clauses = 0;
-  solver->probing = true;
-  solver->shweeper_in_congruence = true; //prevent "dummy" sweeper objects that we create solely for importing eqs&units participate in workstealing
-  while (true) {
-    kissat_custom_message(solver, V2_INFO, "CCC round %i: clauses %i (%i)", round, CLAUSES, CLAUSES - clauses);
-    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs exported %i ", round, solver->shweep.congr_eqs - eqs_ex);
-    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs imported %i ", round, solver->shweep.eqs_useful- eqs_in);
-    eqs_ex = solver->shweep.congr_eqs;
-    eqs_in = solver->shweep.eqs_useful;
-    clauses = CLAUSES;
-    if (solver->inconsistent){
-      kissat_custom_message(solver, V1_WARN, "CCC break loop: inconsistent (UNSAT)");
-      break;
-    }
-    if (solver->termination.flagged) {
-      kissat_custom_message(solver, V1_WARN, "CCC break loop: termination flagged");
-      break;
-    }
-    // kissat_backtrack_propagate_and_flush_trail (solver); // added as a test, but probably not needed...
-    //do import via the sweep.c logic, somehow more robust
-
-    kissat_mallob_shweep_just_import (solver);
-
-    kissat_congruence(solver);
-
-    // congruencer_import_units (&closure);
-    // congruencer_import_equivalences (&closure);
-
-    kissat_custom_message(solver, V1_WARN, "CCC substitute");
-    kissat_substitute(solver, true);
-    // if (progress) {
-
-
-      //maybe we need to explicitly remove the garbage-marked clauses from the database before the next round?
-      //because without this reduce, the dense_mode reads some binary clauses from the database where one literal is already eliminated...
-      // kissat_custom_message(solver, V1_WARN, "CCC reduce");
-      // kissat_reduce(solver);
-
-
-      //maybe transitive reduction is already sufficient to clean up binary clauses with eliminated variables?
-      // kissat_custom_message(solver, V1_WARN, "CCC transred");
-      // kissat_transitive_reduction (solver);
-    // }
-
-
-    round++;
-  }
-
-  kissat_custom_message(solver, V1_WARN, "CCC exit");
-  solver->shweeper_in_congruence = false;
-
-  return (solver->inconsistent ? 20 : 0);
-
-}
-
-bool kissat_mallob_tightloop_congruence(kissat *solver) {
-  if (solver->inconsistent)
-    return false;
-  kissat_check_statistics (solver);
-  solver->probing = true;
-  assert (!solver->level);
-  assert (solver->probing);
-  assert (solver->watching);
-  if (!GET_OPTION (congruence))
-    return false;
-  if (!GET_OPTION (congruenceands) && !GET_OPTION (congruenceites) &&
-      !GET_OPTION (congruencexors))
-    return false;
-  if (GET_OPTION (congruenceonce) && solver->statistics.closures)
-    return false;
-  if (TERMINATED (congruence_terminated_8))
-    return false;
-  if (DELAYING (congruence))
-    return false;
-  START (congruence);
-  INC (closures);
-  closure closure;
-  init_closure (solver, &closure);
-  extract_gates (&closure);
-  bool reset = false;
-
-  kissat_custom_message (solver, V1_WARN, "CONGRUENCER CCC START");
-  int round = 0;
-  int eqs_ex = 0;
-  int eqs_in = 0;
-  int clauses = 0;
-
-  while (true) {
-    if (solver->inconsistent){
-      kissat_custom_message(solver, V1_WARN, "CCC break tight loop: inconsistent (UNSAT)");
-      break;
-    }
-    if (solver->termination.flagged) {
-      kissat_custom_message(solver, V1_WARN, "CCC break tight loop: termination flagged");
-      break;
-    }
-    // if (solver->sweepjob_terminated) {
-      // kissat_custom_message(solver, V1_WARN, "CCC break tight loop: external volatile termination");
-      // break;
-    // }
-
-    kissat_custom_message(solver, V2_INFO, "CCC round %i: clauses %i (%i)", round, CLAUSES, CLAUSES - clauses);
-    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs ex %i ", round, solver->shweep.congr_eqs - eqs_ex);
-    kissat_custom_message(solver, V2_INFO, "CCC round %i: eqs in %i ", round, solver->shweep.eqs_useful- eqs_in);
-    eqs_ex = solver->shweep.congr_eqs;
-    eqs_in = solver->shweep.eqs_useful;
-    clauses = CLAUSES;
-
-    //todo: dangerous that we only do extraction of gates once, doesnt seem to work that good... not intended by original structure
-    congruencer_import_units (&closure);
-    congruencer_import_equivalences (&closure);
-
-    if (!solver->inconsistent && !TERMINATED (congruence_terminated_9)) {
-      find_units (&closure);
-      if (!solver->inconsistent && !TERMINATED (congruence_terminated_10)) {
-        find_equivalences (&closure);
-        if (!solver->inconsistent && !TERMINATED (congruence_terminated_11)) {
-          size_t propagated = propagate_units_and_equivalences (&closure);
-          if (!solver->inconsistent && propagated &&
-              !TERMINATED (congruence_terminated_12)) {
-            forward_subsume_matching_clauses (&closure);
-            reset = true;
-              }
-        }
-      }
-    }
-    round++;
-  }
-
-  kissat_custom_message (solver, V1_WARN, "CONGRUENCE CCC END");
-
-  if (!reset)
-    reset_closure (&closure);
-  unsigned equivalent = reset_repr (&closure);
-  kissat_phase (solver, "congruence", GET (closures),
-                "merged %u equivalent variables %.2f%%", equivalent,
-                kissat_percent (equivalent, solver->active));
-  kissat_custom_message (solver, V1_WARN, "CONGRUENCE CCC equivalences: %i", equivalent);
-  assert (solver->active >= equivalent);
-#ifndef QUIET
-  solver->active -= equivalent;
-  REPORT (!equivalent, 'c');
-  if (!solver->inconsistent)
-    solver->active += equivalent;
-#endif
-  if (kissat_average (equivalent, solver->active) < 0.001)
-    BUMP_DELAY (congruence);
-  else
-    REDUCE_DELAY (congruence);
-  STOP (congruence);
-  kissat_check_statistics (solver);
-  return equivalent;
-
-}
-*/

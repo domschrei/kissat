@@ -122,37 +122,26 @@ void kissat_extremely_verbose (kissat *solver, const char *fmt, ...) {
 }
 
 
-
-
 void kissat_custom_message_va(kissat *solver, const char *fmt, va_list ap) {
   uint64_t mallob_local_id = GET_OPTION(mallob_local_id);
   uint64_t mallob_rank     = GET_OPTION(mallob_rank);
   uint64_t num_spaces = 20 * mallob_rank + 2 * mallob_local_id;
-
-  if (!GET_OPTION(mallob_staggered_logs) || mallob_rank >3) { //Separate logs spacially only for very small scales
+  //Distinguish solvers visually by adding some spaces (if at small scales)
+  if (!GET_OPTION(mallob_staggered_logs) || mallob_rank >3) {
     num_spaces=0;
   }
-
-  // Add some spaces to the message to distinguish the specific solver visually (when verbosity >= 2)
   char new_fmt[1024];
   memset(new_fmt, ' ', num_spaces);
   new_fmt[num_spaces] = '\0';
-
-  // Prepend [rank][local_id] to the format string
+  //Prefix line with [rank][local_id]
   char prefix[64];
   snprintf(prefix, sizeof(prefix), "[%" PRIu64 "](%" PRIu64  ") ", mallob_rank, mallob_local_id);
-
   strncat(new_fmt, prefix, sizeof(new_fmt) - strlen(new_fmt) - 1);
   strncat(new_fmt, fmt, sizeof(new_fmt) - strlen(new_fmt) - 1);
-
   va_list ap_copy;
   va_copy(ap_copy, ap);
   print_message(solver, GREEN, new_fmt, &ap_copy);
   va_end(ap_copy);
-  // va_list ap;
-  // va_start(ap, fmt);
-  // print_message (GREEN, new_fmt, &ap);
-  // va_end (ap);
 }
 
 void kissat_custom_message(kissat *solver, const int verb, const char *fmt, ...) {

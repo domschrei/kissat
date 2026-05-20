@@ -79,15 +79,13 @@
   OPTION (luckyearly, 1, 0, 1, "lucky assignments before preprocessing") \
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
   OPTION (mallob_custom_sweep_verbosity, 0, 0, 4, "the verbosity of the kissat_custom_message messages") \
-  OPTION (mallob_individual_sweepiters, 1, 0, 1, "start a new sweeper for every sweep iteration.") \
   OPTION (mallob_initial_congruence, 0, 0, 1, "do only congruence closure for the Mallob Sweep App") \
   OPTION (mallob_is_root, 0, 0, 1, "the hosting MPI process is the root rank") \
-  OPTION (mallob_is_shweeper, 0, 0, 1, "do only equivalence sweeping for the Mallob Sweep App") \
-  OPTION (mallob_local_id, 0, 0, 1e6, "the id of this specific solver instance within its MPI process [0 ... numThreads-1]") \
+  OPTION (mallob_local_id, 0, 0, 1e6, "the id of this solver within its MPI process [0 ... numThreads-1]") \
   OPTION (mallob_rank, 0, 0, 1e6, "the rank of the hosting MPI process") \
   OPTION (mallob_resweep_chance, 1e4, 0, 1e4, "chance to resweep on a variable in an equivalence (per mille)") \
-  OPTION (mallob_sequential_stats, 0, 0, 1, "report sequential kissat stats on sweeping.") \
   OPTION (mallob_staggered_logs, 0, 0, 1, "print custom sweep messages spatially staggered, instead of all aligned to start of the line") \
+  OPTION (mallob_sweeping, 0, 0, 1, "do only equivalence sweeping for the Mallob Sweep App") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \
   OPTION (minimize, 1, 0, 1, "learned clause minimization") \
   OPTION (minimizedepth, 1e3, 1, 1e6, "minimization depth") \
@@ -114,10 +112,7 @@
   OPTION (puresweep, 0, 0, 1, "just doing sequential sweeping and nothing else") \
   OPTION (puresweep_iterations, 3, 0, 100, "number of iterations of pure sweeping") \
   OPTION (puresweep_maxKittenProp, 1000000, 1000, INT_MAX, "maximum propagations in a kitten call") \
-  OPTION (puresweep_minExitSwept, 40000, 0, INT_MAX, "minimum number of swept literals before checking for early exit. 0 = deactivate") \
-  OPTION (puresweep_termNoProgress, 1, 0, 1, "terminate when an iteration makes no progress at all") \
   OPTION (puresweep_timelim, 0, 0, INT_MAX, "enforce time limit on pure sweeping. 0 = deactivate") \
-  OPTION (puresweep_tocompletion, 0, 0, 1, "sweep indefinitely until completion (or timeout), increase depth when no more progress") \
   NQTOPT (quiet, 0, 0, 1, "disable all messages") \
   OPTION (randec, 1, 0, 1, "random decisions") \
   OPTION (randecfocused, 1, 0, 1, "random decisions in focused mode") \

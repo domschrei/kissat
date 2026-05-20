@@ -85,14 +85,11 @@ bool shweep_get_end_iteration_signal(kissat *solver);
 void shweep_set_end_job_signal(kissat *solver);
 bool shweep_get_end_job_signal(kissat *solver);
 int shweep_get_curr_iteration(kissat *solver);
-void shweep_set_env_completions(kissat *solver, int env_completions);
-void shweep_set_desired_depth(kissat *solver, int depth);
 void shweep_do_EU_imports(kissat *solver);
 void shweep_set_wallclock_offset(kissat *solver, double offset);
 double shweep_wallclock(kissat *solver);
 int shweep_get_code_location(kissat *solver);
 const char *shweep_get_profilename(kissat *solver);
-int shweep_get_reps_debug(kissat *solver);
 unsigned long shweep_kitten_propagations(kissat *solver);
 
 bool kissat_is_inconsistent (kissat *solver);
@@ -101,24 +98,23 @@ struct shweep_statistics {
   //importing
   unsigned long eqs_seen, eqs_useful, eqs_skipped_known, eqs_transitive, eqs_unitprop, eqs_skipped_doublefixed;
   unsigned long units_seen, units_useful, units_skipped_fixed, units_transitive;
-  unsigned long congr_eqs_skipped;
   unsigned long stumbled_units;
   unsigned long detected_early_unsat;
-  //how often did we sweep due to schedule vs. resweep due to recent equivalence
+  //tracking the worklist
   unsigned long progress_work_sweeps;
   unsigned long progress_work_stepovers;
   unsigned long progress_unsched_resweeps;
   //info that already kissat tracks
-  unsigned long start_active, orig_vars, start_units; //active: actual #vars we still have to solve at the start of sweep. #formally: the formal number of variables, some of which might already be fixed
+  unsigned long start_active, orig_vars, start_units;
   unsigned long sweep_eqs, sweep_units, units_new, units_end;
-  unsigned long congr_eqs, congr_units;
-  unsigned long vars_end, clauses_end;
   unsigned long clauses, binirr, start_clauses, start_binirr;
-  int curr_iteration; //-1 before any CEC algo is started , 0 in congruence, and 1...n in sweeping
+  //the current sweep iteration
+  // Before CCC: -1
+  // After CC: 0
+  // After sweeping iterations: 1..n
+  int curr_iteration;
   unsigned long curr_active, curr_units, curr_eliminated;
   unsigned long env_limit_depth, env_limit_vars, env_limit_clauses;
-  unsigned long env_completions;
-  unsigned long desired_depth;
   unsigned long maxxed_kittens;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);

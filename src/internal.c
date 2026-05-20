@@ -68,8 +68,6 @@ kissat *kissat_init (void) {
   solver->num_conflicts_at_last_import = 0;
 
   //Shared Sweeping  -------------------------------------------------------
-  // solver->shweeper_initialized = false;
-  solver->shweeper_in_congruence = false;
   solver->shweep_end_iteration_signal = false;
   solver->shweep_end_job_signal =  false;
   solver->shweeper_allows_stealing = false;
