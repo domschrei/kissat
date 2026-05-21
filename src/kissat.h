@@ -115,7 +115,7 @@ struct shweep_statistics {
   int curr_iteration;
   unsigned long curr_active, curr_units, curr_eliminated;
   unsigned long env_limit_depth, env_limit_vars, env_limit_clauses;
-  unsigned long maxxed_kittens;
+  unsigned long maxxed_kittens, signalskipped_kittens;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
 

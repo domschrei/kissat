@@ -74,6 +74,20 @@ static int sweep_solve (sweeper *sweeper) {
     INC (sweep_sat);
   if (res == 20)
     INC (sweep_unsat);
+
+  //Addition for MallobSweep:
+  //In case we exited Kitten due to one of these two MallobSweep flags,
+  //we need to make sure that sweep.c doesn't call Kitten again
+  //We achieve this by setting the tick limits to zero,
+  //which allows to gracefully exit all inner loops.
+  //For more information, follow the bookmark variable via your LSP.
+  if (GET_OPTION (mallob_signal_kitten)) {
+    if (solver->shweep_end_iteration_signal || solver->shweep_end_job_signal) {
+      sweeper->limit.ticks = 0;
+      solver->LSP_BOOKMARK_WHERE_WE_MODIFY_KITTEN_TICKLIMIT;
+    }
+  }
+
   return res;
 }
 
@@ -1579,7 +1593,7 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   */
   //Added custom resweeping logic for the case of MallobSweep.
   //If not running MallobSweep, the original behaviour is unchanged
-  //running 'schedule_inner (sweeper, repr_idx)'
+  //('schedule_inner (sweeper, repr_idx)')
   const unsigned repr_idx = IDX (repr);
   if (!GET_OPTION (mallob_sweeping)) {
     schedule_inner (sweeper, repr_idx);
@@ -2425,7 +2439,7 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
           solver->shweep.progress_unsched_resweeps++;
       }
       FLAGS(idx)->sweep = false;
-      //Actually sweep call
+      //Actual sweep call
       sweep_variable(sweeper, idx);
     }
     if (EMPTY_STACK(sweeper->RESWEEP))
@@ -2765,15 +2779,15 @@ int mallob_shweep_single_iteration(kissat *solver) {
     if (solver->shweep_end_job_signal) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : got next scheduled (while endjob) @ %.3f",shweep_wallclock (solver));
     }
-    int work_estimate = shweep_get_work_estimate (solver);
-    if (work_estimate != solver->shweep_last_workestimate) {
-      solver->shweep_last_workestimate = work_estimate;
-      solver->shweep_last_workestimate_timestamp = shweep_wallclock (solver);
-    }
-    const float WARN_NOWORKPROGRESS_SEC = 3;
-    if (solver->shweep_last_workestimate_timestamp + WARN_NOWORKPROGRESS_SEC < shweep_wallclock (solver) ) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper WARN : no progress in workestimate! head %i, end %i  @ %.3f", sweeper.work_head, sweeper.work_end, shweep_wallclock (solver));
-    }
+    // int work_estimate = shweep_get_work_estimate (solver);
+    // if (work_estimate != solver->shweep_last_workestimate) {
+      // solver->shweep_last_workestimate = work_estimate;
+      // solver->shweep_last_workestimate_timestamp = shweep_wallclock (solver);
+    // }
+    // const float WARN_NOWORKPROGRESS_SEC = 3;
+    // if (solver->shweep_last_workestimate_timestamp + WARN_NOWORKPROGRESS_SEC < shweep_wallclock (solver) ) {
+      // kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper WARN : no progress in workestimate! head %i, end %i  @ %.3f", sweeper.work_head, sweeper.work_end, shweep_wallclock (solver));
+    // }
     shweep_do_EU_imports (solver);
     if (idx == INVALID_IDX) {
       //we have no more work, try to steal from somebody else
@@ -2793,11 +2807,13 @@ int mallob_shweep_single_iteration(kissat *solver) {
   solver->shweep.progress_work_stepovers=0;
   solver->shweep.progress_unsched_resweeps=0;
   kissat_custom_message (solver, V2_VERB_SWEEP, "Sweeper END single iteration loop");
-  //prevent segfault by an external stealer
-  //since this sweeper here will soon deallocate itself
+  //since we are soon deallocating this sweeper,
+  //prevent already now other solvers from stealing,
+  //as a badly-timed steal access would lead to a segfault
   solver->shweeper_allows_stealing = false;
-  //at the very end of a job there exist potentially Eqs and Units to
-  //import from the sharing round which also brought the termination signal
+  //at the very end of a SweepJob there exist some Eqs and Units to
+  //import from the last sharing round which brought the termination signal
+  //for the representative solver we want to also have those
   shweep_do_EU_imports (solver);
   equivalences = statistics->sweep_equivalences - equivalences,
   units = solver->statistics.sweep_units - units;
@@ -2845,6 +2861,10 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
     return 20;
   }
   solver->shweep.maxxed_kittens=0;
+  solver->shweep.signalskipped_kittens=0;
+  solver->shweep_end_iteration_signal=false;
+  solver->shweep_end_job_signal=false;
+
   solver->probing = true;
   solver->shweep.orig_vars = solver->vars;
   solver->shweep.start_units   = SIZE_STACK(solver->units);

@@ -73,7 +73,8 @@ typedef STACK (watch *) patches;
 
 struct kitten;
 
-typedef struct sweeper sweeper; //for Mallob distributed Sweeping, the Kissat solver must know about its sweeper
+//for MallobSweep, the Kissat solver must know about its sweeper
+typedef struct sweeper sweeper;
 
 
 struct kissat {
@@ -270,22 +271,24 @@ struct kissat {
   volatile bool shweep_end_iteration_signal;
   volatile bool shweep_end_job_signal;
   double shweep_t0;
-  // int shweep_loc;
-  // int shweep_reps_debug;
+  //A bookmark to quickly find two places in the code
+  //which interact in a specific manner with each other
+  bool LSP_BOOKMARK_WHERE_WE_MODIFY_KITTEN_TICKLIMIT;
 
-  //there exist time-windows inbetween the sweep iterations where no (accessible) sweeper object exists.
-  //we track on the solver-level (permanently avialable) whether such a sweeper exists and is accessible for stealing right now
+  //there exist time-windows inbetween the sweep iterations
+  //where no (accessible) sweeper object exists.
+  //we track on the solver-level (permanently avialable)
+  //whether such a sweeper exists and is accessible for stealing right now
   volatile bool shweeper_allows_stealing;
 
-  double shweep_last_workestimate_timestamp;
-  int shweep_last_workestimate;
-
+  //Export to own Mallob::Kissat object
   int *shweep_export_eq_buffer;
-  void (*shweep_export_eq_callback) (void *state); //Export to own Mallob::Kissat object
-  void (*shweep_export_unit_callback) (void *state, int lit); //Export to own Mallob::Kissat object
+  void (*shweep_export_eq_callback) (void *state);
+  void (*shweep_export_unit_callback) (void *state, int lit);
 
-  void (*shweep_import_SweepJob_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId); //Import directly from SweepJob and bypass Kissat
-  void (*shweep_import_SweepJob_unit_callback) (void *SweepJobState, int *lit, int localId); //Import directly from SweepJob and bypass Kissat
+  //Import directly from SweepJob:: (and bypass Kissat::)
+  void (*shweep_import_SweepJob_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId);
+  void (*shweep_import_SweepJob_unit_callback) (void *SweepJobState, int *lit, int localId);
 
   void *shweep_mallob_KissatState;
   void *shweep_mallob_SweepJobState;

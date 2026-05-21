@@ -9,4 +9,5 @@ bool kissat_sweep (struct kissat *);
 int kissat_pure_sequential_sweeping(struct kissat *);
 int kissat_mallob_distributed_sweep_multiple_iterations(struct kissat *);
 
+
 #endif

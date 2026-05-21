@@ -84,6 +84,7 @@
   OPTION (mallob_local_id, 0, 0, 1e6, "the id of this solver within its MPI process [0 ... numThreads-1]") \
   OPTION (mallob_rank, 0, 0, 1e6, "the rank of the hosting MPI process") \
   OPTION (mallob_resweep_chance, 1e4, 0, 1e4, "chance to resweep on a variable in an equivalence (per mille)") \
+  OPTION (mallob_signal_kitten, 1, 0, 1, "exit kittens immediately when a signal arrives that the iteration gets skipped") \
   OPTION (mallob_staggered_logs, 0, 0, 1, "print custom sweep messages spatially staggered, instead of all aligned to start of the line") \
   OPTION (mallob_sweeping, 0, 0, 1, "do only equivalence sweeping for the Mallob Sweep App") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \

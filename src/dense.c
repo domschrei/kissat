@@ -61,9 +61,6 @@ static void flush_large_watches (kissat *solver, litpairs *irredundant) {
               if (lit < other) {
                 const litpair litpair = {.lits = {lit, other}};
                 PUSH_STACK (*irredundant, litpair);
-                // todo: Nicco remove this debug line
-                // if (ELIMINATED (IDX(lit)) || ELIMINATED (IDX(other)))
-                  // kissat_custom_message (solver,1,"warn: saving binary clause with eliminated ilit(%i),ilit(%i) ...", lit, other);
               }
             } else
               *q++ = watch;
@@ -123,10 +120,6 @@ static void resume_watching_irredundant_binaries (kissat *solver,
   for (all_stack (litpair, litpair, *binaries)) {
     const unsigned first = litpair.lits[0];
     const unsigned second = litpair.lits[1];
-
-    //todo Nicco: remove again after debugging
-    assert (!ELIMINATED (IDX (first)) ||  kissat_custom_assert_message (solver, "assert error: idx(%u) ilit(%u) is eliminated", IDX(first), first));
-    assert (!ELIMINATED (IDX (second)) || kissat_custom_assert_message (solver, "assert error: idx(%u) ilit(%u) is eliminated", IDX(second), second));
 
     assert (!ELIMINATED (IDX (first)));
     assert (!ELIMINATED (IDX (second)));

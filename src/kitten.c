@@ -1921,13 +1921,47 @@ int kitten_solve (kitten *kitten) {
 
   INC (kitten_solved);
 
-  //This code will not compile in debug mode, because STAND_ALONE_KISSAT will be defined.
+  //For MallobSweep, introduce custom limits for a single Kitten SAT call
+  //Can use this code only in release mode, because kitten->kissat is
+  //not defined in default debug mode (where STAND_ALONE_KISSAT is instead defined)
+  #ifndef STAND_ALONE_KITTEN
   const uint64_t propagations_before = kitten->kissat->statistics.kitten_propagations;
-  const uint64_t SHWEEP_MAX_KITTEN_PROPAGATIONS = GET_OPTION (puresweep_maxKittenProp);
+  const uint64_t MALLOB_SWEEP_MAX_KITTEN_PROPAGATIONS = GET_OPTION (puresweep_maxKittenProp);
+  const bool MALLOB_CHECK_EARLY_EXIT = GET_OPTION (mallob_sweeping) || GET_OPTION (puresweep);
+  const bool ALSO_CHECK_EXIT_ON_SIGNAL = GET_OPTION (mallob_signal_kitten);
   statistics *solverstats = &(kitten->kissat->statistics);
+  #endif
 
   int res = propagate_units (kitten);
   while (!res) {
+
+    #ifndef STAND_ALONE_KITTEN
+    if (MALLOB_CHECK_EARLY_EXIT) {
+      const uint64_t propagations = solverstats->kitten_propagations - propagations_before;
+      //MallobSweep enforce a fixed hard limit on the number of propagations
+      if (propagations > MALLOB_SWEEP_MAX_KITTEN_PROPAGATIONS) {
+        solver->shweep.maxxed_kittens++;
+        break;
+      }
+      //In multi-core MallobSweep, we want to react quickly when an iteration has been skipped/ended
+      //However, don't check at *every* loop, to not introduce too much checking overhead
+      if (ALSO_CHECK_EXIT_ON_SIGNAL && propagations % 256 == 0 && (solver->shweep_end_iteration_signal || solver->shweep_end_job_signal)) {
+        solver->shweep.signalskipped_kittens++;
+        //Crucially, when exiting Kitten like this, we also (apparently) need to
+        //enforce that sweep.c no longer tries to do any subsequent Kitten calls
+        //Since those led to the sweeper being stuck in an infinite loop of calling Kittens.
+        //We achieve this exit by setting the kitten tick limit to zero
+        //which is then detected regularly within sweep.c and lead to a graceful exit.
+        //Due to technical reasons (the sweeper struct is defined in sweep.c and not sweep.h)
+        //we cannot access the field sweeper->limit.ticks here.
+        //Instead, we access it in sweep.c sweep_solve(), right after leaving kitten here.
+        //To quickly find that other point in the code, follow this bookmark.
+        solver->LSP_BOOKMARK_WHERE_WE_MODIFY_KITTEN_TICKLIMIT;
+        break;
+      }
+    }
+    #endif
+
     const unsigned conflict = propagate (kitten);
     if (conflict != INVALID) {
       if (kitten->level)
@@ -1937,10 +1971,6 @@ int kitten_solve (kitten *kitten) {
         res = 20;
       }
     } else
-     if (solverstats->kitten_propagations - propagations_before > SHWEEP_MAX_KITTEN_PROPAGATIONS) {
-       kitten->kissat->shweep.maxxed_kittens++;
-       break;
-     } else
 #ifdef STAND_ALONE_KITTEN
         if (time_limit_hit) {
       time_limit_hit = false;
