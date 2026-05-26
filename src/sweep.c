@@ -2676,6 +2676,12 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
   return 10;
 }
 
+
+
+bool shweep_working_internally(kissat *solver) {
+  return solver->shweeper_working_internally;
+}
+
 unsigned long shweep_kitten_propagations(kissat *solver) {
   return solver->statistics.kitten_propagations;
 }
@@ -2864,6 +2870,8 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   solver->shweep.signalskipped_kittens=0;
   solver->shweep_end_iteration_signal=false;
   solver->shweep_end_job_signal=false;
+  //Track that we first do internal sequential work independent of others
+  solver->shweeper_working_internally=true;
 
   solver->probing = true;
   solver->shweep.orig_vars = solver->vars;
@@ -2893,10 +2901,15 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   while (!solver->shweep_end_job_signal && !solver->inconsistent) {
     solver->shweep_curr_iteration++;
     //One sweep iteration
+    //Track that now we no longer do internal work, but communicate with others
+    solver->shweeper_working_internally=false;
     mallob_shweep_single_iteration (solver);
     kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER substituting");
     //Burn equivalences into the local clause database
+    //Track that Substitute is again internal work, independent of others
+    solver->shweeper_working_internally=true;
     kissat_substitute(solver, true);
+    solver->shweeper_working_internally=false;
     //Now, after database is up-to-date, can report metrics of this iteration
     representative_report_finished_iteration (solver);
     //increase the environment size of the next iteration

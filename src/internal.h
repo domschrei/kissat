@@ -280,6 +280,7 @@ struct kissat {
   //we track on the solver-level (permanently avialable)
   //whether such a sweeper exists and is accessible for stealing right now
   volatile bool shweeper_allows_stealing;
+  volatile bool shweeper_working_internally;
 
   //Export to own Mallob::Kissat object
   int *shweep_export_eq_buffer;

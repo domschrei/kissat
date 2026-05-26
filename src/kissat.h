@@ -91,6 +91,7 @@ double shweep_wallclock(kissat *solver);
 int shweep_get_code_location(kissat *solver);
 const char *shweep_get_profilename(kissat *solver);
 unsigned long shweep_kitten_propagations(kissat *solver);
+bool shweep_working_internally(kissat *solver);
 
 bool kissat_is_inconsistent (kissat *solver);
 

@@ -1943,19 +1943,25 @@ int kitten_solve (kitten *kitten) {
         solver->shweep.maxxed_kittens++;
         break;
       }
-      //In multi-core MallobSweep, we want to react quickly when an iteration has been skipped/ended
-      //However, don't check at *every* loop, to not introduce too much checking overhead
       if (ALSO_CHECK_EXIT_ON_SIGNAL && propagations % 256 == 0 && (solver->shweep_end_iteration_signal || solver->shweep_end_job_signal)) {
         solver->shweep.signalskipped_kittens++;
-        //Crucially, when exiting Kitten like this, we also (apparently) need to
-        //enforce that sweep.c no longer tries to do any subsequent Kitten calls
-        //Since those led to the sweeper being stuck in an infinite loop of calling Kittens.
-        //We achieve this exit by setting the kitten tick limit to zero
-        //which is then detected regularly within sweep.c and lead to a graceful exit.
-        //Due to technical reasons (the sweeper struct is defined in sweep.c and not sweep.h)
-        //we cannot access the field sweeper->limit.ticks here.
-        //Instead, we access it in sweep.c sweep_solve(), right after leaving kitten here.
-        //To quickly find that other point in the code, follow this bookmark.
+        //In multi-core MallobSweep, we want to react quickly when the signal arrives
+        //that an iteration should now be skipped. This means all ongoing
+        //Kittens should stop and exit their current SAT call.
+        //We do this check here.
+        //To not create too much overhead, checking is only done once in a while.
+        //Also, when exiting Kitten via this route, we (apparently) need to
+        //enforce that no subsequent Kitten calls are made in this iteration,
+        //since those (apparently) led to the sweeper being stuck in an
+        //infinite loop of calling Kittens.
+        //We achieve this hard exit by setting the kitten tick limit to zero
+        //within the sweeper, which is then detected via regular and already
+        //existing checks all over sweep.c, and leads to an immediate but graceful exit.
+        //Due to technical reasons (the sweeper struct is defined only locally in sweep.c)
+        //we cannot access the field sweeper->limit.ticks from here form the outside.
+        //Instead, we access it in sweep_solve() right after leaving kitten here.
+        //This dummy bookmark brings you quickly to that other point in the code
+        //where we apply the tick limit.
         solver->LSP_BOOKMARK_WHERE_WE_MODIFY_KITTEN_TICKLIMIT;
         break;
       }
