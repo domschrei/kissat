@@ -71,7 +71,7 @@ kissat *kissat_init (void) {
   solver->shweep_end_iteration_signal = false;
   solver->shweep_end_job_signal =  false;
   solver->shweeper_allows_stealing = false;
-  solver->shweep_curr_iteration = 0;
+  solver->shweep_local_iteration = 0;
 
   //Sweep Export
   solver->shweep_export_eq_buffer = 0;

@@ -91,7 +91,8 @@ double shweep_wallclock(kissat *solver);
 int shweep_get_code_location(kissat *solver);
 const char *shweep_get_profilename(kissat *solver);
 unsigned long shweep_kitten_propagations(kissat *solver);
-bool shweep_working_internally(kissat *solver);
+bool shweep_has_sweeper_obj(kissat *solver);
+void shweep_set_global_iteration(kissat *solver, int global_iteration);
 
 bool kissat_is_inconsistent (kissat *solver);
 
@@ -110,18 +111,18 @@ struct shweep_statistics {
   unsigned long sweep_eqs, sweep_units, units_new, units_end;
   unsigned long clauses, binirr, start_clauses, start_binirr;
   //the current sweep iteration
+  //Counting convention:
   // Before CCC: -1
   // After CC: 0
   // After sweeping iterations: 1..n
-  int curr_iteration;
+  int local_iteration;
+  int global_iteration;
   unsigned long curr_active, curr_units, curr_eliminated;
   unsigned long env_limit_depth, env_limit_vars, env_limit_clauses;
-  unsigned long maxxed_kittens, signalskipped_kittens;
+  unsigned long maxxed_kittens, signalskipped_kittens, kitten_calls;
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
-
 //--------------------------------------------------------------------------
-// void shweep_terminate(kissat *solver);
 
 
 // Basic "external" statistics struct with some interesting properties of kissat's search.

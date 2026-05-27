@@ -1935,14 +1935,16 @@ int kitten_solve (kitten *kitten) {
   int res = propagate_units (kitten);
   while (!res) {
 
+
     #ifndef STAND_ALONE_KITTEN
     if (MALLOB_CHECK_EARLY_EXIT) {
       const uint64_t propagations = solverstats->kitten_propagations - propagations_before;
-      //MallobSweep enforce a fixed hard limit on the number of propagations
+      //MallobSweep enforces a fixed hard limit on the number of propagations
       if (propagations > MALLOB_SWEEP_MAX_KITTEN_PROPAGATIONS) {
         solver->shweep.maxxed_kittens++;
         break;
       }
+      /*
       if (ALSO_CHECK_EXIT_ON_SIGNAL && propagations % 256 == 0 && (solver->shweep_end_iteration_signal || solver->shweep_end_job_signal)) {
         solver->shweep.signalskipped_kittens++;
         //In multi-core MallobSweep, we want to react quickly when the signal arrives
@@ -1965,6 +1967,7 @@ int kitten_solve (kitten *kitten) {
         solver->LSP_BOOKMARK_WHERE_WE_MODIFY_KITTEN_TICKLIMIT;
         break;
       }
+      */
     }
     #endif
 

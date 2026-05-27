@@ -265,9 +265,10 @@ struct kissat {
   //--------------------------------------------------------------------------------
   //MallobSweep
   sweeper *sweeper;
+  // volatile bool shweep_has_sweeper_obj;
   //These flags are stored on the solver-level,
   //because individual sweeper-structs only live for one sweep iteration
-  volatile int shweep_curr_iteration;
+  volatile int shweep_local_iteration;
   volatile bool shweep_end_iteration_signal;
   volatile bool shweep_end_job_signal;
   double shweep_t0;
@@ -280,7 +281,7 @@ struct kissat {
   //we track on the solver-level (permanently avialable)
   //whether such a sweeper exists and is accessible for stealing right now
   volatile bool shweeper_allows_stealing;
-  volatile bool shweeper_working_internally;
+  // volatile bool shweeper_working_internally;
 
   //Export to own Mallob::Kissat object
   int *shweep_export_eq_buffer;
