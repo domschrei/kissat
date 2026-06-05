@@ -2444,8 +2444,12 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
           solver->shweep.progress_unsched_resweeps++;
       }
       FLAGS(idx)->sweep = false;
+      // uint64_t kitten_ticks = solver->statistics.kitten_ticks;
       //Actual sweep call
       sweep_variable(sweeper, idx);
+      // uint64_t delta_kitten_ticks = solver->statistics.kitten_ticks - kitten_ticks;
+      // kissat_custom_message (solver, V1_INFO_SWEEP, "ticks: %zu", delta_kitten_ticks);
+
     }
     if (EMPTY_STACK(sweeper->RESWEEP))
       break;
@@ -2798,7 +2802,7 @@ int mallob_shweep_single_iteration(kissat *solver) {
       break;
     }
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks) {
-      kissat_custom_message(solver,V1_INFO_SWEEP, "kitten tick limit");
+      kissat_custom_message(solver,V1_INFO_SWEEP, "kitten tick limit -> exit iteration");
       break;
     }
     if (solver->shweep_end_job_signal) {
