@@ -24,6 +24,7 @@
 #include "propinitially.h" //scheduled at the start of MallobSweep
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 const int V0_CRIT_SWEEP = 0;
 const int V1_INFO_SWEEP = 1;
@@ -52,6 +53,7 @@ struct sweeper {
     uint64_t ticks;
     unsigned clauses, depth, vars;
   } limit;
+
   //For MallobSweep
   unsigned *work;     //The Worklist of this sweeper
   unsigneds RESWEEP;  //recent equivalences for re-sweeping
@@ -60,6 +62,7 @@ struct sweeper {
   int max_work_after_steal;
   int rank;
   int localId;
+  volatile bool somebody_is_stealing_from_me;
 };
 
 typedef struct sweeper sweeper;
@@ -74,22 +77,6 @@ static int sweep_solve (sweeper *sweeper) {
     INC (sweep_sat);
   if (res == 20)
     INC (sweep_unsat);
-
-  /*
-  //Addition for MallobSweep:
-  //In case we exited Kitten because either the iteration or the whole job
-  //ended, we need to make sure that sweep.c doesn't call Kitten again
-  //We achieve this by setting the tick limits to zero,
-  //which allows to gracefully exit all inner loops.
-  //For more information, follow the bookmark dummy variable via your LSP.
-  if (GET_OPTION (mallob_signal_kitten)) {
-    if (solver->shweep_end_iteration_signal || solver->shweep_end_job_signal) {
-      sweeper->limit.ticks = 0;
-      solver->LSP_BOOKMARK_WHERE_WE_MODIFY_KITTEN_TICKLIMIT;
-    }
-  }
-  */
-
   return res;
 }
 
@@ -212,9 +199,11 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->rank = GET_OPTION (mallob_rank);
     sweeper->localId = GET_OPTION (mallob_local_id);
     sweeper->max_work_after_steal=0;
+    sweeper->somebody_is_stealing_from_me=false;
     //Now we can allow stealing, after all other safeguards
     //(especially work_head = 0 and work_end = 0) have been set up
     solver->shweeper_allows_stealing = true;
+
   }
 }
 
@@ -2203,6 +2192,13 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   }
   int count = 0;
   for (;;) {
+    if ((solver->shweep_end_job_signal || solver->shweep_end_iteration_signal)) {
+      //do not remain stuck here if it is already decided that the iteration ended
+      //mostly here for solvers which start late into the solving process
+      //and first need to catch up with all the imports for a long time
+      //their importing should not block the whole Mallob iteration from moving forward
+      break;
+    }
     int elit = 0;
     solver->shweep_import_SweepJob_unit_callback (solver->shweep_mallob_SweepJobState, &elit, sweeper->localId);
     if (elit==INVALID_ELIT) {
@@ -2247,6 +2243,10 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   }
   int count = 0;
   for (;;) {
+    if ((solver->shweep_end_job_signal || solver->shweep_end_iteration_signal)) {
+      //for reason see above in analog shweep_import_SweepJob_units
+      break;
+    }
     int elit1 = 0;
     int elit2 = 0;
     solver->shweep_import_SweepJob_eq_callback (solver->shweep_mallob_SweepJobState, &elit1, &elit2, sweeper->localId);
@@ -2329,6 +2329,11 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     kissat_custom_message (solver, V1_INFO_SWEEP, "Guarded against executed steal attempt (sweeper null)");
     return 0;
   }
+  //It can happen that the solver finds UNSAT while another solver is still
+  //stealing. In that case, the other solver expects all the references here
+  //to remain valid during the stealing procedure. Thus the solver here
+  //must wait with deallocating itself until any active stealing is finished.
+  sweeper->somebody_is_stealing_from_me = true;
   //Steal every second variable in the worklist that is still open for sweeping
   int stolen_count=0;
   int locally_left = 0;
@@ -2362,6 +2367,7 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     assert(kissat_custom_assert_message (solver, "stolen count > max_steal_count"));
   }
   sweeper->max_work_after_steal = locally_left;
+  sweeper->somebody_is_stealing_from_me = false;
   return stolen_count;
 }
 
@@ -2867,6 +2873,17 @@ int mallob_shweep_single_iteration(kissat *solver) {
     "SWEEP this round: E %i, U %i, E+U %i   Cumulative: E %i, U %i, E+U %i ",
     equivalences, units, equivalences+units, statistics->sweep_equivalences, statistics->sweep_units, statistics->sweep_equivalences + statistics->sweep_units);
 
+  //Some other solver might be stealing from us right now, so we can not
+  //just immediately release / deallocate our state.
+  //Must wait until the other solver is no longer accessing our fields.
+  //This situation can happen especially if a new iteration just started,
+  //this solver here has all the work, another solver takes now a long time
+  //to try to steal half of that, and in the meantime this solver here already
+  //finds UNSAT
+  while (sweeper.somebody_is_stealing_from_me) {
+    kissat_custom_message(solver,V1_INFO_SWEEP, "Guard solver release - another solver is still stealing from us @ %.3f", shweep_wallclock (solver));
+    usleep (5000);
+  }
   unsigned inactive = release_sweeper (&sweeper);
   //dont need to unschedule because we also never scheduled
   if (!solver->inconsistent) {
@@ -2897,6 +2914,10 @@ void representative_report_finished_iteration(kissat *solver) {
   }
 }
 
+bool shweep_is_representative(kissat *solver) {
+  return solver->shweep_report_finished_iteration_callback;
+}
+
 int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   kissat_custom_message (solver, V1_INFO_SWEEP, "kissat sweep main");
   solver->shweep_t0 += kissat_wall_clock_time ();
@@ -2919,11 +2940,13 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   solver->shweep.start_clauses = CLAUSES;
   solver->shweep.start_binirr  = BINIRR_CLAUSES;
   solver->shweep_local_iteration = -1; //-1 before any CEC algos started, 0 in congruence, 1..n in sweep
-  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER orig vars : %i", solver->shweep.orig_vars);
-  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER start units: %i", solver->shweep.start_units);
-  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER start activ: %i", solver->shweep.start_active);
-  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER start CLAUSES: %i", CLAUSES);
-  kissat_custom_message (solver, V2_VERB_SWEEP, "SWEEPER start BINIRR : %i", BINIRR_CLAUSES);
+  if (shweep_is_representative (solver)) {
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER orig vars : %i", solver->shweep.orig_vars);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start units: %i", solver->shweep.start_units);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start activ: %i", solver->shweep.start_active);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start CLAUSES: %i", CLAUSES);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEPER start BINIRR : %i", BINIRR_CLAUSES);
+  }
 
   //Report the state before CCC and Sweeping. Reported as iteration -1
   representative_report_finished_iteration (solver);
@@ -2932,7 +2955,9 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
   solver->shweep_local_iteration++;
   if (GET_OPTION (mallob_initial_congruence)) {
     if (kissat_congruence (solver)) {
-      kissat_substitute (solver, true);
+      if (!solver->shweep_end_job_signal || shweep_is_representative (solver)) {
+        kissat_substitute (solver, true);
+      }
     }
     representative_report_finished_iteration (solver);
   }
@@ -2942,19 +2967,22 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
     solver->shweep_local_iteration++;
     //One sweep iteration
     //Track that now we no longer do internal work, but communicate with others
-    unsigned active = solver->active;
+    unsigned active_before = solver->active;
     mallob_shweep_single_iteration (solver);
 
-    //Burn equivalences into the local clause database
+    //Burn the new equivalences into the local clause database
     //Track that Substitute is again internal work, independent of others
-    if (solver->active != active) {
-      const double t = shweep_wallclock (solver);
-      kissat_custom_message (solver, V2_VERB_SWEEP, "substituting");
-      kissat_substitute(solver, true);
-      kissat_custom_message (solver, V2_VERB_SWEEP, "substitute time: %.3f", shweep_wallclock (solver) - t);
-    } else {
-      kissat_custom_message (solver, V2_VERB_SWEEP, "substitute skip");
+    if (solver->active != active_before) {
+      if (!solver->shweep_end_job_signal || shweep_is_representative (solver)) {
+        const double t = shweep_wallclock (solver);
+        kissat_custom_message (solver, V2_VERB_SWEEP, "substituting");
+        kissat_substitute(solver, true);
+        kissat_custom_message (solver, V2_VERB_SWEEP, "substitute time: %.3f", shweep_wallclock (solver) - t);
+      }
     }
+    // else {
+      // kissat_custom_message (solver, V2_VERB_SWEEP, "substitute skip");
+    // }
 
     //Now, after database is up-to-date, can report metrics of this iteration
     representative_report_finished_iteration (solver);

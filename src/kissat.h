@@ -73,7 +73,6 @@ void shweep_set_SweepJob_unit_import_callback(kissat *solver, void *SweepJobStat
 void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
 void shweep_set_report_finished_iteration_callback(kissat *solver, void *SweepJobState, void (*report_callback) (void *SweepJob_state, int localId));
 
-
 int shweep_get_work_estimate(kissat *solver);
 int shweep_get_max_steal_amount(kissat *solver);
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count);
@@ -93,6 +92,7 @@ const char *shweep_get_profilename(kissat *solver);
 unsigned long shweep_kitten_propagations(kissat *solver);
 bool shweep_has_sweeper_obj(kissat *solver);
 void shweep_set_global_iteration(kissat *solver, int global_iteration);
+bool shweep_is_representative(kissat *solver);
 
 bool kissat_is_inconsistent (kissat *solver);
 

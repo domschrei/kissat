@@ -272,16 +272,12 @@ struct kissat {
   volatile bool shweep_end_iteration_signal;
   volatile bool shweep_end_job_signal;
   double shweep_t0;
-  //A bookmark to quickly find two places in the code
-  //which interact in a specific manner with each other
-  bool LSP_BOOKMARK_WHERE_WE_MODIFY_KITTEN_TICKLIMIT;
 
   //there exist time-windows inbetween the sweep iterations
   //where no (accessible) sweeper object exists.
   //we track on the solver-level (permanently avialable)
   //whether such a sweeper exists and is accessible for stealing right now
   volatile bool shweeper_allows_stealing;
-  // volatile bool shweeper_working_internally;
 
   //Export to own Mallob::Kissat object
   int *shweep_export_eq_buffer;
