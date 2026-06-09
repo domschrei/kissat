@@ -2197,6 +2197,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
       //mostly here for solvers which start late into the solving process
       //and first need to catch up with all the imports for a long time
       //their importing should not block the whole Mallob iteration from moving forward
+      kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP skip import due to iter/job end");
       break;
     }
     int elit = 0;
@@ -2245,6 +2246,7 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   for (;;) {
     if ((solver->shweep_end_job_signal || solver->shweep_end_iteration_signal)) {
       //for reason see above in analog shweep_import_SweepJob_units
+      kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP skip import due to iter/job end");
       break;
     }
     int elit1 = 0;
@@ -2378,6 +2380,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   sweeper->work_end = 0;
   sweeper->max_work_after_steal = 0;
   int stolen_amount = 0;
+  kissat_custom_message(solver,V1_INFO_SWEEP, "searching work @ %.3f", shweep_wallclock (solver));
   //The solver thread goes into the Mallob/C++ area,
   //where it will loop continuously until it can steal some work
   //If work could be stolen, the worklist will be allocated by Mallob/C++,
@@ -2865,7 +2868,9 @@ int mallob_shweep_single_iteration(kissat *solver) {
   //at the very end of a SweepJob there exist some Eqs and Units to
   //import from the last sharing round which brought the termination signal
   //for the representative solver we want to also have those
-  shweep_do_EU_imports (solver);
+  //update: no longer import at the end of an iteration, can lead to stalls
+  // shweep_do_EU_imports (solver);
+
   equivalences = statistics->sweep_equivalences - equivalences,
   units = solver->statistics.sweep_units - units;
   kissat_phase (solver, "sweep", GET (sweep), "found %" PRIu64 " equivalences and %" PRIu64 " units", equivalences, units);
@@ -2873,13 +2878,12 @@ int mallob_shweep_single_iteration(kissat *solver) {
     "SWEEP this round: E %i, U %i, E+U %i   Cumulative: E %i, U %i, E+U %i ",
     equivalences, units, equivalences+units, statistics->sweep_equivalences, statistics->sweep_units, statistics->sweep_equivalences + statistics->sweep_units);
 
-  //Some other solver might be stealing from us right now, so we can not
-  //just immediately release / deallocate our state.
-  //Must wait until the other solver is no longer accessing our fields.
-  //This situation can happen especially if a new iteration just started,
-  //this solver here has all the work, another solver takes now a long time
-  //to try to steal half of that, and in the meantime this solver here already
-  //finds UNSAT
+  //Some other solver might be stealing from us right now (accessing our work array),
+  //so we can not just immediately release / deallocate ourselves
+  //This can happen especially if a new iteration just started
+  //and this solver both quickly finds UNSAT, but also already has another solver
+  //stealing a large amount of work (which takes some time), and UNSAT falls right
+  //within this stealing process
   while (sweeper.somebody_is_stealing_from_me) {
     kissat_custom_message(solver,V1_INFO_SWEEP, "Guard solver release - another solver is still stealing from us @ %.3f", shweep_wallclock (solver));
     usleep (5000);
