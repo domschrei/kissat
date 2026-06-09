@@ -196,9 +196,9 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     solver->shweep.env_limit_vars    = sweeper->limit.vars;
     solver->shweep.env_limit_depth   = sweeper->limit.depth;
     solver->shweep.env_limit_clauses = sweeper->limit.clauses;
-    kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) variables %u", completed, sweeper->limit.vars);
-    kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) depth     %u", completed, sweeper->limit.depth);
-    kissat_custom_message(solver, V2_VERB_SWEEP, "sweeper (compl %i) clauses   %u", completed, sweeper->limit.clauses);
+    kissat_custom_message(solver, V3_VVERB_SWEEP, "sweeper (compl %i) variables %u", completed, sweeper->limit.vars);
+    kissat_custom_message(solver, V3_VVERB_SWEEP, "sweeper (compl %i) depth     %u", completed, sweeper->limit.depth);
+    kissat_custom_message(solver, V3_VVERB_SWEEP, "sweeper (compl %i) clauses   %u", completed, sweeper->limit.clauses);
   }
 
   if (GET_OPTION (mallob_sweeping)) {
@@ -2321,12 +2321,12 @@ int shweep_get_work_estimate(kissat *solver) {
 //This should be ok, because the writes are individual 32-bit integer writes, which should be atomic
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count) {
   if (!solver || !solver->shweeper_allows_stealing) {
-    kissat_custom_message (solver, V2_VERB_SWEEP, "Guarded against executed steal attempt (solver null or stealing not allowed)");
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Guarded against executed steal attempt (solver null or stealing not allowed)");
     return 0;
   }
   sweeper *sweeper = solver->sweeper;
   if (!sweeper) {
-    kissat_custom_message (solver, V2_VERB_SWEEP, "Guarded against executed steal attempt (sweeper null)");
+    kissat_custom_message (solver, V1_INFO_SWEEP, "Guarded against executed steal attempt (sweeper null)");
     return 0;
   }
   //Steal every second variable in the worklist that is still open for sweeping
@@ -2776,7 +2776,6 @@ void shweep_set_global_iteration(kissat *solver, int global_iteration) {
 
 int mallob_shweep_single_iteration(kissat *solver) {
   kissat_custom_message(solver,V2_VERB_SWEEP, "SWEEPER Start new iteration %i", solver->shweep_local_iteration);
-  kissat_custom_message(solver,V2_VERB_SWEEP, "sweeper obj %i", solver->sweeper);
   if (!GET_OPTION (mallob_sweeping)) {
     kissat_custom_message(solver,V1_INFO_SWEEP, "SWEEPER WARN : mallob_sweeping is false, but are in shweep_single_iteration");
     return false;
