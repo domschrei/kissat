@@ -2320,7 +2320,15 @@ int shweep_get_work_estimate(kissat *solver) {
 //This method is called by the stealers thread, which means we have concurrent access on the ->work array
 //This should be ok, because the writes are individual 32-bit integer writes, which should be atomic
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count) {
+  if (!solver || !solver->shweeper_allows_stealing) {
+    kissat_custom_message (solver, V2_VERB_SWEEP, "Guarded against executed steal attempt (solver null or stealing not allowed)");
+    return 0;
+  }
   sweeper *sweeper = solver->sweeper;
+  if (!sweeper) {
+    kissat_custom_message (solver, V2_VERB_SWEEP, "Guarded against executed steal attempt (sweeper null)");
+    return 0;
+  }
   //Steal every second variable in the worklist that is still open for sweeping
   int stolen_count=0;
   int locally_left = 0;
