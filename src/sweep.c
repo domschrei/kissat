@@ -35,6 +35,8 @@ const int V5_XVERB_SWEEP = 5;
 
 const int INVALID_ELIT=INT32_MAX;
 
+//FMCAD Artifact Commit
+
 struct sweeper {
   kissat *solver;
   unsigned *depths;
