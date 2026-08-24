@@ -79,7 +79,7 @@ void kissat_report_dimacs (kissat *solver) {
   //first variable on the import stack is a dummy, put there to have the stack index 1 correspond to variable 1
   if (imported) imported--;
   if (GET_OPTION(mallob_sweeping) && solver->inconsistent) {
-    kissat_custom_message (solver, 1, "SWEEPER will not report dimacs because is inconsistent (UNSAT)");
+    kissat_custom_message (solver, 1, "SWEEPER will not report dimacs because it is already UNSAT");
     return;
   }
   unsigned num_units = gather_units(solver, false);
@@ -88,7 +88,7 @@ void kissat_report_dimacs (kissat *solver) {
   }
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) {
-    kissat_custom_message (solver, 1, "SWEEPER does not report dimacs, because told so by callback");
+    kissat_custom_message (solver, 1, "SWEEPER does not report dimacs, told so by Mallob callback");
     return;
   }
   kissat_custom_message (solver, 1, "SWEEPER reports final formula via kissat_report_dimacs");
