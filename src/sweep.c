@@ -2695,9 +2695,9 @@ int kissat_pure_sequential_sweeping(kissat *solver) {
     }
   }
   //Pure sweeping is finished, now leaving the binary.
-  //To skip all other steps in search.c report anything but 0.
-  //i.e. a bit hacky report of 10 in case no progress was made...
-  //used for now only for UNSAT Miter instances, where this was ok
+  //To skip all other steps in search.c, we report anything but 0.
+  //i.e. a hacky report of 10 in case no progress was made...
+  //this specific sequential path/call was only ever used with UNSAT MITER instances, so leave for now experimental
   if (solver->inconsistent)
     return 20;
   if (solver->active < active_start)
