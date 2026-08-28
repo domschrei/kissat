@@ -1,6 +1,3 @@
-Testing some new parallelizations of Kissat inside Mallob.
-
-<hr/>
 
 This is a **fork** of Kissat. It extends the C interface of Kissat by several functions which are needed for its integration into [Mallob](https://github.com/domschrei/mallob).  
 Notably, the new interface features redundant clause export and import, fetching basic statistics, and setting initial variable phases.  
