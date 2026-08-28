@@ -250,6 +250,7 @@ struct kissat {
   void (*on_lrup_import)     (void* state, unsigned long id, const int* lits, int nbLits, const unsigned char* sigData);
   void (*on_drup_deletion)   (void* state, const int* lits, int nbLits);
 #endif
+
   // Clause export
   void *consume_clause_state;
   int *consume_clause_buffer;
@@ -263,9 +264,8 @@ struct kissat {
   unsigned long num_conflicts_at_last_import;
 
   //--------------------------------------------------------------------------------
-  //MallobSweep
+  // For MallobSweep
   sweeper *sweeper;
-  // volatile bool shweep_has_sweeper_obj;
   //These flags are stored on the solver-level,
   //because individual sweeper-structs only live for one sweep iteration
   volatile int shweep_local_iteration;
@@ -275,7 +275,7 @@ struct kissat {
 
   //there exist time-windows inbetween the sweep iterations
   //where no (accessible) sweeper object exists.
-  //we track on the solver-level (permanently avialable)
+  //we track on the solver-level (permanently available)
   //whether such a sweeper exists and is accessible for stealing right now
   volatile bool shweeper_allows_stealing;
 
@@ -284,7 +284,7 @@ struct kissat {
   void (*shweep_export_eq_callback) (void *state);
   void (*shweep_export_unit_callback) (void *state, int lit);
 
-  //Import directly from SweepJob:: (and bypass Kissat::)
+  //Import directly from SweepJob:: and bypass Kissat::
   void (*shweep_import_SweepJob_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId);
   void (*shweep_import_SweepJob_unit_callback) (void *SweepJobState, int *lit, int localId);
 
@@ -294,7 +294,7 @@ struct kissat {
 
   void (*shweep_report_finished_iteration_callback) (void *SweepJobState, int localId);
 
-  struct shweep_statistics shweep;     //statistics for mallob sweeping
+  struct shweep_statistics shweep;     
 
   //--------------------------------------------------------------------------------
 

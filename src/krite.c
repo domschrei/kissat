@@ -1,11 +1,11 @@
 #include "krite.h"
-#include "error.h"
 #include "inline.h"
 #include "internal.h"
-#include "print.h"
-#include "require.h"
 #include "statistics.h"
 #include "watch.h"
+#include "error.h"
+#include "require.h"
+#include "print.h"
 
 #include <inttypes.h>
 #include <string.h>
@@ -74,9 +74,10 @@ unsigned gather_units (kissat * solver, bool report) {
   return num_units;
 }
 
-void kissat_report_dimacs (kissat *solver) {
+void kissat_report_dimacs (kissat * solver) {
   size_t imported = SIZE_STACK (solver->import);
-  //first variable on the import stack is a dummy, put there to have the stack index 1 correspond to variable 1
+  //Need to subtract one because the first variable on the import stack is a dummy.
+  //such that stack index 1 correspond to variable 1
   if (imported) imported--;
   if (GET_OPTION(mallob_sweeping) && solver->inconsistent) {
     kissat_custom_message (solver, 1, "SWEEPER will not report dimacs because it is already UNSAT");
@@ -88,7 +89,7 @@ void kissat_report_dimacs (kissat *solver) {
   }
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) {
-    kissat_custom_message (solver, 1, "SWEEPER does not report dimacs, told so by Mallob callback");
+    kissat_custom_message (solver, 1, "SWEEPER should not report dimacs, told so by Mallob callback");
     return;
   }
   kissat_custom_message (solver, 1, "SWEEPER reports final formula via kissat_report_dimacs");
@@ -124,13 +125,12 @@ void kissat_report_dimacs (kissat *solver) {
     if (!c->garbage && !c->redundant) {
       for (all_literals_in_clause (ilit, c)) {
         const int elit = kissat_export_literal (solver, ilit);
-        solver->report_preprocessed_lit (solver->report_preprocess_state, elit);
+          solver->report_preprocessed_lit (solver->report_preprocess_state, elit);
       }
       solver->report_preprocessed_lit (solver->report_preprocess_state, 0);
     }
   if (num_units == 0) return;
   unsigned now_num_units = gather_units(solver, true);
   assert(now_num_units == num_units);
-  kissat_custom_message (solver, 1, "SWEEPER DIMACS REPORT FINISHED");
 }
 

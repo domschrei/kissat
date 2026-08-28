@@ -63,8 +63,6 @@ void kissat_connect_clause (kissat *solver, clause *c) {
   kissat_inlined_connect_clause (solver, all_watches, c, ref);
 }
 
-
-
 static reference new_binary_clause (kissat *solver, bool original,
                                     bool watch, unsigned first,
                                     unsigned second) {
@@ -81,8 +79,6 @@ static reference new_binary_clause (kissat *solver, bool original,
   }
   return INVALID_REF;
 }
-
-
 
 static reference new_large_clause (kissat *solver, bool original,
                                    bool redundant, unsigned glue,

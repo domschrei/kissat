@@ -35,8 +35,6 @@ const int V5_XVERB_SWEEP = 5;
 
 const int INVALID_ELIT=INT32_MAX;
 
-//FMCAD Artifact Commit
-
 struct sweeper {
   kissat *solver;
   unsigned *depths;
@@ -58,7 +56,7 @@ struct sweeper {
 
   //For MallobSweep
   unsigned *work;     //The Worklist of this sweeper
-  unsigneds RESWEEP;  //recent equivalences for re-sweeping
+  unsigneds RESWEEP;  //Recent equivalences for re-sweeping (deactivated by default, though)
   int work_end;
   int work_head;
   int max_work_after_steal;
@@ -106,9 +104,7 @@ static bool kitten_ticks_limit_hit (sweeper *sweeper, const char *when) {
 }
 
 static void init_sweeper (kissat *solver, sweeper *sweeper) {
-  //For MallobSweep: The solver must also know its sweeper
-  // kissat_custom_message(solver,V1_INFO_SWEEP, "init sweeper");
-  // solver->shweep_has_sweeper_obj=true;
+  //For MallobSweep, the solver must also know its sweeper
   solver->sweeper = sweeper;
   sweeper->solver = solver;
   sweeper->encoded = 0;
@@ -194,18 +190,17 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     INIT_STACK (sweeper->RESWEEP);
     //These two counters track the progress on the worklist.
     //The worklist itself (sweeper->work) is NOT created here,
-    //instead it is allocated and managed by Mallob/C++, and we only operate on it
-    //(and trust Mallob/C++ that it keeps it allocated for us)
+    //instead it is allocated and managed externally by Mallob in C++,
+    //and we only operate on it and trust that it remains allocated for us
     sweeper->work_head=0;
     sweeper->work_end=0;
     sweeper->rank = GET_OPTION (mallob_rank);
     sweeper->localId = GET_OPTION (mallob_local_id);
     sweeper->max_work_after_steal=0;
     sweeper->somebody_is_stealing_from_me=false;
-    //Now we can allow stealing, after all other safeguards
-    //(especially work_head = 0 and work_end = 0) have been set up
+    //After all other safeguards have been declared, now we can allow stealing
+    //(especially relevant for work_head = 0 and work_end = 0)
     solver->shweeper_allows_stealing = true;
-
   }
 }
 
@@ -307,11 +302,6 @@ static void add_literal_to_environment (sweeper *sweeper, unsigned depth,
   LOG ("sweeping[%u] adding literal %s", depth, LOGLIT (lit));
 }
 
-
-/**
- *  Add all literals of the current clause (solver->clause) to the environment
- *  Tell kitten about the clause
- */
 static void sweep_clause (sweeper *sweeper, unsigned depth) {
   kissat *solver = sweeper->solver;
   assert (SIZE_STACK (sweeper->clause) > 1);
@@ -323,11 +313,6 @@ static void sweep_clause (sweeper *sweeper, unsigned depth) {
   sweeper->encoded++;
 }
 
-/**
- * Sweep a binary clause, but only if it is really necessary
- * (both literals are representatives, the clause is not yet satisfied,
- * and we haven't included the clause yet)
- */
 static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
                           unsigned other) {
   if (sweep_repr (sweeper, lit) != lit)
@@ -338,12 +323,15 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
   LOGBINARY (lit, other, "sweeping[%u]", depth);
   value *values = solver->values;
 
-  //Addition for Mallob Sweeping: It can happen that we stumble here upon a
-  //unit clause that has not been detected yet,
-  //caused by unit/equivalence imports, which somehow sidestep something...
-  //We cannot continue at this point, because the next assertion would trigger
-  //Current solution: We conservatively skip this clause entirely.
-  //A more aggresive decision would be to assign this unit, but that feels too risky.
+  //(@1): When running in MallobSweep, it can happen that the binary (lit, other)
+  //that we want to add to the environment turns out to be a unit that has not been detected yet.
+  //This can be caused by unit/equivalence imports which somehow sidestep
+  //some earlier detections. We cannot continue at this point with
+  //the normal flow of this method because an assertion would trigger.
+  //Our solution is to conservatively skip this binary entirely, i.e.
+  //not adding it to the sweeping environment. This is sound, since we
+  //make the environment weaker than it could be, the only
+  //downside is that we now might miss some equivalence detections in that environment.
   if (GET_OPTION (mallob_sweeping) && values[lit]!=0) {
     solver->shweep.stumbled_units++;
     return;
@@ -364,13 +352,11 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
     LOGBINARY (lit, other, "skipping depth %u copied", other_depth);
     return;
   }
-
-  //Analog situation for MallobSweep as described above
+  //Analog MallobSweep edgecase as above (@1), now for the other literal in the binary clause
   if (GET_OPTION (mallob_sweeping) && other_value!=0) {
     solver->shweep.stumbled_units++;
     return;
   }
-
   assert (!other_value);
   assert (EMPTY_STACK (sweeper->clause));
   PUSH_STACK (sweeper->clause, lit);
@@ -378,14 +364,6 @@ static void sweep_binary (sweeper *sweeper, unsigned depth, unsigned lit,
   sweep_clause (sweeper, depth);
 }
 
-/**
-* Sweep a clause, given by it's reference
-* sweeping == add its variables to the environment and add the clause to kitten (per clause only those literals that are not yet decided)
-* Don't sweep a clause if
-* --its already satisfied (by some kissat-var with value==1)
-* --its already been swept
-* --its already garbage
-*/
 static void sweep_reference (sweeper *sweeper, unsigned depth,
                              reference ref) {
   assert (EMPTY_STACK (sweeper->clause));
@@ -411,15 +389,9 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
   PUSH_STACK (sweeper->refs, ref);
   c->swept = true;
 
+  //Analog MallobSweep edgecase as above (@1), a clause we wanted to add to
+  //the environment turns out to already be unit.
   if (SIZE_STACK(sweeper->clause)==1) {
-    //Addition for Mallob Sweeping:
-    //It can happen that we stumble here upon a unit-clause that has been undetected so far
-    //In sequential kissat a size 1 clause can not happen here,
-    //as evidenced by the assertion, so we need to do something
-    //Current solution: We conservatively skip this unit clause entirely,
-    //behave as if we didn't see it
-    //Assigning/propagating it *should* be allowed, but since we are
-    //already a bit outside the assertion assumptions, better to be cautious here
     assert(GET_OPTION(mallob_sweeping));
     CLEAR_STACK (sweeper->clause);
     solver->shweep.stumbled_units++;
@@ -428,10 +400,6 @@ static void sweep_reference (sweeper *sweeper, unsigned depth,
   sweep_clause (sweeper, depth);
 }
 
- /*
-  Receives the literals of implication graph clause and checks whether any literal has a satisfied value
-  If all are unsatisfied, adds the clause-literals to the core-stack (marked off with INVALID_LIT boundaries per clause)
-*/
 static void save_core_clause (void *state, bool learned, size_t size,
                               const unsigned *lits) {
   sweeper *sweeper = state;
@@ -467,15 +435,7 @@ static void save_core_clause (void *state, bool learned, size_t size,
 #endif
   PUSH_STACK (*core, INVALID_LIT);
 }
- /*
-  * Add information from an UNSAT core to kissat
-  * Situation: had UNSAT result, traversed the implication graph,
-  * collected all its clauses, then kept only those which were actually unsatisfied.
-  * This can detect new unit clauses that we can tell kissat,
-  * and apparently is also needed for proof stuff
-  * Loops through the clauses of the core (separated by INVALID_LIT) markers),
-  * then loops through literals
-  */
+
 static void add_core (sweeper *sweeper, unsigned core_idx) {
   kissat *solver = sweeper->solver;
   if (solver->inconsistent)
@@ -487,6 +447,7 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
 
   unsigned *q = BEGIN_STACK (*core);
   const unsigned *const end_core = END_STACK (*core), *p = q;
+
   while (p != end_core) {
     const unsigned *c = p;
     while (*p != INVALID_LIT)
@@ -499,6 +460,7 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
     unsigned unit = INVALID_LIT;
 
     unsigned *d = q;
+
     for (const unsigned *l = c; !satisfied && l != p; l++) {
       const unsigned lit = *l;
       const value value = values[lit];
@@ -557,26 +519,13 @@ static void add_core (sweeper *sweeper, unsigned core_idx) {
 #endif
 }
 
- /*
-  *We had an UNSAT result from a kitten call, i.e. an UNSAT core.
-  *Now save this UNSAT result for further processing.
-  */
 static void save_core (sweeper *sweeper, unsigned core) {
   kissat *solver = sweeper->solver;
   LOG ("saving extracted core[%u] lemmas", core);
   assert (core == 0 || core == 1);
   assert (EMPTY_STACK (sweeper->core[core]));
   sweeper->save = core;
-   /*
-    * collect all clauses (only their reference, not their individual literals)
-    * by traversing the implication graph backwards
-    */
   kitten_compute_clausal_core (solver->kitten, 0);
-   /*
-    * keep only those clauses that are actually unsatisfied
-    * (by looking at all the individual literals),
-    * i.e. kick out those that have satisfied literals
-    */
   kitten_traverse_core_clauses (solver->kitten, sweeper, save_core_clause);
 }
 
@@ -605,10 +554,6 @@ static void clear_core (sweeper *sweeper, unsigned core_idx) {
   CLEAR_STACK (*core);
 }
 
-/*
- * L.12-14
- * Found out that a backbone candidate is indeed a backbone. Propagate its value.
- */
 static void save_add_clear_core (sweeper *sweeper) {
   save_core (sweeper, 0);
   add_core (sweeper, 0);
@@ -623,9 +568,6 @@ static void save_add_clear_core (sweeper *sweeper) {
   LOGLITPART (SIZE_STACK (sweeper->partition), \
               BEGIN_STACK (sweeper->partition), MESSAGE)
 
-/**
- * Add all literals from the kitten solution to the backbone and partition stacks
- */
 static void init_backbone_and_partition (sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   LOG ("initializing backbone and equivalent literals candidates");
@@ -634,10 +576,7 @@ static void init_backbone_and_partition (sweeper *sweeper) {
       continue;
     const unsigned lit = LIT (idx);
     const unsigned not_lit = NOT (lit);
-    //read the value from the kitten SAT solution
     const signed char tmp = kitten_value (solver->kitten, lit);
-    //Candidates are those literals from the solution,
-    //as these literals are "positive"
     const unsigned candidate = (tmp < 0) ? not_lit : lit;
     LOG ("sweeping candidate %s", LOGLIT (candidate));
     PUSH_STACK (sweeper->backbone, candidate);
@@ -655,10 +594,6 @@ static void sweep_empty_clause (sweeper *sweeper) {
   assert (sweeper->solver->inconsistent);
 }
 
-/**
- * Splits each class in the partition into new true/false subclasses, following the true/false results from the current witness model
- * Datastructure: All classes live in the same partition stack, and are only divided from each other by INVALID_LIT markers
- */
 static void sweep_refine_partition (sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   LOG ("refining partition");
@@ -673,14 +608,8 @@ static void sweep_refine_partition (sweeper *sweeper) {
   unsigned old_classes = 0;
   unsigned new_classes = 0;
 #endif
-  //Copy literals from old_partition to new partition
-  //But only those that are
-  // -- their own representatives
-  // -- not yet fixed by kissat
-  // -- set to true in the kitten model
   for (const unsigned *p = old_begin, *q; p != old_end; p = q + 1) {
     unsigned assigned_true = 0, other;
-    //Now scanning through one single class (classes are separated by INVALID_LIT)
     for (q = p; (other = *q) != INVALID_LIT; q++) {
       if (sweep_repr (sweeper, other) != other)
         continue;
@@ -710,8 +639,6 @@ static void sweep_refine_partition (sweeper *sweeper) {
       LOG ("dropping singleton class %s", LOGLIT (other));
     } else {
       LOG ("%u positive literal in class", assigned_true);
-      //Mark the end of this class via an INVALID_LIT.
-      //Separates if from the next class.
       PUSH_STACK (new_partition, INVALID_LIT);
 #ifdef LOGGING
       new_classes++;
@@ -726,13 +653,11 @@ static void sweep_refine_partition (sweeper *sweeper) {
         continue;
       signed char value = kitten_value (kitten, other);
       if (value < 0) {
-        //False partition comes on the same stack,
-        //but separated by one INVALID_LIT from the lower true partition
         PUSH_STACK (new_partition, other);
         assigned_false++;
       }
     }
-    //Collected all false literals from the old class
+
     if (assigned_false == 0)
       LOG ("no negative literal in class");
     else if (assigned_false == 1) {
@@ -751,18 +676,12 @@ static void sweep_refine_partition (sweeper *sweeper) {
 #endif
     }
   }
-  //Went through all classes and split them into twin true/false subclasses
   RELEASE_STACK (old_partition);
   sweeper->partition = new_partition;
   LOG ("refined %u classes into %u", old_classes, new_classes);
   LOGPARTITION ("refined equivalence candidates");
 }
 
-/**
- * Keep in the backbone only literals that
- *  -- are not yet fixed by kissat
- *  -- and are set to true
-**/
 static void sweep_refine_backbone (sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   LOG ("refining backbone candidates");
@@ -784,9 +703,6 @@ static void sweep_refine_backbone (sweeper *sweeper) {
   LOGBACKBONE ("refined backbone candidates");
 }
 
-/**
- * Refine the backbone and partition (using the current kitten model)
- */
 static void sweep_refine (sweeper *sweeper) {
 #ifdef LOGGING
   kissat *solver = sweeper->solver;
@@ -801,15 +717,6 @@ static void sweep_refine (sweeper *sweeper) {
     sweep_refine_partition (sweeper);
 }
 
-/**
- * iteratively flip every literal from the backbone, only keep those that resist flipping.
- * --> Backbone shrinks.
- * If -lit flip gives new model: Kick the literal from the backbone.
- *    Leaves the flipped value in the model (!)
- *    i.e. with every flip the model random-walk through the solution-space
- * If -lit flip is unsat: Keep the literal in the backbone,
- *    we could not rule it out via a cheap flip
- */
 static void flip_backbone_literals (struct sweeper *sweeper) {
   struct kissat *solver = sweeper->solver;
   const unsigned max_rounds = GET_OPTION (sweepfliprounds);
@@ -824,7 +731,6 @@ static void flip_backbone_literals (struct sweeper *sweeper) {
 #endif
   unsigned flipped, round = 0;
   do {
-    //Effectively only one round, because sweepflipround=1 per default
     round++;
     flipped = 0;
     unsigned *begin = BEGIN_STACK (sweeper->backbone), *q = begin;
@@ -833,8 +739,6 @@ static void flip_backbone_literals (struct sweeper *sweeper) {
       const unsigned lit = *p++;
       INC (sweep_flip_backbone);
       if (kitten_flip_literal (kitten, lit)) {
-        //Successful flipping seems to be permanent!
-        //The new solution now contains this flipped literal
         LOG ("flipping backbone candidate %s succeeded", LOGLIT (lit));
 #ifdef LOGGING
         total_flipped++;
@@ -843,12 +747,10 @@ static void flip_backbone_literals (struct sweeper *sweeper) {
         flipped++;
       } else {
         LOG ("flipping backbone candidate %s failed", LOGLIT (lit));
-        //Since flipping failed, the literal remains in the backbone
         *q++ = lit;
       }
     }
     SET_END_OF_STACK (sweeper->backbone, q);
-    //Reduces the stack to those literals that resisted flipping
     LOG ("flipped %u backbone candidates in round %u", flipped, round);
 
     if (TERMINATED (sweep_terminated_1))
@@ -860,14 +762,6 @@ static void flip_backbone_literals (struct sweeper *sweeper) {
        total_flipped, round);
 }
 
-
-/**
- * L.8-14
- * Invest full effort to find any model where lit is negated
- *  1. Try luck by just flipping, might work
- *  2. Assume -lit and run kitten. If new model, lit is not backbone, and have learned new model. Narrow down backbone and refine partitions
- *  3. If no model exists, kitten proved that lit must be kept positive -> propagate this info
- */
 static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
   kissat *solver = sweeper->solver;
   LOG ("trying backbone candidate %s", LOGLIT (lit));
@@ -880,10 +774,6 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
     return false;
   }
 
-   /*
-   *   //Try lucky normal flipping . Maybe it works now given the current random-walk-situation
-   *   //If flip works, remove this lit from the backbone
-   */
   INC (sweep_flip_backbone);
   if (kitten_status (kitten) == 10 && kitten_flip_literal (kitten, lit)) {
     INC (sweep_flipped_backbone);
@@ -892,20 +782,12 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
     return false;
   }
 
-  /*
-   *Random flip was not successful. Increase the investment.
-    Run expensive SAT call to check whether there is *any* model where lit is flipped.
-     */
   LOG ("flipping %s failed", LOGLIT (lit));
   const unsigned not_lit = NOT (lit);
   INC (sweep_solved_backbone);
   kitten_assume (kitten, not_lit);
   int res = sweep_solve (sweeper);
   if (res == 10) {
-    /*
-    Found a model with this lit flipped.
-    So this lit is not a backbone, and the new model is new information to further split partition classed
-     */
     LOG ("sweeping backbone candidate %s failed", LOGLIT (lit));
     sweep_refine (sweeper);
     INC (sweep_sat_backbone);
@@ -913,13 +795,6 @@ static bool sweep_backbone_candidate (sweeper *sweeper, unsigned lit) {
   }
 
   if (res == 20) {
-    /*
-     * The current lit IS a backbone, because kitten couldn't find any model without this lit
-     * the larger the environment is, the more constraints there are to show that a literal is a backbone
-     * Larger environment ==> More detected backbones
-     * We found the backbone even with the limited environment, nice. Now propagate this as a unit clause.
-     */
-    // kissat_custom_message(solver,V3_VVERB_SWEEP, " lit is backbone -U! %u", lit);
     LOG ("sweep unit %s", LOGLIT (lit));
     save_add_clear_core (sweeper);
     INC (sweep_unsat_backbone);
@@ -944,10 +819,6 @@ static bool scheduled_variable (sweeper *sweeper, unsigned idx) {
   return sweeper->prev[idx] != INVALID_IDX || sweeper->first == idx;
 }
 
-/**
-* Schedule idx to be the very next variable to be popped for sweeping
-* By moving it to the end ("last") of the schedule queue
-**/
 static void schedule_inner (sweeper *sweeper, unsigned idx) {
   kissat *const solver = sweeper->solver;
   assert (VALID_INTERNAL_INDEX (idx));
@@ -994,9 +865,6 @@ static void schedule_inner (sweeper *sweeper, unsigned idx) {
     LOG ("keeping inner %s scheduled as last", LOGVAR (idx));
 }
 
-/**
- *Move idx to the start of the schedule queue ("first") (where it will not be popped for a long time)
-**/
 static void schedule_outer (sweeper *sweeper, unsigned idx) {
 #if !defined(NDEBUG) || defined(LOGGING)
   kissat *const solver = sweeper->solver;
@@ -1018,9 +886,6 @@ static void schedule_outer (sweeper *sweeper, unsigned idx) {
   LOG ("scheduling outer %s as first", LOGVAR (idx));
 }
 
-/**
-*Pop the *last* idx from the schedule queue
-**/
 static unsigned next_scheduled (sweeper *sweeper) {
 #if !defined(NDEBUG) || defined(LOGGING)
   kissat *const solver = sweeper->solver;
@@ -1051,11 +916,6 @@ static unsigned next_scheduled (sweeper *sweeper) {
   IDX != INVALID_IDX && (NEXT_##IDX = sweeper->next[IDX], true); \
   IDX = NEXT_##IDX
 
- /*
-  *We found an equivalence lit == repr
-  *now we replace in the whole clause database lit --> repr
-  *Multiple things can happen to a clause: it can reduce to empty, unit, binary, or larger; each needs its own handling
-  */
 static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
                                           unsigned repr) {
   kissat *solver = sweeper->solver;
@@ -1104,9 +964,7 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
           CHECK_AND_ADD_UNIT (lit);
           ADD_UNIT_TO_PROOF (lit);
           kissat_assign_unit (solver, lit, "substituted binary clause");
-           /*
-            * Catch for Mallob Sharing
-            */
+          //Catch unit for sharing in MallobSweep
           if (GET_OPTION (mallob_sweeping)) {
             shweep_export_unit(solver, lit);
           }
@@ -1178,8 +1036,8 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
 
         if (new_size == 0) {
           LOGCLS (c, "substituted empty clause");
-          kissat_custom_message (solver,V0_CRIT_SWEEP,
-            "SWEEPER found UNSATISFIABLE solution! found empty clause during clause substitution\n");
+          kissat_custom_message (solver,V1_INFO_SWEEP,
+            "SWEEPER found UNSAT! during clause substitution\n");
           assert (!solver->inconsistent);
           solver->inconsistent = true;
           CHECK_AND_ADD_EMPTY ();
@@ -1193,9 +1051,7 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
           CHECK_AND_ADD_UNIT (unit);
           ADD_UNIT_TO_PROOF (unit);
           kissat_assign_unit (solver, unit, "substituted large clause");
-           /*
-            * Catch for Mallob Sharing
-            */
+          //Catch for sharing in MallobSweep
           if (GET_OPTION (mallob_sweeping)) {
             shweep_export_unit(solver, unit);
           }
@@ -1294,14 +1150,6 @@ static void substitute_connected_clauses (sweeper *sweeper, unsigned lit,
 #endif
 }
 
- /*
-  *Remove lit from it's partition class, because it was found to be
-  *equivalent with some other representative
-  *In case lit came from an imported equivalence,
-  *maybe it doesnt even appear in the local eq class
-  *Or maybe the import does happen anyways after or before a sweep,
-  *so there might not even exist a partition to worry about during importing
-  */
 static void sweep_remove (sweeper *sweeper, unsigned lit) {
   kissat *solver = sweeper->solver;
   assert (sweeper->reprs[lit] != lit);
@@ -1394,11 +1242,6 @@ static void flip_partition_literals (struct sweeper *sweeper) {
        total_flipped, round);
 }
 
-/*
-  Test conclusively whether (lit, other) are equivalent literals.
-  If yes, map one to the other
-  If not, then we found a new model that allows further partition refinement
-*/
 static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
                                           unsigned other) {
   kissat *solver = sweeper->solver;
@@ -1412,14 +1255,8 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   assert (begin + 3 <= end);
   assert (end[-3] == lit);
   assert (end[-2] == other);
-   /*
-    * If the class boundary comes directly after the second literal, the class consists only of these two literals
-    */
   const unsigned third = (end - begin == 3) ? INVALID_LIT : end[-4];
   const int status = kitten_status (kitten);
-   /*
-    *Try cheap flip of the first literal
-    */
   if (status == 10 && kitten_flip_literal (kitten, lit)) {
     INC (sweep_flip_equivalences);
     INC (sweep_flipped_equivalences);
@@ -1436,9 +1273,6 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     }
     LOGPARTITION ("refined equivalence candidates");
     return false;
-   /*
-    *Try cheap flip of the second literal
-    */
   } else if (status == 10 && kitten_flip_literal (kitten, other)) {
     ADD (sweep_flip_equivalences, 2);
     INC (sweep_flipped_equivalences);
@@ -1458,17 +1292,11 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   if (status == 10)
     ADD (sweep_flip_equivalences, 2);
   LOG ("flipping %s and %s both failed", LOGLIT (lit), LOGLIT (other));
-   /*
-    *Now invest first hard SAT call (G -l k)
-    */
   kitten_assume (kitten, not_lit);
   kitten_assume (kitten, other);
   INC (sweep_solved_equivalences);
   int res = sweep_solve (sweeper);
   if (res == 10) {
-     /*
-      * SAT model was able to split l and k, because it found a solution (-l k)
-      */
     INC (sweep_sat_equivalences);
     LOG ("first sweeping implication %s -> %s failed", LOGLIT (other),
          LOGLIT (lit));
@@ -1486,23 +1314,13 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   LOG ("first sweeping implication %s -> %s succeeded", LOGLIT (other),
        LOGLIT (lit));
 
-   /*
-    * Store this UNSAT-Core for (G -l k)
-    */
   save_core (sweeper, 0);
 
-   /*
-    * The first SAT call could not split (l k), because it returned unsatisfiable for (-l k)
-    * Now try the symmetric case (G l -k)
-    */
   kitten_assume (kitten, lit);
   kitten_assume (kitten, not_other);
   res = sweep_solve (sweeper);
   INC (sweep_solved_equivalences);
   if (res == 10) {
-     /*
-      * Found a split. l and k are not equivalent.
-      */
     INC (sweep_sat_equivalences);
     LOG ("second sweeping implication %s <- %s failed", LOGLIT (other),
          LOGLIT (lit));
@@ -1518,35 +1336,19 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     return false;
   }
 
-   /*
-    * Found out that l and k are indeed equivalent!
-    *  both SAT calls (G -l k) and (G l -k) returned UNSAT.
-    */
   INC (sweep_unsat_equivalences);
   LOG ("second sweeping implication %s <- %s succeeded too", LOGLIT (other),
        LOGLIT (lit));
 
-   /*
-    *Store also the second UNSAT core for (G l -k)
-    */
   save_core (sweeper, 1);
 
   LOG ("sweep equivalence %s = %s", LOGLIT (lit), LOGLIT (other));
   INC (sweep_equivalences);
-   /*
-    *Tell kissat about (G -l k) UNSAT
-    *In particular relevant for proving (?), and by traversing the
-    *implication graph it might even find some more unit clauses
-    *Uses the saved core nr. 0
-    */
+
   add_core (sweeper, 0);
   add_binary (solver, lit, not_other);
   clear_core (sweeper, 0);
 
-   /*
-    *Repeat for the other core, tell kissat about (G l -k) UNSAT
-    *Uses the saved core nr. 1
-    */
   add_core (sweeper, 1);
   add_binary (solver, not_lit, other);
   clear_core (sweeper, 1);
@@ -1554,26 +1356,14 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
   if (GET_OPTION (mallob_sweeping)) {
     shweep_export_equivalence(solver, lit, other);
   }
-   /*
-    *  Now replace globally in the whole clause database the literals (other gets replaced by lit)
-    */
   unsigned repr;
   if (lit < other) {
     repr = sweeper->reprs[other] = lit;
     sweeper->reprs[not_other] = not_lit;
-     /*
-      * Replace other --> lit in all (watched?) clauses
-      */
     substitute_connected_clauses (sweeper, other, lit);
     substitute_connected_clauses (sweeper, not_other, not_lit);
-     /*
-      * Remove "other" from the sweeper partition
-      */
     sweep_remove (sweeper, other);
   } else {
-     /*
-      * Symmetric case for inverse lexicographic order
-      */
     repr = sweeper->reprs[lit] = other;
     sweeper->reprs[not_lit] = not_other;
     substitute_connected_clauses (sweeper, lit, other);
@@ -1581,17 +1371,13 @@ static bool sweep_equivalence_candidates (sweeper *sweeper, unsigned lit,
     sweep_remove (sweeper, lit);
   }
 
- /*
-  *L.9
-  *Re-introduce repr to the queue, to where it is immediately scheduled next
-  *heuristic argument: We just made progress around "repr"
-  *(and simplified some clauses) immediately search again here
-  */
-  //Added custom resweeping logic for the case of MallobSweep.
-  //If not running MallobSweep, the original behaviour is unchanged
-  //('schedule_inner (sweeper, repr_idx)')
+  //Added a custom resweeping logic for  MallobSweep, where a found equivalence
+  //can be directly used as the starting point of the next sweep.
+  //Resweeping is deactivated by default, though, because it can lead to more
+  //redundant work, when different solvers resweep the same variable.
   const unsigned repr_idx = IDX (repr);
   if (!GET_OPTION (mallob_sweeping)) {
+    //original behaviour before/without MallobSweep
     schedule_inner (sweeper, repr_idx);
   } else {
     int rnd_per_mille = kissat_pick_random(&solver->random, 0,1000); //in range [0..999]
@@ -1629,6 +1415,7 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
   size_t expand = 0, next = 1;
   bool success = false;
   unsigned depth = 1;
+
   while (!limit_reached) {
     if (sweeper->encoded >= sweeper->limit.clauses) {
       LOG ("environment clause limit reached");
@@ -1666,16 +1453,9 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
       for (all_binary_large_watches (watch, *watches)) {
         if (watch.type.binary) {
           const unsigned other = watch.binary.lit;
-          /*
-           * Add clause and variables to environment
-           * For binary clauses, need extra checks whether it's necessary to include them
-           */
           sweep_binary (sweeper, depth, lit, other);
         } else {
           reference ref = watch.large.ref;
-          /*
-           * Add clause and variables to environment
-          */
           sweep_reference (sweeper, depth, ref);
         }
         if (SIZE_STACK (sweeper->vars) >= sweeper->limit.vars) {
@@ -1689,16 +1469,11 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
     }
     expand++;
   }
-  /*
-   *L.3
-   *Environment around idx is now collected and kitten knows all its clauses
-    Ask kitten to find a first model
-   */
   ADD (sweep_depth, depth);
   ADD (sweep_clauses, sweeper->encoded);
   ADD (sweep_environment, SIZE_STACK (sweeper->vars));
   kissat_extremely_verbose (solver,
-                            "sweeping       variable %d:  environment of "
+                            "sweeping variable %d environment of "
                             "%zu variables %u clauses depth %u",
                             kissat_export_literal (solver, LIT (idx)),
                             SIZE_STACK (sweeper->vars), sweeper->encoded,
@@ -1712,12 +1487,6 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
     uint64_t solved = solver->statistics.sweep_solved;
 #endif
     START (sweepbackbone);
-    /*
-      *L.6
-     Kitten has found a first model
-     Narrow down the backbone via cheap flips. Flip successful -> Literal is not backbone, can be kicked
-     Then try hard to flip one literal in particular
-     */
     while (!EMPTY_STACK (sweeper->backbone)) {
       if (solver->inconsistent || TERMINATED (sweep_terminated_3) ||
           kitten_ticks_limit_hit (sweeper, "backbone refinement")) {
@@ -1726,10 +1495,6 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
         STOP (sweepbackbone);
         goto DONE;
       }
-      /*
-       L.8-9
-       Cheap refine of the backbone: try lucky flips
-        */
       flip_backbone_literals (sweeper);
       if (TERMINATED (sweep_terminated_4) ||
           kitten_ticks_limit_hit (sweeper, "backbone refinement")) {
@@ -1738,10 +1503,6 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
       }
       if (EMPTY_STACK (sweeper->backbone))
         break;
-      /*
-       * L.8-14
-       * Expensive SAT call: conclusively test whether lit is backbone or not. Either way, it is no longer a candidate after this.
-       */
       const unsigned lit = POP_STACK (sweeper->backbone);
       if (!ACTIVE (IDX (lit)))
         continue;
@@ -1752,7 +1513,6 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
 #ifndef QUIET
     units = solver->statistics.sweep_units - units;
     solved = solver->statistics.sweep_solved - solved;
-    // kissat_custom_message(solver, V4_UVERB_SWEEP, "  %i SAT-B", solved);
     kissat_extremely_verbose (
         solver,
         "complete swept variable %d backbone with %" PRIu64
@@ -1764,13 +1524,6 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
     uint64_t equivalences = solver->statistics.sweep_equivalences;
     solved = solver->statistics.sweep_solved;
 #endif
-    /*
-     * L.15-22
-     * Check pairwise within a class which variables are actually equivalent
-     * The backbone is now empty.
-     * All backbone-variables have been propagated
-     * All non-backbone variables are partitioned into potential equivalence classes
-      */
     START (sweepequivalences);
     while (!EMPTY_STACK (sweeper->partition)) {
       if (solver->inconsistent || TERMINATED (sweep_terminated_5) ||
@@ -1780,9 +1533,6 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
         STOP (sweepequivalences);
         goto DONE;
       }
-      /*
-        * Lucky attempts to quickly split partitions again
-        */
       flip_partition_literals (sweeper);
       if (TERMINATED (sweep_terminated_6) ||
           kitten_ticks_limit_hit (sweeper, "backbone refinement")) {
@@ -1796,9 +1546,6 @@ static const char *sweep_variable (sweeper *sweeper, unsigned idx) {
         assert (end[-1] == INVALID_LIT);
         unsigned lit = end[-3];
         unsigned other = end[-2];
-        /*
-          Test conclusively whether "lit" and "other" are already in the given environment equivalent literals
-        */
         if (sweep_equivalence_candidates (sweeper, lit, other))
           success = true;
       } else
@@ -1849,11 +1596,6 @@ typedef STACK(sweep_candidate) sweep_candidates;
 
 #define RANK_SWEEP_CANDIDATE(CAND) (CAND).rank
 
-/**
- *  Checks how many watches idx has
- *  if zero positive watches or zero negative watches, returns false.
-    Else: sets occ = pos_watches + neg_watches
- */
 static bool scheduable_variable (sweeper *sweeper, unsigned idx,
                                  size_t *occ_ptr) {
   kissat *solver = sweeper->solver;
@@ -1874,31 +1616,20 @@ static bool scheduable_variable (sweeper *sweeper, unsigned idx,
   return true;
 }
 
-/**
- * Puts *every* admissable kissat variable in the scheduling queue,
- * those with the least watched clauses (but >0) come in front
- */
 static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   sweep_candidates fresh;
   INIT_STACK (fresh);
   flags *const flags = solver->flags;
   const bool incomplete = solver->sweep_incomplete;
-  /**
-   * check every variable for active and scheduable
-   */
   for (all_variables (idx)) {
-
     struct flags *const f = flags + idx;
-    if (!f->active) {
+    if (!f->active)
       continue;
-    }
-    if (incomplete && !f->sweep) {
+    if (incomplete && !f->sweep)
       continue;
-    }
-    if (scheduled_variable (sweeper, idx)) {
+    if (scheduled_variable (sweeper, idx))
       continue;
-    }
     size_t occ;
     if (!scheduable_variable (sweeper, idx, &occ)) {
       FLAGS (idx)->sweep = false;
@@ -1912,22 +1643,12 @@ static unsigned schedule_all_other_not_scheduled_yet (sweeper *sweeper) {
   const size_t size = SIZE_STACK (fresh);
   assert (size <= UINT_MAX);
   RADIX_STACK (sweep_candidate, unsigned, fresh, RANK_SWEEP_CANDIDATE);
-  /*
-   * Variables are now sorted ascending by their watchlist-count
-   * Insert them in the scheduling queue such that the LOWEST watchlist counts are popped FIRST
-   */
-  // size_t enqueued_vars = 0;
-  for (all_stack (sweep_candidate, cand, fresh)) {
+  for (all_stack (sweep_candidate, cand, fresh))
     schedule_outer (sweeper, cand.idx);
-  }
   RELEASE_STACK (fresh);
   return size;
 }
 
-/*
- * Empties the remaining-stack and puts selected variables back to the end of the schedule queue
- * (variable put back if active AND not-yet-scheduled AND scheduable)
- */
 static unsigned reschedule_previously_remaining (sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   flags *flags = solver->flags;
@@ -1951,9 +1672,6 @@ static unsigned reschedule_previously_remaining (sweeper *sweeper) {
   return rescheduled;
 }
 
-/*
- *  Counts the number of variables not yet sweept but in queue
- */
 static unsigned incomplete_variables (sweeper *sweeper) {
   kissat *solver = sweeper->solver;
   flags *flags = solver->flags;
@@ -2073,12 +1791,10 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
   kissat *solver = sweeper->solver;
   assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message (
     solver, "SWEEP ERROR: imported invalid unit ilit %u", ilit));
-
   const unsigned repr_ilit = sweep_repr (sweeper, ilit);
   solver->shweep.units_seen++;
   assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message (
     solver, "SWEEP ERROR: got invalid repr_unit ilit %u from imported ilit %u", repr_ilit, ilit));
-
   const unsigned repr_idx = IDX (repr_ilit);
   flags *flags = FLAGS (repr_idx);
   if (!flags->active) {
@@ -2103,28 +1819,23 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
   INC (sweep_units);
 }
 
-
 void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned ilit2) {
   kissat *solver = sweeper->solver;
   solver->shweep.eqs_seen++;
   unsigned imported_ilits[2] = {ilit1, ilit2};
   unsigned repr_ilits[2];
-
   bool is_transitive = false;
   int already_fixed = 0;
   for (int i=0; i<2; i++) {
     const unsigned ilit = imported_ilits[i];
     assert(VALID_INTERNAL_LITERAL (ilit) || kissat_custom_assert_message(
       solver, "SWEEP ERROR/Error: imported ilit %u not valid internal literal", ilit));
-
     //We might have some other internal representative literal for this imported literal
     const unsigned repr_ilit = sweep_repr(sweeper, ilit);
     assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message(
       solver, "SWEEP ERROR/Error: repr_ilit %u not valid internal literal", repr_ilit));
-
     if (ilit != repr_ilit)
       is_transitive = true;
-
     const unsigned repr_idx = IDX (repr_ilit);
     flags *flags = FLAGS (repr_idx);
     if (!flags->active) {
@@ -2143,13 +1854,15 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     return;
   }
   if (already_fixed==2) {
-    //We learned about a new equivalence, but both values happen to be already locally fixed independently of each other.
+    //We learned about a new equivalence, but both values happen to be
+    //already fixed, independently of each other. Thus, they better be equal.
+    //If not, we just detected UNSAT.
     if (solver->values[lit] != solver->values[other]) {
       //Found UNSAT! The imported equivalence is inconsistent with the local clause database.
-      //We *could* officially claim UNSAT to Mallob at this point.
-      //However, it feels rather shaky to do this here via our own custom import function.
-      //Rather, we wait until the solver finds UNSAT through normal sweeping,
-      //which by our experience happens almost immediately after such an import
+      //We could officially claim UNSAT (to Mallob) at this point.
+      //It feels however a bit shaky to do this here via our custom import function.
+      //We rather wait until the solver finds UNSAT through normal sweeping,
+      //which anyways happens almost immediately after such an import, to our experience
       kissat_custom_message (solver, 1, "Sweeper detected an inconsistent Equality-import, expect official un-sat result soon.");
       solver->shweep.detected_early_unsat++;
     }
@@ -2158,8 +1871,8 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   }
   if (is_transitive)
     solver->shweep.eqs_transitive++;
-  //Interesting edge case: One of the two eq variables is already fixed locally,
-  //but the other is not, meaning this imported equivalence just became a propagating unit clause
+  //Interesting edge case: One of the two eq variables is already fixed
+  //but the other is not, so we just got a propagating unit clause
   if (already_fixed==1)
     solver->shweep.eqs_unitprop++;
   if (other < lit) {
@@ -2177,8 +1890,8 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   substitute_connected_clauses (sweeper, other, lit);
   substitute_connected_clauses (sweeper, not_other, not_lit);
   // Update 17.03: tried adding 'sweep_remove (sweeper, other)' here,
-  // reflecting kissats own equivalence integration
-  // but this caused immediate crash of the sweepers, so I uncommented it again
+  // reflecting kissats own equivalence handling (at the end of sweep_equivalence_candidates(...))
+  // but adding it caused immediate crashes, so I didnt put it here
   solver->shweep.eqs_useful++;
   INC (sweep_equivalences);
 }
@@ -2195,10 +1908,11 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
   int count = 0;
   for (;;) {
     if ((solver->shweep_end_job_signal || solver->shweep_end_iteration_signal)) {
-      //do not remain stuck here if it is already decided that the iteration ended
-      //mostly here for solvers which start late into the solving process
-      //and first need to catch up with all the imports for a long time
-      //their importing should not block the whole Mallob iteration from moving forward
+      //(@2) Exit immediately when we receive a stop signal from MallobSweep.
+      //Prevents blocking behaviour, which happened especially when solvers
+      //joined late to the party and first started to import a lot of things,
+      //which could take a lot of time and prevent MallobSweep
+      //from shutting down this solver
       kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP skip import due to iter/job end");
       break;
     }
@@ -2247,7 +1961,7 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
   int count = 0;
   for (;;) {
     if ((solver->shweep_end_job_signal || solver->shweep_end_iteration_signal)) {
-      //for reason see above in analog shweep_import_SweepJob_units
+      //Prevent blocking, see also (@2)
       kissat_custom_message (solver, V1_INFO_SWEEP, "SWEEP skip import due to iter/job end");
       break;
     }
@@ -2290,18 +2004,20 @@ void shweep_import_SweepJob_equivalences(sweeper *sweeper) {
 }
 
 //Another solver wants to steal from this solver here.
-//To this end, it wants to know beforehand how much there is to steal, to pre-allocate a respective amount of memory (in C++)
-//This method is called by the stealers thread. This is ok, because it is read-only.
+//The stealer wants to know beforehand how much there is to steal,
+//to pre-allocate a respective amount of memory (done in Mallob in C++)
+//The stealers thread calls this method, which is ok because it is read-only.
 int shweep_get_max_steal_amount(kissat *solver) {
-  //guard against stealing when this solver is not ready yet
+  //guard against stealing when the victim solver is not ready yet, i.e.
+  //doesnt even have all of its necessary field initialized
   if (!solver || !solver->shweeper_allows_stealing || !solver->sweeper) {
     kissat_custom_message(solver,V4_UVERB_SWEEP, "SWEEP STEAL Guard: not allowing stealing right now");
     return 0;
   }
   sweeper *sweeper = solver->sweeper;
-  //We have to different ways to estimate the amount of remaining work,
+  //We have two different ways to estimate the amount of remaining work,
   //without needing to actually iterate through every variable in the worklist
-  //1. via the remaining range and
+  //1. via the remaining range
   //2. via the count during the last steal (where each variable in the worklist was last checked)
   int range_estimate = sweeper->work_end - sweeper->work_head;
   int last_estimate = sweeper->max_work_after_steal;
@@ -2320,9 +2036,9 @@ int shweep_get_work_estimate(kissat *solver) {
 }
 
 //Another solver decided that it wants to steal work from this solver
-//(and it already inquired for the maximum steal amount)
-//This method is called by the stealers thread, which means we have concurrent access on the ->work array
-//This should be ok, because the writes are individual 32-bit integer writes, which should be atomic
+//and it already inquired for the maximum steal amount
+//This method is called by the stealers thread, which means we can now have concurrent access on the ->work array
+//Such individual 32-bit integer writes should be atomic however on almost all hardware, so we keep it this simple way
 int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count) {
   if (!solver || !solver->shweeper_allows_stealing) {
     kissat_custom_message (solver, V1_INFO_SWEEP, "Guarded against executed steal attempt (solver null or stealing not allowed)");
@@ -2333,10 +2049,10 @@ int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max
     kissat_custom_message (solver, V1_INFO_SWEEP, "Guarded against executed steal attempt (sweeper null)");
     return 0;
   }
-  //It can happen that the solver finds UNSAT while another solver is still
-  //stealing. In that case, the other solver expects all the references here
-  //to remain valid during the stealing procedure. Thus the solver here
-  //must wait with deallocating itself until any active stealing is finished.
+  //It can happen that this victim solver finds UNSAT while a stealer solver is still
+  //stealing. In that case, the stealer solver expects all the references
+  //to still remain valid during stealing. Thus the victim solver
+  //must be reminded to wait with deallocating itself until any active stealing is finished.
   sweeper->somebody_is_stealing_from_me = true;
   //Steal every second variable in the worklist that is still open for sweeping
   int stolen_count=0;
@@ -2383,11 +2099,11 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   sweeper->max_work_after_steal = 0;
   int stolen_amount = 0;
   kissat_custom_message(solver,V1_INFO_SWEEP, "searching work @ %.3f", shweep_wallclock (solver));
-  //The solver thread goes into the Mallob/C++ area,
-  //where it will loop continuously until it can steal some work
+  //The callback brings the solver thread goes into the Mallob/C++ codebase,
+  //where it will loop continuously until it can steal some work.
   //If work could be stolen, the worklist will be allocated by Mallob/C++,
-  //and here we only operate on it within the provided allocation
-  //we thus also trust Mallob/C++ that it won't deallocate this worklist as long as we operate on it
+  //and here we only operate on it within the provided allocation.
+  //We thus also trust Mallob/C++ that it won't deallocate this worklist as long as we operate on it.
   if (solver->shweep_search_work_callback) {
     solver->shweep_search_work_callback(solver->shweep_mallob_SweepJobState, &sweeper->work, &stolen_amount, sweeper->localId);
   }
@@ -2408,7 +2124,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
 }
 
 //check here whether a variable can be swept at all
-//We do not check for FLAGS->sweep, because variables arrive here also from resweeping,
+//We do not check for FLAGS->sweep, because variables can arrive here also from resweeping,
 //where they might not be marked with the "to be swept" flag, yet we want to sweep them now
 bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
   kissat *solver = sweeper->solver;
@@ -2427,7 +2143,9 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
 }
 
 
-//Wrapper around kissats main function 'sweep_variable' to allow immediate custom resweeping
+//Wrapper around kissats 'sweep_variable' method to allow immediate custom resweeping
+//in MallobSweep. Though, by default we have resweeping deactivated now,
+//so currently this wrapper is needlessly complex for the default behaviour.
 void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWorkVar) {
   kissat *solver = sweeper->solver;
   bool is_work_var = isWorkVar;
@@ -2463,12 +2181,8 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
           solver->shweep.progress_unsched_resweeps++;
       }
       FLAGS(idx)->sweep = false;
-      // uint64_t kitten_ticks = solver->statistics.kitten_ticks;
-      //Actual sweep call
+      //Actual sweep call we are wrapping around
       sweep_variable(sweeper, idx);
-      // uint64_t delta_kitten_ticks = solver->statistics.kitten_ticks - kitten_ticks;
-      // kissat_custom_message (solver, V1_INFO_SWEEP, "ticks: %zu", delta_kitten_ticks);
-
     }
     if (EMPTY_STACK(sweeper->RESWEEP))
       break;
@@ -2555,13 +2269,7 @@ void shweep_print_var_stats(kissat *solver, int verb) {
     solver->active, SIZE_STACK(solver->units), SIZE_STACK(solver->eliminated),solver->statistics.clauses_irredundant + solver->statistics.clauses_binary, SIZE_STACK(solver->import));
 }
 
-
 bool kissat_sweep (kissat *solver) {
-  if (GET_OPTION (mallob_sweeping)) {
-    assert(kissat_custom_assert_message (solver,
-      "SWEEP ERROR/Error: Distributed Shweeper accidentally got into original sequential sweeping code"));
-    return false;
-  }
   if (!GET_OPTION (sweep))
     return false;
   if (solver->inconsistent)
@@ -2605,7 +2313,6 @@ bool kissat_sweep (kissat *solver) {
     const char *res =
 #endif
         sweep_variable (&sweeper, idx);
-
     kissat_extremely_verbose (
         solver, "swept[%" PRIu64 "] external variable %d %s", swept,
         kissat_export_literal (solver, LIT (idx)), res);
@@ -2835,15 +2542,6 @@ int mallob_shweep_single_iteration(kissat *solver) {
     if (solver->shweep_end_job_signal) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : got next scheduled (while endjob) @ %.3f",shweep_wallclock (solver));
     }
-    // int work_estimate = shweep_get_work_estimate (solver);
-    // if (work_estimate != solver->shweep_last_workestimate) {
-      // solver->shweep_last_workestimate = work_estimate;
-      // solver->shweep_last_workestimate_timestamp = shweep_wallclock (solver);
-    // }
-    // const float WARN_NOWORKPROGRESS_SEC = 3;
-    // if (solver->shweep_last_workestimate_timestamp + WARN_NOWORKPROGRESS_SEC < shweep_wallclock (solver) ) {
-      // kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper WARN : no progress in workestimate! head %i, end %i  @ %.3f", sweeper.work_head, sweeper.work_end, shweep_wallclock (solver));
-    // }
     shweep_do_EU_imports (solver);
     if (idx == INVALID_IDX) {
       //we have no more work, try to steal from somebody else
@@ -2975,7 +2673,6 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
     //Track that now we no longer do internal work, but communicate with others
     unsigned active_before = solver->active;
     mallob_shweep_single_iteration (solver);
-
     //Burn the new equivalences into the local clause database
     //Track that Substitute is again internal work, independent of others
     if (solver->active != active_before) {
@@ -2986,10 +2683,6 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
         kissat_custom_message (solver, V2_VERB_SWEEP, "substitute time: %.3f", shweep_wallclock (solver) - t);
       }
     }
-    // else {
-      // kissat_custom_message (solver, V2_VERB_SWEEP, "substitute skip");
-    // }
-
     //Now, after database is up-to-date, can report metrics of this iteration
     representative_report_finished_iteration (solver);
     //increase the environment size of the next iteration

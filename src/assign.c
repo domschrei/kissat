@@ -6,15 +6,6 @@
 
 #include <limits.h>
 
-
-
-
- /*
-  *When coming from sweeping, this assigns backbone literals
-  *They have level=0
-  *In sweeping, this is also called from add_core and substitute_connected_clauses,
-  *as well as unit import...
-  */
 void kissat_assign_unit (kissat *solver, unsigned lit, const char *reason) {
   kissat_assign (solver, solver->probing, 0, false, lit, UNIT_REASON);
   LOGUNARY (lit, "assign %s %s", LOGLIT (lit), reason);
@@ -22,8 +13,6 @@ void kissat_assign_unit (kissat *solver, unsigned lit, const char *reason) {
   (void) reason;
 #endif
 }
-
-
 
 void learned_unit (kissat *solver, unsigned lit, bool export) {
   kissat_assign_unit (solver, lit, "learned reason");

@@ -110,7 +110,7 @@
   OPTION (proberounds, 2, 1, INT_MAX, "probing rounds") \
   OPTION (profile, 2, 0, 4, "profile level") \
   OPTION (promote, 1, 0, 1, "promote clauses") \
-  OPTION (puresweep, 0, 0, 1, "just doing sequential sweeping and nothing else") \
+  OPTION (puresweep, 0, 0, 1, "just do sequential sweeping and nothing else") \
   OPTION (puresweep_iterations, 3, 0, 100, "number of iterations of pure sweeping") \
   OPTION (puresweep_maxKittenProp, 1000000, 1000, INT_MAX, "maximum propagations in a kitten call") \
   OPTION (puresweep_timelim, 0, 0, INT_MAX, "enforce time limit on pure sweeping. 0 = deactivate") \

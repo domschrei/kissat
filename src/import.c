@@ -1,6 +1,5 @@
 #include "internal.h"
 #include "logging.h"
-#include "print.h"
 #include "resize.h"
 
 static void adjust_imports_for_external_literal (kissat *solver,
@@ -43,10 +42,8 @@ static inline unsigned import_literal (kissat *solver, int elit,
   const unsigned eidx = ABS (elit);
   adjust_imports_for_external_literal (solver, eidx);
   struct import *import = &PEEK_STACK (solver->import, eidx);
-  if (import->eliminated) {
-    // kissat_custom_message (solver, 2, "import: elit %i already internally eliminated", elit);
+  if (import->eliminated)
     return INVALID_LIT;
-  }
   unsigned ilit;
   if (!import->imported)
     adjust_exports_for_external_literal (solver, eidx, extension);

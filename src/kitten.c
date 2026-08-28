@@ -949,8 +949,6 @@ static unsigned import_literal (kitten *kitten, unsigned elit) {
   return ilit;
 }
 
-
-
 static unsigned export_literal (kitten *kitten, unsigned ilit) {
   const unsigned iidx = ilit / 2;
   assert (iidx < SIZE_STACK (kitten->export));
@@ -958,8 +956,6 @@ static unsigned export_literal (kitten *kitten, unsigned ilit) {
   const unsigned elit = 2 * eidx + (ilit & 1);
   return elit;
 }
-
-
 
 unsigned new_learned_klause (kitten *kitten) {
   unsigned res = new_reference (kitten);
@@ -1604,12 +1600,6 @@ static int decide (kitten *kitten) {
   return 0;
 }
 
-
-
-
-
-
-
 static void inconsistent (kitten *kitten, unsigned ref) {
   assert (ref != INVALID);
   assert (kitten->inconsistent == INVALID);
@@ -1665,11 +1655,6 @@ static void inconsistent (kitten *kitten, unsigned ref) {
   CLEAR_STACK (*analyzed);
   CLEAR_STACK (*resolved);
 }
-
-
-
-
-
 
 static int propagate_units (kitten *kitten) {
   if (kitten->inconsistent != INVALID)
@@ -1921,56 +1906,31 @@ int kitten_solve (kitten *kitten) {
 
   INC (kitten_solved);
 
-  //For MallobSweep, introduce custom limits for a single Kitten SAT call
-  //Can use this code only in release mode, because kitten->kissat is
-  //not defined in default debug mode (where STAND_ALONE_KISSAT is instead defined)
+  //For MallobSweep we want to enforce a hard limit on the number of propagations
+  //of a single Kitten SAT call.
+  //To keep influence of this check minimal on normal (non MallobSweep) usage,
+  //we store the flag once outside the loop as a const bool,
+  //which the branch predictor can then efficiently sidestep in the loop
+  //(and anyways the loop is not hot, a single bool check here is insignificant to e.g. propagation)
+  //Need to guard against STAND_ALONE_KITTEN, because there kitten->kissat doesnt exist
   #ifndef STAND_ALONE_KITTEN
   const uint64_t propagations_before = kitten->kissat->statistics.kitten_propagations;
   const uint64_t MALLOB_SWEEP_MAX_KITTEN_PROPAGATIONS = GET_OPTION (puresweep_maxKittenProp);
   const bool MALLOB_CHECK_EARLY_EXIT = GET_OPTION (mallob_sweeping) || GET_OPTION (puresweep);
-  const bool ALSO_CHECK_EXIT_ON_SIGNAL = GET_OPTION (mallob_signal_kitten);
   statistics *solverstats = &(kitten->kissat->statistics);
   #endif
 
   int res = propagate_units (kitten);
   while (!res) {
-
-
     #ifndef STAND_ALONE_KITTEN
     if (MALLOB_CHECK_EARLY_EXIT) {
       const uint64_t propagations = solverstats->kitten_propagations - propagations_before;
-      //MallobSweep enforces a fixed hard limit on the number of propagations
       if (propagations > MALLOB_SWEEP_MAX_KITTEN_PROPAGATIONS) {
         solver->shweep.maxxed_kittens++;
         break;
       }
-      /*
-      if (ALSO_CHECK_EXIT_ON_SIGNAL && propagations % 256 == 0 && (solver->shweep_end_iteration_signal || solver->shweep_end_job_signal)) {
-        solver->shweep.signalskipped_kittens++;
-        //In multi-core MallobSweep, we want to react quickly when the signal arrives
-        //that an iteration should now be skipped. This means all ongoing
-        //Kittens should stop and exit their current SAT call.
-        //We do this check here.
-        //To not create too much overhead, checking is only done once in a while.
-        //Also, when exiting Kitten via this route, we (apparently) need to
-        //enforce that no subsequent Kitten calls are made in this iteration,
-        //since those (apparently) led to the sweeper being stuck in an
-        //infinite loop of calling Kittens.
-        //We achieve this hard exit by setting the kitten tick limit to zero
-        //within the sweeper, which is then detected via regular and already
-        //existing checks all over sweep.c, and leads to an immediate but graceful exit.
-        //Due to technical reasons (the sweeper struct is defined only locally in sweep.c)
-        //we cannot access the field sweeper->limit.ticks from here form the outside.
-        //Instead, we access it in sweep_solve() right after leaving kitten here.
-        //This dummy bookmark brings you quickly to that other point in the code
-        //where we apply the tick limit.
-        solver->LSP_BOOKMARK_WHERE_WE_MODIFY_KITTEN_TICKLIMIT;
-        break;
-      }
-      */
     }
     #endif
-
     const unsigned conflict = propagate (kitten);
     if (conflict != INVALID) {
       if (kitten->level)
@@ -2011,19 +1971,6 @@ int kitten_solve (kitten *kitten) {
 
 int kitten_status (kitten *kitten) { return kitten->status; }
 
-
-
-
-
-
-
-
-
-
- /*
-  * Traverse the implication graph backwards, starting from the conflict clause (given in kitten->inconsistent)
-  * Store all the clauses encountered during backwards traversal via their reference on *core
-  */
 unsigned kitten_compute_clausal_core (kitten *kitten,
                                       uint64_t *learned_ptr) {
   REQUIRE_STATUS (20);
@@ -2039,9 +1986,6 @@ unsigned kitten_compute_clausal_core (kitten *kitten,
   unsigned original = 0;
   uint64_t learned = 0;
 
-   /*
-    * Core starts with the conflict clause of kitten
-    */
   unsigned reason_ref = kitten->inconsistent;
 
   if (reason_ref == INVALID) {
@@ -2059,22 +2003,12 @@ unsigned kitten_compute_clausal_core (kitten *kitten,
 
   while (!EMPTY_STACK (*resolved)) {
     const unsigned c_ref = POP_STACK (*resolved);
-     /*
-      * Small trick: the INVALID token marks that the next clause is part of the clausal core
-      */
     if (c_ref == INVALID) {
       const unsigned d_ref = POP_STACK (*resolved);
       ROG (d_ref, "core[%zu]", SIZE_STACK (*core));
-       /*
-        * here we don't yet look at the literals, we just push the clause on the stack, to traverse the implication graph
-        * Only in the next function (traverse core clauses) we kick out those clauses which are already satisfied, i.e only then we end up truly with core clauses
-        */
       PUSH_STACK (*core, d_ref);
       klause *d = dereference_klause (kitten, d_ref);
       assert (!is_core_klause (d));
-       /*
-        *mark the clause as core so we don't add it a second time
-        */
       set_core_klause (d);
       if (is_learned_klause (d))
         learned++;
@@ -2084,16 +2018,9 @@ unsigned kitten_compute_clausal_core (kitten *kitten,
       klause *c = dereference_klause (kitten, c_ref);
       if (is_core_klause (c))
         continue;
-       /*
-        * The clause is a core clause, we mark it as such via the INVALID marker
-        * (but dont immediately add it to the core, instead first collect it's antecedents)
-        */
       PUSH_STACK (*resolved, c_ref);
       PUSH_STACK (*resolved, INVALID);
       ROG (c_ref, "analyzing antecedent core");
-       /*
-        * Only learned clauses have antecedents
-        */
       if (!is_learned_klause (c))
         continue;
       for (all_antecedents (d_ref, c)) {
@@ -2120,17 +2047,6 @@ DONE:
   return original;
 }
 
-
-
-
-
-
-
-
-
-
-
-
 void kitten_traverse_core_ids (kitten *kitten, void *state,
                                void (*traverse) (void *, unsigned)) {
   REQUIRE_STATUS (21);
@@ -2156,14 +2072,6 @@ void kitten_traverse_core_ids (kitten *kitten, void *state,
   assert (kitten->status == 21);
 }
 
-
-
-
-
- /*
-  * Collects explicitly all the literals from a given core clause (the loop)
-  * Then looks at each literals value and adds the clause-literals to the core-stack if all are unsatisfied (traverse) (when coming from sweeping, where traverse = save_core_clause )
-  */
 void kitten_traverse_core_clauses (kitten *kitten, void *state,
                                    void (*traverse) (void *, bool, size_t,
                                                      const unsigned *)) {
@@ -2186,10 +2094,6 @@ void kitten_traverse_core_clauses (kitten *kitten, void *state,
     const size_t size = SIZE_STACK (*eclause);
     const unsigned *elits = eclause->begin;
     ROG (reference_klause (kitten, c), "traversing");
-     /*
-      *When coming from sweep.c:
-      *Check the values of each literal, and only push the clause to the core if all literals are unsatisfied
-      */
     traverse (state, learned, size, elits);
     CLEAR_STACK (*eclause);
     traversed++;
@@ -2200,11 +2104,6 @@ void kitten_traverse_core_clauses (kitten *kitten, void *state,
 
   assert (kitten->status == 21);
 }
-
-
-
-
-
 
 void kitten_shrink_to_clausal_core (kitten *kitten) {
   REQUIRE_STATUS (21);

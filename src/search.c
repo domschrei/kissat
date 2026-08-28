@@ -2,8 +2,6 @@
 #include "analyze.h"
 #include "bump.h"
 #include "classify.h"
-#include "clauseimport.h"
-#include "congruence.h"
 #include "decide.h"
 #include "eliminate.h"
 #include "inline.h"
@@ -24,8 +22,9 @@
 #include "terminate.h"
 #include "trail.h"
 #include "walk.h"
+#include "clauseimport.h"
 
-#include "sweep.h" //for mallob shweep
+#include "sweep.h" //for MallobSweep
 #include <inttypes.h>
 
 static void init_tiers (kissat *solver) {

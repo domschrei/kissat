@@ -2,7 +2,6 @@
 
 #include "dense.h"
 #include "inline.h"
-#include "print.h"
 #include "proprobe.h"
 #include "propsearch.h"
 #include "trail.h"

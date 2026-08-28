@@ -63,11 +63,9 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
 //--------------------------------------------------------------------------
 // Sub-API for SWEEP App
 void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state));
-void shweep_set_equivalence_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **equivalence, int *eq_count));
 void shweep_set_SweepJob_eq_import_callback(kissat *solver, void *SweepJobState, void (*import_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId));
 
 void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit));
-void shweep_set_unit_import_callback(kissat *solver, void *state, void (*import_callback) (void *state, int **units, int *unit_count));
 void shweep_set_SweepJob_unit_import_callback(kissat *solver, void *SweepJobState, void (*import_unit_callback) (void *SweepJobState, int *lit, int localId));
 
 void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
@@ -87,7 +85,6 @@ int shweep_get_curr_iteration(kissat *solver);
 void shweep_do_EU_imports(kissat *solver);
 void shweep_set_wallclock_offset(kissat *solver, double offset);
 double shweep_wallclock(kissat *solver);
-int shweep_get_code_location(kissat *solver);
 const char *shweep_get_profilename(kissat *solver);
 unsigned long shweep_kitten_propagations(kissat *solver);
 bool shweep_has_sweeper_obj(kissat *solver);
@@ -112,9 +109,9 @@ struct shweep_statistics {
   unsigned long clauses, binirr, start_clauses, start_binirr;
   //the current sweep iteration
   //Counting convention:
-  // Before CCC: -1
-  // After CC: 0
-  // After sweeping iterations: 1..n
+  //  -1 = Before ClausalCongruenceClosure (CCC)
+  //   0 = After CCC
+  //1..n = After sweeping iterations 1..n
   int local_iteration;
   int global_iteration;
   unsigned long curr_active, curr_units, curr_eliminated;

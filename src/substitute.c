@@ -464,7 +464,6 @@ static void substitute_clauses (kissat *solver, unsigned *repr) {
       const unsigned size = SIZE_STACK (solver->clause);
       if (!size) {
         LOG ("simplifies to empty clause");
-        kissat_custom_message (solver, 0, "Substitute becoming INCONSISTENT! simplifies to empty clause");
 
         CHECK_AND_ADD_EMPTY ();
         ADD_EMPTY_TO_PROOF ();
@@ -558,7 +557,6 @@ static bool substitute_round (kissat *solver, unsigned round) {
   kissat_phase (solver, "substitute", GET (substitutions),
                 "round %u removed %u variables %.0f%%", round, removed,
                 kissat_percent (removed, active));
-  // kissat_custom_message (solver, 2, "Subst round %i removed %i", round, removed);
   kissat_check_statistics (solver);
   REPORT (!removed, 'd');
 #ifdef QUIET
@@ -568,7 +566,6 @@ static bool substitute_round (kissat *solver, unsigned round) {
 }
 
 static void substitute_rounds (kissat *solver, bool complete) {
-  // kissat_custom_message (solver, 2, "Enter Substitute rounds");
   START (substitute);
   INC (substitutions);
   const unsigned maxrounds = GET_OPTION (substituterounds);
