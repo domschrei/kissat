@@ -377,7 +377,6 @@ void kissat_transitive_reduction (kissat *solver) {
                 "probed %u (%.0f%%): reduced %" PRIu64 ", units %u", probed,
                 kissat_percent (probed, 2 * active), reduced, units);
 
-  kissat_custom_message (solver, 1, "probed %u, reduced %u", probed, reduced);
 #if !defined(NDEBUG) || defined(METRICS)
   assert (solver->transitive_reducing);
   solver->transitive_reducing = false;

@@ -73,7 +73,7 @@ typedef STACK (watch *) patches;
 
 struct kitten;
 
-//for MallobSweep, the Kissat solver must know about its sweeper
+//For MallobSweep the Kissat solver needs to know about its sweeper
 typedef struct sweeper sweeper;
 
 
@@ -266,8 +266,9 @@ struct kissat {
   //--------------------------------------------------------------------------------
   // For MallobSweep
   sweeper *sweeper;
-  //These flags are stored on the solver-level,
-  //because individual sweeper-structs only live for one sweep iteration
+  //These flags here are stored on the solver-level, because
+  //individual sweeper-structs are discarded after each sweep iteration
+  //i.e. there are times when this information is required but not sweeper exists
   volatile int shweep_local_iteration;
   volatile bool shweep_end_iteration_signal;
   volatile bool shweep_end_job_signal;

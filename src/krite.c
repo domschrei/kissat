@@ -80,18 +80,12 @@ void kissat_report_dimacs (kissat * solver) {
   //such that stack index 1 correspond to variable 1
   if (imported) imported--;
   if (GET_OPTION(mallob_sweeping) && solver->inconsistent) {
-    kissat_custom_message (solver, 1, "SWEEPER will not report dimacs because it is already UNSAT");
+    kissat_custom_message (solver, 1, "SWEEPER will not report dimacs because UNSAT");
     return;
   }
   unsigned num_units = gather_units(solver, false);
-  if (num_units != SIZE_STACK(solver->units)) {
-    kissat_custom_message (solver, 1, "WARN: SWEEPER num_units %i different to stack->units %i ", num_units, SIZE_STACK(solver->units));
-  }
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
-  if (!do_report) {
-    kissat_custom_message (solver, 1, "SWEEPER should not report dimacs, told so by Mallob callback");
-    return;
-  }
+  if (!do_report) return;
   kissat_custom_message (solver, 1, "SWEEPER reports final formula via kissat_report_dimacs");
   assert (solver->watching);
   if (solver->watching) {

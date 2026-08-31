@@ -199,7 +199,7 @@ static void init_sweeper (kissat *solver, sweeper *sweeper) {
     sweeper->max_work_after_steal=0;
     sweeper->somebody_is_stealing_from_me=false;
     //After all other safeguards have been declared, now we can allow stealing
-    //(especially relevant for work_head = 0 and work_end = 0)
+    //(especially relevant that we have work_head = 0 and work_end = 0)
     solver->shweeper_allows_stealing = true;
   }
 }
@@ -2290,20 +2290,15 @@ bool kissat_sweep (kissat *solver) {
   const unsigned scheduled = schedule_sweeping (&sweeper);
   uint64_t swept = 0, limit = 10;
   for (;;) {
-    if (solver->inconsistent) {
+    if (solver->inconsistent)
       break;
-    }
     if (TERMINATED (sweep_terminated_8))
       break;
     if (solver->statistics.kitten_ticks > sweeper.limit.ticks)
       break;
-    if (GET_OPTION (puresweep)) {
-      if (GET_OPTION (puresweep_timelim)>0) {
-        if (kissat_time (solver) > GET_OPTION (puresweep_timelim)) {
-          kissat_custom_message (solver, V1_INFO_SWEEP, "Puresweep exit iteration due to time limit %zu", GET_OPTION (puresweep_timelim));
-          break;
-        }
-      }
+    if (GET_OPTION (puresweep) && GET_OPTION (puresweep_timelim)>0 &&  kissat_time (solver) > GET_OPTION (puresweep_timelim)) {
+        kissat_custom_message (solver, V1_INFO_SWEEP, "Puresweep exit iteration due to time limit %zu", GET_OPTION (puresweep_timelim));
+        break;
     }
     unsigned idx = next_scheduled (&sweeper);
     if (idx == INVALID_IDX)
