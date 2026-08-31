@@ -606,7 +606,7 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
   solver->consume_clause = consume;
 }
 
-void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue, unsigned long *id, unsigned char *sig))
+void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue, unsigned long *id, unsigned char *sig)) 
 {
   solver->produce_clause_state = state;
   solver->produce_clause = produce;
@@ -690,7 +690,8 @@ void kissat_trace_proof_internally (kissat * solver, void *state,
   kissat_init_ext_proof (solver);
 #endif
 }
-bool kissat_importing_redundant_clauses (kissat * solver)
+
+bool kissat_importing_redundant_clauses (kissat * solver) 
 {
   if (solver->produce_clause == 0) return false;
   if (solver->level != 0) return false;
