@@ -1906,8 +1906,31 @@ int kitten_solve (kitten *kitten) {
 
   INC (kitten_solved);
 
+  //For MallobSweep we want to enforce a hard limit on the number of propagations
+  //of a single Kitten SAT call.
+  //To keep influence of this check minimal on normal (non MallobSweep) usage,
+  //we store the flag once outside the loop as a const bool,
+  //which the branch predictor can then efficiently sidestep in the loop
+  //(and anyways the loop is not hot, a single bool check here is insignificant to e.g. propagation)
+  //Need to guard against STAND_ALONE_KITTEN, because there kitten->kissat doesnt exist
+  #ifndef STAND_ALONE_KITTEN
+  const uint64_t propagations_before = kitten->kissat->statistics.kitten_propagations;
+  const uint64_t MALLOB_SWEEP_MAX_KITTEN_PROPAGATIONS = GET_OPTION (puresweep_maxKittenProp);
+  const bool MALLOB_CHECK_EARLY_EXIT = GET_OPTION (mallob_sweeping) || GET_OPTION (puresweep);
+  statistics *solverstats = &(kitten->kissat->statistics);
+  #endif
+
   int res = propagate_units (kitten);
   while (!res) {
+    #ifndef STAND_ALONE_KITTEN
+    if (MALLOB_CHECK_EARLY_EXIT) {
+      const uint64_t propagations = solverstats->kitten_propagations - propagations_before;
+      if (propagations > MALLOB_SWEEP_MAX_KITTEN_PROPAGATIONS) {
+        solver->shweep.maxxed_kittens++;
+        break;
+      }
+    }
+    #endif
     const unsigned conflict = propagate (kitten);
     if (conflict != INVALID) {
       if (kitten->level)

@@ -24,6 +24,7 @@
 #include "walk.h"
 #include "clauseimport.h"
 
+#include "sweep.h" //for MallobSweep
 #include <inttypes.h>
 
 static void init_tiers (kissat *solver) {
@@ -183,6 +184,10 @@ int kissat_search (kissat *solver) {
   int res = 0;
   if (solver->inconsistent)
     res = 20;
+  if (!res && GET_OPTION (puresweep))
+    res = kissat_pure_sequential_sweeping(solver);
+  if (!res && GET_OPTION (mallob_sweeping))
+    res = kissat_mallob_distributed_sweep_multiple_iterations (solver);
   if (!res && GET_OPTION (luckyearly))
     res = kissat_lucky (solver);
   if (!res && kissat_preprocessing (solver))
@@ -231,5 +236,6 @@ int kissat_search (kissat *solver) {
     stop_search (solver);
   }
   report_search_result (solver, res);
+  kissat_custom_message (solver, 1, "kissat exit");
   return res;
 }

@@ -78,12 +78,22 @@
   OPTION (lucky, 1, 0, 1, "try some lucky assignments") \
   OPTION (luckyearly, 1, 0, 1, "lucky assignments before preprocessing") \
   OPTION (luckylate, 1, 0, 1, "lucky assignments after preprocessing") \
+  OPTION (mallob_custom_sweep_verbosity, 0, 0, 4, "the verbosity of the kissat_custom_message messages") \
+  OPTION (mallob_initial_congruence, 0, 0, 1, "do only congruence closure for the Mallob Sweep App") \
+  OPTION (mallob_is_root, 0, 0, 1, "the hosting MPI process is the root rank") \
+  OPTION (mallob_local_id, 0, 0, 1e6, "the id of this solver within its MPI process [0 ... numThreads-1]") \
+  OPTION (mallob_rank, 0, 0, 1e6, "the rank of the hosting MPI process") \
+  OPTION (mallob_resweep_chance, 1e4, 0, 1e4, "chance to resweep on a variable in an equivalence (per mille)") \
+  OPTION (mallob_signal_kitten, 1, 0, 1, "exit kittens immediately when a signal arrives that the iteration gets skipped") \
+  OPTION (mallob_staggered_logs, 0, 0, 1, "print custom sweep messages spatially staggered, instead of all aligned to start of the line") \
+  OPTION (mallob_sweeping, 0, 0, 1, "do only equivalence sweeping for the Mallob Sweep App") \
   OPTION (mineffort, 10, 0, INT_MAX, "minimum absolute effort in millions") \
   OPTION (minimize, 1, 0, 1, "learned clause minimization") \
   OPTION (minimizedepth, 1e3, 1, 1e6, "minimization depth") \
   OPTION (minimizeticks, 1, 0, 1, "count ticks in minimize and shrink") \
   OPTION (modeinit, 1e3, 10, 1e8, "initial focused conflicts limit") \
   OPTION (modeint, 1e3, 10, 1e8, "focused conflicts interval") \
+  OPTION (neverdelay, 0, 0, 1, "never apply a delay bump") \
   OPTION (otfs, 1, 0, 1, "on-the-fly strengthening") \
   OPTION (phase, 1, 0, 1, "initial decision phase") \
   OPTION (phasesaving, 1, 0, 1, "enable phase saving") \
@@ -100,6 +110,10 @@
   OPTION (proberounds, 2, 1, INT_MAX, "probing rounds") \
   OPTION (profile, 2, 0, 4, "profile level") \
   OPTION (promote, 1, 0, 1, "promote clauses") \
+  OPTION (puresweep, 0, 0, 1, "just do sequential sweeping and nothing else") \
+  OPTION (puresweep_iterations, 3, 0, 100, "number of iterations of pure sweeping") \
+  OPTION (puresweep_maxKittenProp, 1000000, 1000, INT_MAX, "maximum propagations in a kitten call") \
+  OPTION (puresweep_timelim, 0, 0, INT_MAX, "enforce time limit on pure sweeping. 0 = deactivate") \
   NQTOPT (quiet, 0, 0, 1, "disable all messages") \
   OPTION (randec, 1, 0, 1, "random decisions") \
   OPTION (randecfocused, 1, 0, 1, "random decisions in focused mode") \

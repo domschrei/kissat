@@ -31,6 +31,8 @@ typedef struct profiles profiles;
   PROF (focused, 2) \
   PROF (forward, 4) \
   PROF (lucky, 2) \
+  PROF (mallob_sweep_import_units, 4) \
+  PROF (mallob_sweep_import_eqs, 4) \
   PROF (matching, 3) \
   PROF (merge, 3) \
   PROF (minimize, 3) \

@@ -56,15 +56,38 @@ kissat *kissat_init (void) {
 #endif
   solver->last_glue = 0;
 
+  //Clause Export
   solver->consume_clause_state = 0;
   solver->consume_clause_buffer = 0;
   solver->consume_clause_max_size = 0;
   solver->consume_clause = 0;
 
+  //Clause Import
   solver->produce_clause_state = 0;
   solver->produce_clause = 0;
   solver->num_conflicts_at_last_import = 0;
 
+  //Shared Sweeping  -------------------------------------------------------
+  solver->shweep_end_iteration_signal = false;
+  solver->shweep_end_job_signal =  false;
+  solver->shweeper_allows_stealing = false;
+  solver->shweep_local_iteration = 0;
+
+  //Sweep Export
+  solver->shweep_export_eq_buffer = 0;
+  solver->shweep_export_eq_callback = 0;
+  solver->shweep_export_unit_callback = 0;
+
+  //Sweep Import
+  solver->shweep_import_SweepJob_eq_callback = 0;
+  solver->shweep_import_SweepJob_unit_callback = 0;
+
+  //Sweep Workstealing
+  solver->shweep_mallob_KissatState = 0;
+  solver->shweep_search_work_callback = 0;
+
+  solver->shweep_report_finished_iteration_callback = 0;
+  //-----------------------------------------------------------------
   solver->initial_variable_phases = 0;
   solver->initial_variable_phases_len = 0;
 
@@ -587,6 +610,39 @@ void kissat_set_clause_import_callback (kissat * solver, void *state, void (*pro
 {
   solver->produce_clause_state = state;
   solver->produce_clause = produce;
+}
+
+
+
+void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state)) {
+  solver->shweep_mallob_KissatState = state;
+  solver->shweep_export_eq_buffer = buffer;
+  solver->shweep_export_eq_callback = export_callback;
+}
+
+void shweep_set_SweepJob_eq_import_callback(kissat *solver, void *SweepJobState, void (*import_eq_callback) (void *SweepJob_State, int *lit1, int *lit2, int localId)) {
+  solver->shweep_mallob_SweepJobState = SweepJobState;
+  solver->shweep_import_SweepJob_eq_callback = import_eq_callback;
+}
+
+void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit)) {
+  solver->shweep_mallob_KissatState = state;
+  solver->shweep_export_unit_callback = export_callback;
+}
+
+void shweep_set_SweepJob_unit_import_callback(kissat *solver, void *SweepJobState, void (*import_unit_callback) (void *SweepJobState, int *lit, int localId)) {
+  solver->shweep_mallob_SweepJobState = SweepJobState;
+  solver->shweep_import_SweepJob_unit_callback = import_unit_callback;
+}
+
+void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id)) {
+  solver->shweep_mallob_SweepJobState = SweepJobState;
+  solver->shweep_search_work_callback = search_callback;
+}
+
+void shweep_set_report_finished_iteration_callback(kissat *solver, void *SweepJobState, void (*report_callback) (void *SweepJob_state, int localId)) {
+  solver->shweep_mallob_SweepJobState = SweepJobState;
+  solver->shweep_report_finished_iteration_callback = report_callback;
 }
 
 void kissat_set_preprocessing_report_callback (kissat * solver, void *state,

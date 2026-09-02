@@ -59,6 +59,69 @@ void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffe
 // If no clause is available, the function must return clause == 0.
 void kissat_set_clause_import_callback (kissat * solver, void *state, void (*produce) (void *state, int **clause, int *size, int *glue, unsigned long *id, unsigned char *sig));
 
+
+//--------------------------------------------------------------------------
+// Sub-API for SWEEP App
+void shweep_set_equivalence_export_callback(kissat *solver, void *state, int *buffer, void (*export_callback) (void *state));
+void shweep_set_SweepJob_eq_import_callback(kissat *solver, void *SweepJobState, void (*import_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId));
+
+void shweep_set_unit_export_callback(kissat *solver, void *state, void (*export_callback) (void *state, int lit));
+void shweep_set_SweepJob_unit_import_callback(kissat *solver, void *SweepJobState, void (*import_unit_callback) (void *SweepJobState, int *lit, int localId));
+
+void shweep_set_search_work_callback(kissat *solver, void *SweepJobState, void (*search_callback) (void *SweepJob_state, unsigned **work, int *work_size, int local_id));
+void shweep_set_report_finished_iteration_callback(kissat *solver, void *SweepJobState, void (*report_callback) (void *SweepJob_state, int localId));
+
+int shweep_get_work_estimate(kissat *solver);
+int shweep_get_max_steal_amount(kissat *solver);
+int shweep_steal_from_this_solver(kissat *solver, unsigned *stolen_work, int max_steal_count);
+unsigned shweep_get_num_vars (kissat *solver);
+
+void shweep_terminate(kissat *solver);
+void shweep_set_end_iteration_signal(kissat *solver);
+bool shweep_get_end_iteration_signal(kissat *solver);
+void shweep_set_end_job_signal(kissat *solver);
+bool shweep_get_end_job_signal(kissat *solver);
+int shweep_get_curr_iteration(kissat *solver);
+void shweep_do_EU_imports(kissat *solver);
+void shweep_set_wallclock_offset(kissat *solver, double offset);
+double shweep_wallclock(kissat *solver);
+const char *shweep_get_profilename(kissat *solver);
+unsigned long shweep_kitten_propagations(kissat *solver);
+bool shweep_has_sweeper_obj(kissat *solver);
+void shweep_set_global_iteration(kissat *solver, int global_iteration);
+bool shweep_is_representative(kissat *solver);
+
+bool kissat_is_inconsistent (kissat *solver);
+
+struct shweep_statistics {
+  //importing
+  unsigned long eqs_seen, eqs_useful, eqs_skipped_known, eqs_transitive, eqs_unitprop, eqs_skipped_doublefixed;
+  unsigned long units_seen, units_useful, units_skipped_fixed, units_transitive;
+  unsigned long stumbled_units;
+  unsigned long detected_early_unsat;
+  //tracking the worklist
+  unsigned long progress_work_sweeps;
+  unsigned long progress_work_stepovers;
+  unsigned long progress_unsched_resweeps;
+  //info that already kissat tracks
+  unsigned long start_active, orig_vars, start_units;
+  unsigned long sweep_eqs, sweep_units, units_new, units_end;
+  unsigned long clauses, binirr, start_clauses, start_binirr;
+  //the current sweep iteration
+  //Counting convention:
+  //  -1 = Before ClausalCongruenceClosure (CCC)
+  //   0 = After CCC
+  //1..n = After sweeping iterations 1..n
+  int local_iteration;
+  int global_iteration;
+  unsigned long curr_active, curr_units, curr_eliminated;
+  unsigned long env_limit_depth, env_limit_vars, env_limit_clauses;
+  unsigned long maxxed_kittens, signalskipped_kittens, kitten_calls;
+};
+struct shweep_statistics shweep_get_statistics(kissat *solver);
+//--------------------------------------------------------------------------
+
+
 // Basic "external" statistics struct with some interesting properties of kissat's search.
 struct kissat_statistics {unsigned long propagations; unsigned long decisions; unsigned long conflicts; unsigned long restarts; 
 unsigned long imported; unsigned long discarded; unsigned long r_ee,r_ed,r_pb,r_ss,r_sw,r_tr,r_fx,r_ia,r_tl;};

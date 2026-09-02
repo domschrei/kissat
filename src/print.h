@@ -38,6 +38,8 @@ void kissat_phase (struct kissat *, const char *name, uint64_t,
 		   const char * fmt, ...)
 ATTRIBUTE_FORMAT (4, 5);
 
+void kissat_custom_message(struct kissat *, int verb, const char *fmt, ...);
+_Bool kissat_custom_assert_message(struct kissat *, const char *fmt, ...);
 #else
 
 #define kissat_line(...) do { } while (0)

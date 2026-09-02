@@ -73,6 +73,10 @@ typedef STACK (watch *) patches;
 
 struct kitten;
 
+//For MallobSweep the Kissat solver needs to know about its sweeper
+typedef struct sweeper sweeper;
+
+
 struct kissat {
 #if !defined(NDEBUG) || defined(METRICS)
   bool backbone_computing;
@@ -253,11 +257,47 @@ struct kissat {
   unsigned consume_clause_max_size;
   void (*consume_clause) (void *state, int size, int glue);
   unsigned last_glue;
-  
+
   // Clause import
   void *produce_clause_state;
   void (*produce_clause) (void *state, int **clause, int *size, int *glue, unsigned long *id, unsigned char *sig);
   unsigned long num_conflicts_at_last_import;
+
+  //--------------------------------------------------------------------------------
+  // For MallobSweep
+  sweeper *sweeper;
+  //These flags here are stored on the solver-level, because
+  //individual sweeper-structs are discarded after each sweep iteration
+  //i.e. there are times when this information is required but not sweeper exists
+  volatile int shweep_local_iteration;
+  volatile bool shweep_end_iteration_signal;
+  volatile bool shweep_end_job_signal;
+  double shweep_t0;
+
+  //there exist time-windows inbetween the sweep iterations
+  //where no (accessible) sweeper object exists.
+  //we track on the solver-level (permanently available)
+  //whether such a sweeper exists and is accessible for stealing right now
+  volatile bool shweeper_allows_stealing;
+
+  //Export to own Mallob::Kissat object
+  int *shweep_export_eq_buffer;
+  void (*shweep_export_eq_callback) (void *state);
+  void (*shweep_export_unit_callback) (void *state, int lit);
+
+  //Import directly from SweepJob:: and bypass Kissat::
+  void (*shweep_import_SweepJob_eq_callback) (void *SweepJobState, int *lit1, int *lit2, int localId);
+  void (*shweep_import_SweepJob_unit_callback) (void *SweepJobState, int *lit, int localId);
+
+  void *shweep_mallob_KissatState;
+  void *shweep_mallob_SweepJobState;
+  void (*shweep_search_work_callback) (void *state, unsigned **work, int *work_size, int local_id);
+
+  void (*shweep_report_finished_iteration_callback) (void *SweepJobState, int localId);
+
+  struct shweep_statistics shweep;     
+
+  //--------------------------------------------------------------------------------
 
   // Initial variable phases
   signed char *initial_variable_phases;

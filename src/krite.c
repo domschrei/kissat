@@ -5,8 +5,10 @@
 #include "watch.h"
 #include "error.h"
 #include "require.h"
+#include "print.h"
 
 #include <inttypes.h>
+#include <string.h>
 
 void kissat_write_dimacs (kissat *solver, FILE *file) {
   size_t imported = SIZE_STACK (solver->import);
@@ -74,10 +76,17 @@ unsigned gather_units (kissat * solver, bool report) {
 
 void kissat_report_dimacs (kissat * solver) {
   size_t imported = SIZE_STACK (solver->import);
+  //Need to subtract one because the first variable on the import stack is a dummy.
+  //such that stack index 1 correspond to variable 1
   if (imported) imported--;
+  if (GET_OPTION(mallob_sweeping) && solver->inconsistent) {
+    kissat_custom_message (solver, 1, "SWEEPER will not report dimacs because UNSAT");
+    return;
+  }
   unsigned num_units = gather_units(solver, false);
   bool do_report = solver->begin_report (solver->report_preprocess_state, imported, BINIRR_CLAUSES + num_units);
   if (!do_report) return;
+  kissat_custom_message (solver, 1, "SWEEPER reports final formula via kissat_report_dimacs");
   assert (solver->watching);
   if (solver->watching) {
     for (all_literals (ilit))

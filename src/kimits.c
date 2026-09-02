@@ -166,6 +166,8 @@ void kissat_reduce_delay (kissat *solver, delay *delay) {
 }
 
 void kissat_bump_delay (kissat *solver, delay *delay) {
+  if (GET_OPTION (neverdelay))
+    return;
   delay->current += delay->current < UINT_MAX;
   VERY_VERBOSE_IF_NOT_BUMPREASONS (
       solver, "%s delay interval increased to %u",
