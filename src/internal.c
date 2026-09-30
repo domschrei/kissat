@@ -66,6 +66,10 @@ kissat *kissat_init (void) {
   solver->produce_clause_state = 0;
   solver->produce_clause = 0;
   solver->num_conflicts_at_last_import = 0;
+  
+  //Model Reconstruction 
+  solver->reconstruction_export_state = 0;
+  solver->reconstruction_export_callback = 0;
 
   //Shared Sweeping  -------------------------------------------------------
   solver->shweep_end_iteration_signal = false;
@@ -567,8 +571,10 @@ void kissat_import_model (kissat * solver, const int *literals, int size) {
     if (!import->imported) continue;
     if (import->eliminated) continue;
     const unsigned ilit = import->lit;
+    const unsigned not_ilit = NOT(ilit);
     const value value = elit < 0 ? -1 : 1;
     solver->values[ilit] = value;
+    solver->values[not_ilit] = -value;
   }
 }
 
@@ -653,6 +659,13 @@ void kissat_set_preprocessing_report_callback (kissat * solver, void *state,
   solver->begin_report = begin_report;
   solver->report_preprocessed_lit = report_lit;
 }
+
+
+void kissat_set_reconstructionexport_callback(kissat *solver, void *KissatState, void (*export_reconstruction_callback) (void *KissatState)) {
+  solver->reconstruction_export_state = KissatState;
+  solver->reconstruction_export_callback = export_reconstruction_callback;
+}
+
 
 struct kissat_statistics kissat_get_statistics (kissat * solver) 
 {
