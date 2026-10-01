@@ -2023,7 +2023,7 @@ int shweep_get_max_steal_amount(kissat *solver) {
   int last_estimate = sweeper->max_work_after_steal;
   int max_work_left = MIN(last_estimate, range_estimate);
   int half = max_work_left/2;
-  assert( (half>=0 && half<=solver->vars) || kissat_custom_assert_message (solver, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
+  assert( (half>=0 && half<=(int)solver->vars) || kissat_custom_assert_message (solver, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
   return half;
 }
 
@@ -2107,7 +2107,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   if (solver->shweep_search_work_callback) {
     solver->shweep_search_work_callback(solver->shweep_mallob_SweepJobState, &sweeper->work, &stolen_amount, sweeper->localId);
   }
-  assert((stolen_amount>=0 && stolen_amount <= 2*VARS) || kissat_custom_assert_message (solver, "ERROR: stolen amount %i is negative or too big \n", stolen_amount));
+  assert((stolen_amount>=0 && stolen_amount <= (int)(2*VARS)) || kissat_custom_assert_message (solver, "ERROR: stolen amount %i is negative or too big \n", stolen_amount));
   if (stolen_amount>0) {
     kissat_custom_message (solver, V3_VVERB_SWEEP, "stole %i", stolen_amount);
   }
