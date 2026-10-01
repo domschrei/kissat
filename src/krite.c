@@ -1,11 +1,12 @@
 #include "krite.h"
+#include "error.h"
 #include "inline.h"
 #include "internal.h"
+#include "print.h"
+#include "require.h"
+#include "resize.h"
 #include "statistics.h"
 #include "watch.h"
-#include "error.h"
-#include "require.h"
-#include "print.h"
 
 #include <inttypes.h>
 #include <string.h>
@@ -129,53 +130,4 @@ void kissat_report_dimacs (kissat * solver) {
 }
 
 
-#define EXPORT_STACK(S, BYTES_EXPORTED) \
-  (*(BYTES_EXPORTED) = (size_t) ((char *) END_STACK (S) - (char *) BEGIN_STACK (S)), \
-   (const void *) BEGIN_STACK (S))
-
-#define IMPORT_STACK(S, DATA, BYTES) \
-  do { \
-    const size_t BYTES_TO_IMPORT = (BYTES); \
-    const size_t STACKELEMENTS = BYTES_TO_IMPORT / sizeof *BEGIN_STACK (S); \
-    assert (STACKELEMENTS * sizeof *BEGIN_STACK (S) == BYTES_TO_IMPORT); \
-    CLEAR_STACK (S); \
-    while (CAPACITY_STACK (S) < STACKELEMENTS) \
-      ENLARGE_STACK (S); \
-    if (BYTES_TO_IMPORT) \
-      memcpy (BEGIN_STACK (S), (DATA), BYTES_TO_IMPORT); \
-    (S).end = (S).begin + STACKELEMENTS; \
-  } while (0)
-
-const void *kissat_export_array (kissat *solver, const char *name, size_t *bytes_exported) {
-  if (!strcmp (name, "extend")) 
-    return EXPORT_STACK (solver->extend, bytes_exported);
-  if (!strcmp (name, "import"))  
-    return EXPORT_STACK (solver->import, bytes_exported);
-  if (!strcmp (name, "values")) {
-    *bytes_exported = LITS;   
-    return solver->values;
-  }
-  kissat_custom_message (solver, 0, "[ERROR] Array '%s' not known for export. Maybe it is a typo or the name is not implemented in kissat yet?", name);
-  *bytes_exported = 0;
-  return 0;
-}
-
-void kissat_import_array (kissat *solver, const char *name, const void *data, size_t bytes) {
-  if (!strcmp (name, "extend")) {
-    IMPORT_STACK (solver->extend, data, bytes);
-    return;
-  }
-  if (!strcmp (name, "import")) {
-    IMPORT_STACK (solver->import, data, bytes);
-    return;
-  }
-  if (!strcmp (name, "values")) {
-    memcpy(solver->values, data, bytes);
-    size_t imported_literals = bytes;
-    size_t imported_vars = imported_literals / 2;
-    solver->vars = imported_vars;
-    return;
-  }
-  kissat_custom_message (solver, 0, "[ERROR] Array '%s' not known for import. Maybe it is a typo or the name is not implemented in kissat yet?", name);
-}
 

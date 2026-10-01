@@ -21,6 +21,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void kissat_reset_last_learned (kissat *solver) {
   for (really_all_last_learned (p))
@@ -561,6 +562,7 @@ void kissat_set_terminate (kissat *solver, void *state,
 }
 
 void kissat_import_model (kissat * solver, const int *literals, int size) {
+  kissat_custom_message (solver, 0, "Kissat import model %zu ints", size);
   kissat_require_initialized (solver);
   for (int i = 0; i < size; i++) {
     int elit = literals[i];
@@ -576,6 +578,7 @@ void kissat_import_model (kissat * solver, const int *literals, int size) {
     solver->values[ilit] = value;
     solver->values[not_ilit] = -value;
   }
+  kissat_custom_message (solver, 0, "Kissat imported model");
 }
 
 int kissat_value (kissat *solver, int elit) {
@@ -602,6 +605,67 @@ int kissat_value (kissat *solver, int elit) {
   if (elit < 0)
     tmp = -tmp;
   return tmp < 0 ? -elit : elit;
+}
+
+
+#define EXPORT_STACK(S, BYTES_EXPORTED) \
+  (*(BYTES_EXPORTED) = (size_t) ((char *) END_STACK (S) - (char *) BEGIN_STACK (S)), \
+   (const void *) BEGIN_STACK (S))
+
+#define IMPORT_STACK(S, DATA, BYTES) \
+  do { \
+    const size_t BYTES_TO_IMPORT = (BYTES); \
+    const size_t STACKELEMENTS = BYTES_TO_IMPORT / sizeof *BEGIN_STACK (S); \
+    assert (STACKELEMENTS * sizeof *BEGIN_STACK (S) == BYTES_TO_IMPORT); \
+    CLEAR_STACK (S); \
+    while (CAPACITY_STACK (S) < STACKELEMENTS) \
+      ENLARGE_STACK (S); \
+    if (BYTES_TO_IMPORT) \
+      memcpy (BEGIN_STACK (S), (DATA), BYTES_TO_IMPORT); \
+    (S).end = (S).begin + STACKELEMENTS; \
+  } while (0)
+
+const void *kissat_export_array (kissat *solver, const char *name, size_t *bytes_exported) {
+  if (!strcmp (name, "extend")) 
+    return EXPORT_STACK (solver->extend, bytes_exported);
+  if (!strcmp (name, "import"))  
+    return EXPORT_STACK (solver->import, bytes_exported);
+  if (!strcmp (name, "eliminated"))  
+    return EXPORT_STACK (solver->eliminated, bytes_exported);
+  if (!strcmp (name, "values")) {
+    *bytes_exported = LITS;   
+    return solver->values;
+  }
+  kissat_custom_message (solver, 0, "[ERROR] Array '%s' not known for export. Maybe it is a typo or the name is not implemented in kissat yet?", name);
+  *bytes_exported = 0;
+  return 0;
+}
+
+void kissat_import_array (kissat *solver, const char *name, const void *data, size_t bytes) {
+  if (!strcmp (name, "extend")) {
+    IMPORT_STACK (solver->extend, data, bytes);
+    kissat_custom_message (solver, 0, "Kissat imported array '%s' %zu bytes", name, bytes);
+    return;
+  }
+  if (!strcmp (name, "import")) {
+    IMPORT_STACK (solver->import, data, bytes);
+    kissat_custom_message (solver, 0, "Kissat imported array '%s' %zu bytes", name, bytes);
+    return;
+  }
+  if (!strcmp (name, "eliminated")) {
+    IMPORT_STACK (solver->eliminated, data, bytes);
+    kissat_custom_message (solver, 0, "Kissat imported array '%s' %zu bytes", name, bytes);
+    return;
+  }
+  if (!strcmp (name, "values")) {
+    size_t imported_vars = bytes / 2; //two literal char values (-1,0,+1) per variable
+    assert(imported_vars * 2 == bytes);
+    kissat_enlarge_variables (solver, (unsigned) imported_vars);
+    memcpy(solver->values, data, bytes);
+    kissat_custom_message (solver, 0, "Kissat imported array '%s' %zu bytes, %zu vars", name, bytes, imported_vars);
+    return;
+  }
+  kissat_custom_message (solver, 0, "[ERROR] Array '%s' not known for import. Maybe it is a typo or the name is not implemented in kissat yet?", name);
 }
 
 void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void* state, int size, int glue)) 
