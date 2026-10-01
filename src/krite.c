@@ -129,5 +129,3 @@ void kissat_report_dimacs (kissat * solver) {
   assert(now_num_units == num_units);
 }
 
-
-

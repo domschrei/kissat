@@ -1936,8 +1936,7 @@ void shweep_import_SweepJob_units(sweeper *sweeper) {
       kissat_custom_message (solver, V4_UVERB_SWEEP, "import:  i(%u) <- e[%i] skipped - is already locally eliminated ",ilit,elit);
       continue;
     }
-    // kissat_custom_message (solver, V4_UVERB_SWEEP, "import:  i(%u) <- e[%i]",ilit,elit);
-    kissat_custom_message (solver, V4_UVERB_SWEEP, "import: e{%i}",elit);
+    kissat_custom_message (solver, V4_UVERB_SWEEP, "import:  i(%u) <- e[%i]",ilit,elit);
     shweep_import_single_unit (sweeper, ilit);
 
     if (solver->inconsistent) {

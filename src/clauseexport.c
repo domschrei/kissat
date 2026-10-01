@@ -38,10 +38,8 @@ void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
     eother = tmp;
   }
   assert(abs(elit)<abs(eother) || kissat_custom_assert_message (solver, "ERROR in Sweep Export: Invariant abs(elit)<abs(eother) violated. %i , %i\n",abs(elit),abs(eother)));
-  // kissat_custom_message (solver, 4, "Equivalence %i %i", lit, other);
 
-  kissat_custom_message (solver, 4, "export-equivalence: i(%i,%i) -> e{%i,%i}",lit,other,elit,eother);
-  // kissat_custom_message (solver, 4, "export-equivalence: e{%i,%i}", elit,eother);
+  // kissat_custom_message (solver, 1, "export: i(%i,%i) -> e{%i,%i}",lit,other,elit,eother);
   solver->shweep_export_eq_buffer[0] = elit;
   solver->shweep_export_eq_buffer[1] = eother;
   solver->shweep_export_eq_callback (solver->shweep_mallob_KissatState);
@@ -55,6 +53,5 @@ void shweep_export_unit(kissat *solver, unsigned lit) {
   }
   int elit = kissat_export_literal (solver, lit);
   // kissat_custom_message (solver, 1, "export: i(%i) -> e{%i}",lit,elit);
-  kissat_custom_message (solver, 4, "export-unit: e{%i}",elit);
   solver->shweep_export_unit_callback (solver->shweep_mallob_KissatState, elit);
 }
