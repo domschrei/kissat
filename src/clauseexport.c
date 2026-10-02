@@ -28,14 +28,20 @@ void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
   }
   //Dont have any variable deletion/addition/renaming in shweep,
   //so we can directly work with internal literals, no need to convert to external representation
-  //  Update: Now switche to externalizing literals because we need this generality for Cross-Job-Communication
+  //  Update: Now switch to externalizing literals because we need this generality for Cross-Job-Communication
   int elit = kissat_export_literal (solver, lit);
   int eother = kissat_export_literal (solver, other);
-  //bring all equivalences in a normal form (smaller index first), to allow stricter assertions and easier duplicate detection
+  //bring all equivalences in a normal, to filter out duplicates during aggregation 
+  //sort by variable index
   if (abs(elit) > abs(eother)) {
     int tmp = elit;
     elit = eother;
     eother = tmp;
+  }
+  //normalize the phases such that first in pair is positive
+  if (elit < 0 ) {
+    elit = -elit;
+    eother = -eother;
   }
   assert(abs(elit)<abs(eother) || kissat_custom_assert_message (solver, "ERROR in Sweep Export: Invariant abs(elit)<abs(eother) violated. %i , %i\n",abs(elit),abs(eother)));
 
