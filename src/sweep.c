@@ -2659,8 +2659,10 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
       }
     }
     representative_report_finished_iteration (solver);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "finished CCC");
+  } else {
+    kissat_custom_message (solver, V1_INFO_SWEEP, "skipped CCC (mallob_initial_congruence = 0)");
   }
-  kissat_custom_message (solver, V1_INFO_SWEEP, "finished CCC");
   //Sweeping
   while (!solver->shweep_end_job_signal && !solver->inconsistent) {
     solver->shweep_local_iteration++;
