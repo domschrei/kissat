@@ -255,6 +255,22 @@ static void remove_representative_equivalences (kissat *solver,
       REMOVE_CHECKER_BINARY (lit, not_other);
       DELETE_BINARY_FROM_PROOF (lit, not_other);
 
+      //detailed debug logging when in MallobSweep
+      if (GET_OPTION(mallob_custom_sweep_verbosity)>=3) {
+        int elit = kissat_export_literal (solver, lit);
+        int eother = kissat_export_literal (solver, other);
+        if (abs(elit)>abs(eother)) {
+          int tmp = elit;
+          elit = eother;
+          eother = tmp;
+        }
+        if (elit<0) {
+          elit = -elit;
+          eother = -eother;
+        }
+        kissat_custom_message (solver, 3, "substituted %i %i" , elit, eother);
+      }
+
       INC (substituted);
       kissat_mark_eliminated_variable (solver, idx);
       const value other_value = values[other];

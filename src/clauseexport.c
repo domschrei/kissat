@@ -45,7 +45,8 @@ void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
   }
   assert(abs(elit)<abs(eother) || kissat_custom_assert_message (solver, "ERROR in Sweep Export: Invariant abs(elit)<abs(eother) violated. %i , %i\n",abs(elit),abs(eother)));
 
-  // kissat_custom_message (solver, 1, "export: i(%i,%i) -> e{%i,%i}",lit,other,elit,eother);
+  // kissat_custom_message (solver, 3, "export: i(%i,%i) -> e{%i %i}",lit,other,elit,eother);
+  kissat_custom_message (solver, 3, "export e{%i %i}",elit,eother);
   solver->shweep_export_eq_buffer[0] = elit;
   solver->shweep_export_eq_buffer[1] = eother;
   solver->shweep_export_eq_callback (solver->shweep_mallob_KissatState);
