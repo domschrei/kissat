@@ -2470,13 +2470,13 @@ void shweep_stop_iteration(kissat *solver) {
   //Do the same for kitten
   if (solver->sweeper) {
     solver->sweeper->limit.ticks = 0;
+    if (solver->kitten) {
+      set_kitten_ticks_limit (solver->sweeper);
+    } else {
+      kissat_custom_message (solver, V1_INFO_SWEEP, "no kitten object");
+    }
   } else {
     kissat_custom_message (solver, V1_INFO_SWEEP, "no sweeper object");
-  }
-  if (solver->kitten) {
-    set_kitten_ticks_limit (solver->sweeper);
-  } else {
-    kissat_custom_message (solver, V1_INFO_SWEEP, "no kitten object");
   }
 }
 
