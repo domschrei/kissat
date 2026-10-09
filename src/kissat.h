@@ -2,6 +2,7 @@
 #define _kissat_h_INCLUDED
 
 #include <stdbool.h>
+#include <stddef.h>
 
 typedef struct kissat kissat;
 
@@ -120,6 +121,12 @@ struct shweep_statistics {
 };
 struct shweep_statistics shweep_get_statistics(kissat *solver);
 //--------------------------------------------------------------------------
+
+
+//Import and export named arrays and stacks
+const void *kissat_export_array (kissat *solver, const char *name, size_t *bytes_exported);
+void kissat_import_array (kissat *solver, const char *name, const void *data, size_t bytes);
+void kissat_set_reconstructionexport_callback(kissat *solver, void *KissatState, void (*export_callback) (void *KissatState));
 
 
 // Basic "external" statistics struct with some interesting properties of kissat's search.

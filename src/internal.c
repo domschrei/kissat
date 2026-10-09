@@ -21,6 +21,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 void kissat_reset_last_learned (kissat *solver) {
   for (really_all_last_learned (p))
@@ -66,6 +67,10 @@ kissat *kissat_init (void) {
   solver->produce_clause_state = 0;
   solver->produce_clause = 0;
   solver->num_conflicts_at_last_import = 0;
+  
+  //Model Reconstruction 
+  solver->reconstruction_export_state = 0;
+  solver->reconstruction_export_callback = 0;
 
   //Shared Sweeping  -------------------------------------------------------
   solver->shweep_end_iteration_signal = false;
@@ -567,8 +572,10 @@ void kissat_import_model (kissat * solver, const int *literals, int size) {
     if (!import->imported) continue;
     if (import->eliminated) continue;
     const unsigned ilit = import->lit;
+    const unsigned not_ilit = NOT(ilit);
     const value value = elit < 0 ? -1 : 1;
     solver->values[ilit] = value;
+    solver->values[not_ilit] = -value;
   }
 }
 
@@ -596,6 +603,59 @@ int kissat_value (kissat *solver, int elit) {
   if (elit < 0)
     tmp = -tmp;
   return tmp < 0 ? -elit : elit;
+}
+
+
+#define EXPORT_STACK(S, BYTES_EXPORTED) \
+  (*(BYTES_EXPORTED) = (size_t) ((char *) END_STACK (S) - (char *) BEGIN_STACK (S)), \
+   (const void *) BEGIN_STACK (S))
+
+#define IMPORT_STACK(S, DATA, BYTES) \
+  do { \
+    const size_t BYTES_TO_IMPORT = (BYTES); \
+    const size_t STACKELEMENTS = BYTES_TO_IMPORT / sizeof *BEGIN_STACK (S); \
+    assert (STACKELEMENTS * sizeof *BEGIN_STACK (S) == BYTES_TO_IMPORT); \
+    CLEAR_STACK (S); \
+    while (CAPACITY_STACK (S) < STACKELEMENTS) \
+      ENLARGE_STACK (S); \
+    if (BYTES_TO_IMPORT) \
+      memcpy (BEGIN_STACK (S), (DATA), BYTES_TO_IMPORT); \
+    (S).end = (S).begin + STACKELEMENTS; \
+  } while (0)
+
+const void *kissat_export_array (kissat *solver, const char *name, size_t *bytes_exported) {
+  if (!strcmp (name, "extend")) 
+    return EXPORT_STACK (solver->extend, bytes_exported);
+  if (!strcmp (name, "import"))  
+    return EXPORT_STACK (solver->import, bytes_exported);
+  if (!strcmp (name, "eliminated"))  
+    return EXPORT_STACK (solver->eliminated, bytes_exported);
+  if (!strcmp (name, "values")) {
+    *bytes_exported = LITS;   
+    return solver->values;
+  }
+  kissat_custom_message (solver, 0, "[ERROR] Array '%s' not known for export. Maybe it is a typo or the name is not implemented in kissat yet?", name);
+  *bytes_exported = 0;
+  return 0;
+}
+
+void kissat_import_array (kissat *solver, const char *name, const void *data, size_t bytes) {
+  if (!strcmp (name, "extend"))
+    IMPORT_STACK (solver->extend, data, bytes);
+  else if (!strcmp (name, "import"))
+    IMPORT_STACK (solver->import, data, bytes);
+  else if (!strcmp (name, "eliminated"))
+    IMPORT_STACK (solver->eliminated, data, bytes);
+  else if (!strcmp (name, "values")) {
+    size_t imported_vars = bytes / 2; //two literal char values (-1,0,+1) per variable
+    assert (imported_vars * 2 == bytes);
+    kissat_enlarge_variables (solver, (unsigned) imported_vars);
+    memcpy (solver->values, data, bytes);
+  } else {
+    kissat_custom_message (solver, 0, "[ERROR] Array '%s' not known for import. Maybe it is a typo or the name is not implemented in kissat yet?", name);
+    return;
+  }
+  kissat_custom_message (solver, 1, "Kissat imported array '%s' %zu bytes", name, bytes);
 }
 
 void kissat_set_clause_export_callback (kissat * solver, void *state, int *buffer, unsigned max_size, void (*consume) (void* state, int size, int glue)) 
@@ -653,6 +713,13 @@ void kissat_set_preprocessing_report_callback (kissat * solver, void *state,
   solver->begin_report = begin_report;
   solver->report_preprocessed_lit = report_lit;
 }
+
+
+void kissat_set_reconstructionexport_callback(kissat *solver, void *KissatState, void (*export_reconstruction_callback) (void *KissatState)) {
+  solver->reconstruction_export_state = KissatState;
+  solver->reconstruction_export_callback = export_reconstruction_callback;
+}
+
 
 struct kissat_statistics kissat_get_statistics (kissat * solver) 
 {

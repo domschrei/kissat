@@ -236,6 +236,9 @@ int kissat_search (kissat *solver) {
     stop_search (solver);
   }
   report_search_result (solver, res);
+  if (solver->reconstruction_export_callback) {
+    solver->reconstruction_export_callback (solver->reconstruction_export_state);
+  }
   kissat_custom_message (solver, 1, "kissat exit");
   return res;
 }

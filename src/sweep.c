@@ -1778,6 +1778,8 @@ bool shweep_var_still_open(sweeper *sweeper, unsigned idx) {
   if (sweep_repr (sweeper, lit) != lit) {
     return false;
   }
+  if (VALUE(LIT(idx)) || VALUE(NOT(LIT(idx))))
+    return false;
   size_t occ;
   if (!scheduable_variable (sweeper, idx, &occ)) {
     FLAGS (idx)->sweep = false;
@@ -1795,17 +1797,18 @@ void shweep_import_single_unit(sweeper *sweeper, unsigned ilit) {
   solver->shweep.units_seen++;
   assert(VALID_INTERNAL_LITERAL (repr_ilit) || kissat_custom_assert_message (
     solver, "SWEEP ERROR: got invalid repr_unit ilit %u from imported ilit %u", repr_ilit, ilit));
-  const unsigned repr_idx = IDX (repr_ilit);
-  flags *flags = FLAGS (repr_idx);
-  if (!flags->active) {
-    if (solver->values[repr_ilit] != 1) {
-      kissat_custom_message (solver, 1, "Sweeper detected an inconsistent Unit-import, expect official un-sat result soon.");
+  if (VALUE(repr_ilit)) {
+    if (VALUE(repr_ilit) != 1) {
+      kissat_custom_message (solver, 1, "Sweeper detected an inconsistent Unit-import -> UNSAT ");
+      solver->inconsistent = true;
+      CHECK_AND_ADD_EMPTY ();
+      ADD_EMPTY_TO_PROOF ();
       solver->shweep.detected_early_unsat++;
     }
     solver->shweep.units_skipped_fixed++;
     return;
   }
-  assert(!flags->eliminated || kissat_custom_assert_message (
+  assert(!FLAGS(IDX(repr_ilit))->eliminated || kissat_custom_assert_message (
     solver, "SWEEP ERROR/Error: imported eliminated unit %u", ilit));
   if (ilit != repr_ilit) {
     solver->shweep.units_transitive++;
@@ -1836,21 +1839,25 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
       solver, "SWEEP ERROR/Error: repr_ilit %u not valid internal literal", repr_ilit));
     if (ilit != repr_ilit)
       is_transitive = true;
-    const unsigned repr_idx = IDX (repr_ilit);
-    flags *flags = FLAGS (repr_idx);
-    if (!flags->active) {
+    if (VALUE(repr_ilit)) {
       already_fixed++;
-      assert(solver->values[repr_ilit]!=0 || kissat_custom_assert_message(
-        solver,  "SWEEP ERROR/Error: eq-imported lit not active , but also no value set. ilit/repr_ilit %i/%i  val %i", ilit, repr_ilit, solver->values[repr_ilit]));
     }
-    assert(!flags->eliminated || kissat_custom_assert_message(
+    assert(!FLAGS(IDX(repr_ilit))->eliminated || kissat_custom_assert_message(
       solver,  "SWEEP ERROR/Error: imported an eq-literal ilit(%u) that is locally eliminated", ilit));
     repr_ilits[i]=repr_ilit;
   }
   unsigned lit    = repr_ilits[0];
   unsigned other  = repr_ilits[1];
   if (IDX(lit) == IDX(other)) {
-    solver->shweep.eqs_skipped_known++;
+    if (lit==other) {
+      solver->shweep.eqs_skipped_known++;
+    } else {
+      kissat_custom_message (solver, 1, "Sweeper detected an inconsistent Equality-import -> UNSAT");
+      solver->inconsistent = true;
+      CHECK_AND_ADD_EMPTY ();
+      ADD_EMPTY_TO_PROOF ();
+      solver->shweep.detected_early_unsat++;
+    }
     return;
   }
   if (already_fixed==2) {
@@ -1859,11 +1866,10 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
     //If not, we just detected UNSAT.
     if (solver->values[lit] != solver->values[other]) {
       //Found UNSAT! The imported equivalence is inconsistent with the local clause database.
-      //We could officially claim UNSAT (to Mallob) at this point.
-      //It feels however a bit shaky to do this here via our custom import function.
-      //We rather wait until the solver finds UNSAT through normal sweeping,
-      //which anyways happens almost immediately after such an import, to our experience
-      kissat_custom_message (solver, 1, "Sweeper detected an inconsistent Equality-import, expect official un-sat result soon.");
+      kissat_custom_message (solver, 1, "Sweeper detected an inconsistent Equality-import -> UNSAT");
+      solver->inconsistent = true;
+      CHECK_AND_ADD_EMPTY ();
+      ADD_EMPTY_TO_PROOF ();
       solver->shweep.detected_early_unsat++;
     }
     solver->shweep.eqs_skipped_doublefixed++;
@@ -1871,10 +1877,25 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   }
   if (is_transitive)
     solver->shweep.eqs_transitive++;
-  //Interesting edge case: One of the two eq variables is already fixed
-  //but the other is not, so we just got a propagating unit clause
-  if (already_fixed==1)
+
+  //edge case: One of the two eq variables is already fixed but the other is still open,
+  //so we learn that the open one must have the value of the fixed one
+  //we can assign that unit directly
+  if (already_fixed==1) {
+    const unsigned fixed_ilit = solver->values[repr_ilits[0]]!=0 ? repr_ilits[0] : repr_ilits[1];
+    const unsigned open_ilit  = solver->values[repr_ilits[0]]==0 ? repr_ilits[0] : repr_ilits[1];
+    assert (solver->values[fixed_ilit] && !solver->values[open_ilit]);
+    const unsigned found_unit = solver->values[fixed_ilit] > 0 ? open_ilit : NOT(open_ilit);
+    kissat_assign_unit (solver, found_unit, "deduced unit at eq import");
+    //Catch for sharing in MallobSweep
+    if (GET_OPTION (mallob_sweeping)) {
+      shweep_export_unit(solver, found_unit);
+    }
+    INC (sweep_units);
     solver->shweep.eqs_unitprop++;
+    solver->shweep.eqs_useful++;
+    return;
+  }
   if (other < lit) {
     unsigned tmp = lit;
     lit = other;
@@ -2023,7 +2044,7 @@ int shweep_get_max_steal_amount(kissat *solver) {
   int last_estimate = sweeper->max_work_after_steal;
   int max_work_left = MIN(last_estimate, range_estimate);
   int half = max_work_left/2;
-  assert( (half>=0 && half<=solver->vars) || kissat_custom_assert_message (solver, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
+  assert( (half>=0 && half<=(int)solver->vars) || kissat_custom_assert_message (solver, "SWEEPER ERROR: unexpected amount half=%i work\n", half));
   return half;
 }
 
@@ -2107,7 +2128,7 @@ unsigned shweep_search_work_from_others(sweeper *sweeper) {
   if (solver->shweep_search_work_callback) {
     solver->shweep_search_work_callback(solver->shweep_mallob_SweepJobState, &sweeper->work, &stolen_amount, sweeper->localId);
   }
-  assert((stolen_amount>=0 && stolen_amount <= 2*VARS) || kissat_custom_assert_message (solver, "ERROR: stolen amount %i is negative or too big \n", stolen_amount));
+  assert((stolen_amount>=0 && stolen_amount <= (int)(2*VARS)) || kissat_custom_assert_message (solver, "ERROR: stolen amount %i is negative or too big \n", stolen_amount));
   if (stolen_amount>0) {
     kissat_custom_message (solver, V3_VVERB_SWEEP, "stole %i", stolen_amount);
   }
@@ -2133,6 +2154,8 @@ bool shweep_sweepable_variable(sweeper *sweeper, unsigned idx) {
     return false;
   const unsigned lit = LIT (idx);
   if (sweeper->reprs[lit] != lit)
+    return false;
+  if (VALUE(LIT(idx)) || VALUE(NOT(LIT(idx))))
     return false;
   size_t occ;
   if (!scheduable_variable (sweeper, idx, &occ)) {
@@ -2161,10 +2184,8 @@ void shweep_sweep_variable_with_prop(sweeper *sweeper, unsigned idx, bool isWork
     }
     if (solver->termination.flagged) break;
     if (solver->inconsistent)        break;
-    shweep_do_EU_imports (solver);
     if (shweep_sweepable_variable(sweeper, idx)) {
-      shweep_do_EU_imports (solver);
-      kissat_custom_message(solver, V3_VVERB_SWEEP,
+      kissat_custom_message(solver, V4_UVERB_SWEEP,
                             "sweeping idx %u [%i=head, %i max left]",
                             idx, sweeper->work_head, sweeper->max_work_after_steal);
       //Variables can be swept either because it is their turn in the work schedule (worksweep)
@@ -2440,6 +2461,8 @@ void shweep_do_EU_imports(kissat *solver) {
   }
   shweep_import_SweepJob_units (solver->sweeper);
   shweep_import_SweepJob_equivalences (solver->sweeper);
+  if (!solver->inconsistent && !kissat_propagated (solver))
+    (void) kissat_dense_propagate (solver);
 }
 
 void shweep_stop_iteration(kissat *solver) {
@@ -2447,13 +2470,13 @@ void shweep_stop_iteration(kissat *solver) {
   //Do the same for kitten
   if (solver->sweeper) {
     solver->sweeper->limit.ticks = 0;
+    if (solver->kitten) {
+      set_kitten_ticks_limit (solver->sweeper);
+    } else {
+      kissat_custom_message (solver, V1_INFO_SWEEP, "no kitten object");
+    }
   } else {
     kissat_custom_message (solver, V1_INFO_SWEEP, "no sweeper object");
-  }
-  if (solver->kitten) {
-    set_kitten_ticks_limit (solver->sweeper);
-  } else {
-    kissat_custom_message (solver, V1_INFO_SWEEP, "no kitten object");
   }
 }
 
@@ -2537,7 +2560,6 @@ int mallob_shweep_single_iteration(kissat *solver) {
     if (solver->shweep_end_job_signal) {
       kissat_custom_message(solver,V1_INFO_SWEEP, "Sweeper : got next scheduled (while endjob) @ %.3f",shweep_wallclock (solver));
     }
-    shweep_do_EU_imports (solver);
     if (idx == INVALID_IDX) {
       //we have no more work, try to steal from somebody else
       shweep_search_work_from_others (&sweeper);
@@ -2548,6 +2570,8 @@ int mallob_shweep_single_iteration(kissat *solver) {
     else {
       shweep_sweep_variable_with_prop (&sweeper, idx, true);
     }
+    //Try imports after every sweeping
+    shweep_do_EU_imports (solver);
   }
 
   //immediately reset these, to prevent that they linger for the next sharing round
@@ -2659,18 +2683,20 @@ int kissat_mallob_distributed_sweep_multiple_iterations(kissat *solver) {
       }
     }
     representative_report_finished_iteration (solver);
+    kissat_custom_message (solver, V1_INFO_SWEEP, "finished CCC");
+  } else {
+    kissat_custom_message (solver, V1_INFO_SWEEP, "skipped CCC (mallob_initial_congruence = 0)");
   }
-  kissat_custom_message (solver, V1_INFO_SWEEP, "finished CCC");
   //Sweeping
   while (!solver->shweep_end_job_signal && !solver->inconsistent) {
     solver->shweep_local_iteration++;
-    //One sweep iteration
-    //Track that now we no longer do internal work, but communicate with others
-    unsigned active_before = solver->active;
+    const unsigned active_before = solver->active;
+    const uint64_t eqs_before =  solver->statistics.sweep_equivalences;
+    //Do one sweep iteration (one specific max. environment size)
     mallob_shweep_single_iteration (solver);
     //Burn the new equivalences into the local clause database
     //Track that Substitute is again internal work, independent of others
-    if (solver->active != active_before) {
+    if (solver->active != active_before || eqs_before != solver->statistics.sweep_equivalences) {
       if (!solver->shweep_end_job_signal || shweep_is_representative (solver)) {
         const double t = shweep_wallclock (solver);
         kissat_custom_message (solver, V2_VERB_SWEEP, "substituting");

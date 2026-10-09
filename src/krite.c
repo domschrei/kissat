@@ -1,11 +1,12 @@
 #include "krite.h"
+#include "error.h"
 #include "inline.h"
 #include "internal.h"
+#include "print.h"
+#include "require.h"
+#include "resize.h"
 #include "statistics.h"
 #include "watch.h"
-#include "error.h"
-#include "require.h"
-#include "print.h"
 
 #include <inttypes.h>
 #include <string.h>
@@ -53,7 +54,7 @@ unsigned gather_units (kissat * solver, bool report) {
   size_t imported = SIZE_STACK (solver->import);
   if (imported) imported--;
   unsigned num_units = 0;
-  for (int elit = 1; elit <= imported; elit++) {
+  for (int elit = 1; elit <= (int)imported; elit++) {
     kissat_require_valid_external_internal (elit);
     const unsigned eidx = ABS (elit);
     if (eidx >= SIZE_STACK (solver->import)) continue;
