@@ -1877,7 +1877,7 @@ void shweep_import_single_equivalence(sweeper *sweeper, unsigned ilit1, unsigned
   }
   if (is_transitive)
     solver->shweep.eqs_transitive++;
-  
+
   //edge case: One of the two eq variables is already fixed but the other is still open,
   //so we learn that the open one must have the value of the fixed one
   //we can assign that unit directly
@@ -2461,7 +2461,7 @@ void shweep_do_EU_imports(kissat *solver) {
   }
   shweep_import_SweepJob_units (solver->sweeper);
   shweep_import_SweepJob_equivalences (solver->sweeper);
-  if (!solver->inconsistent && !kissat_propagated (solver)) 
+  if (!solver->inconsistent && !kissat_propagated (solver))
     (void) kissat_dense_propagate (solver);
 }
 

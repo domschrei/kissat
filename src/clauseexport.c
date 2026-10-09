@@ -1,3 +1,4 @@
+
 #include "internal.h"
 #include "inline.h"
 #include "utilities.h"
@@ -31,7 +32,7 @@ void shweep_export_equivalence(kissat *solver, unsigned lit, unsigned other) {
   //  Update: Now switch to externalizing literals because we need this generality for Cross-Job-Communication
   int elit = kissat_export_literal (solver, lit);
   int eother = kissat_export_literal (solver, other);
-  //bring all equivalences in a normal, to filter out duplicates during aggregation 
+  //bring all equivalences in a normal, to filter out duplicates during aggregation
   //sort by variable index
   if (abs(elit) > abs(eother)) {
     int tmp = elit;

@@ -266,7 +266,7 @@ struct kissat {
   //Reconstruction
   void *reconstruction_export_state;
   void (*reconstruction_export_callback) (void *KissatState);
-  
+
   //--------------------------------------------------------------------------------
   // For MallobSweep
   sweeper *sweeper;
@@ -299,7 +299,7 @@ struct kissat {
 
   void (*shweep_report_finished_iteration_callback) (void *SweepJobState, int localId);
 
-  struct shweep_statistics shweep;     
+  struct shweep_statistics shweep;
 
   //--------------------------------------------------------------------------------
 
